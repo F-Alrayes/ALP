@@ -33,7 +33,7 @@ class LibraryScreen extends StatelessWidget {
                         Opacity(opacity: 0.35, child: AppLogo(size: 96)),
                         SizedBox(height: 12),
                         Text(
-                          'وثائق أسرة آل ريس',
+                          'وثائق أسرة آل ناصر',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w800,

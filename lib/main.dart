@@ -7,14 +7,14 @@ void main() {
   runApp(const AlRayesApp());
 }
 
-/// Root widget for the آل ريس (Al Rayes bin Dar') family app.
+/// Root widget for the آل ناصر (Al Nasser) family app.
 class AlRayesApp extends StatelessWidget {
   const AlRayesApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'آل ريس',
+      title: 'آل ناصر',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       // The app is Arabic-first and laid out right-to-left.

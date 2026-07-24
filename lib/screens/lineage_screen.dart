@@ -43,17 +43,19 @@ class LineageScreen extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      SampleData.lineageQuote,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        height: 2.0,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
+                    if (SampleData.lineageQuote.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        SampleData.lineageQuote,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          height: 2.0,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 36),
                     Text(
                       SampleData.lineageReferenceTitle,

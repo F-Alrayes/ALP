@@ -87,7 +87,7 @@ class HomeScreen extends StatelessWidget {
                         icon: Icons.groups_rounded,
                         onTap: () => _open(context, const LineageScreen()),
                         child: const Text(
-                          'هنا يمكننا ان نتعرف اكثر على عائلة آل ريس وجذورها.',
+                          'هنا يمكننا ان نتعرف اكثر على عائلة آل ناصر وجذورها.',
                           textAlign: TextAlign.right,
                           style: TextStyle(color: AppColors.textSecondary),
                         ),
@@ -136,7 +136,7 @@ class HomeScreen extends StatelessWidget {
       builder: (_) => AlertDialog(
         title: const Text('عن التطبيق', textAlign: TextAlign.right),
         content: const Text(
-          'تطبيق أسرة آل ريس بن درع — يجمع أخبار العائلة، مكتبتها، شخصياتها '
+          'تطبيق أسرة آل ناصر — يجمع أخبار العائلة، مكتبتها، شخصياتها '
           'ونسبها في مكان واحد.',
           textAlign: TextAlign.right,
         ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Central design system for the آل ريس (Al Rayes) family app.
+/// Central design system for the آل ناصر (Al Nasser) family app.
 ///
 /// Colours are sampled from the reference designs: a deep forest green paired
 /// with a soft sage background and warm beige accents.

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// The آل ريس wordmark.
+/// The آل ناصر wordmark.
 ///
 /// This is a typographic placeholder that mirrors the reference logo — a fort
-/// crown motif above the family name "آلريس" with "بن درع" beneath. Swap in the
-/// official artwork by dropping an asset and using [AppLogo.image].
+/// crown motif above the family name "آل ناصر". Swap in the official artwork by
+/// dropping an asset and using [AppLogo.image].
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.size = 88, this.color = AppColors.primary});
 
@@ -18,23 +18,15 @@ class AppLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.castle_rounded, size: size * 0.55, color: color),
-        SizedBox(height: size * 0.04),
+        SizedBox(height: size * 0.06),
         Text(
-          'آلريس',
+          'آل ناصر',
+          maxLines: 1,
           style: TextStyle(
-            fontSize: size * 0.42,
+            fontSize: size * 0.38,
             fontWeight: FontWeight.w900,
             color: color,
             height: 1.0,
-          ),
-        ),
-        Text(
-          'بـن درع',
-          style: TextStyle(
-            fontSize: size * 0.16,
-            fontWeight: FontWeight.w600,
-            color: color,
-            letterSpacing: 2,
           ),
         ),
       ],
