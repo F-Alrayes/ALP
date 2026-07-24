@@ -44,7 +44,8 @@ class HomeScreen extends StatelessWidget {
                       child: _HomeCard(
                         title: 'الأخبار',
                         icon: Icons.article_rounded,
-                        onTap: () => _open(context, const NewsScreen()),
+                        onTap: () =>
+                            _open(context, const NewsScreen(showHomeButton: true)),
                         child: _NewsPreview(title: latestNews.title),
                       ),
                     ),

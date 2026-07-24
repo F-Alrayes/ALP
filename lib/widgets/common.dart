@@ -34,10 +34,19 @@ class HomeButton extends StatelessWidget {
 /// Standard secondary-screen header: a title with the logo mark on the trailing
 /// side and a home button on the leading side.
 class ScreenHeader extends StatelessWidget {
-  const ScreenHeader({super.key, required this.title, this.icon});
+  const ScreenHeader({
+    super.key,
+    required this.title,
+    this.icon,
+    this.showHomeButton = true,
+  });
 
   final String title;
   final IconData? icon;
+
+  /// Whether to show the home button. Hidden when the screen is a bottom-nav
+  /// tab root (there is nothing to pop back to).
+  final bool showHomeButton;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +71,7 @@ class ScreenHeader extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          const HomeButton(),
+          if (showHomeButton) const HomeButton(),
         ],
       ),
     );
