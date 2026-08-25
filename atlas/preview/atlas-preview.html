@@ -1,0 +1,2474 @@
+<title>Atlas Responsibility Routing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap">
+<style>
+/* ---------------------------------------------------------------- tokens */
+:root {
+  --ground:#FBF8F0; --surface:#FFFFFF; --surface-2:#F5F0E3; --surface-3:#EDE6D4;
+  --line:#E4DCC8; --line-soft:#F0EADB;
+  --ink:#17241E; --ink-2:#55655C; --ink-3:#7C8A82;
+  --gold:#B98B0A; --gold-ink:#8A6707; --gold-soft:#F6EFD6;
+  --green:#0F8A5F; --green-deep:#123528; --green-soft:#E3F0E9;
+  --critical:#C0392F; --critical-soft:#FAE7E4;
+  --warn:#B4761C; --warn-soft:#FBF0DB;
+  --rail:#0C2A21; --rail-2:#123528; --rail-ink:#EDE7D6; --rail-ink-2:#9FB3A8;
+  --rail-line:rgba(237,231,214,.16); --rail-fill:rgba(237,231,214,.08);
+  --s1:#0F8A5F;  /* chart series 1 - validated */
+  --s2:#B98B0A;  /* chart series 2 - validated */
+  --grid:#EDE6D4;
+  --shadow:0 1px 2px rgba(18,53,40,.05), 0 8px 24px -18px rgba(18,53,40,.35);
+  --r:10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:#0D1A15; --surface:#14241D; --surface-2:#1B2F26; --surface-3:#22392F;
+    --line:#263B31; --line-soft:#1E322A;
+    --ink:#E9E4D6; --ink-2:#A9B8AE; --ink-3:#7E8F85;
+    --gold:#B08E2A; --gold-ink:#DCC167; --gold-soft:#2C2718;
+    --green:#25A075; --green-deep:#B7DCC9; --green-soft:#152E25;
+    --critical:#E8756F; --critical-soft:#33201E;
+    --warn:#D8A34B; --warn-soft:#2E2617;
+    --rail:#091410; --rail-2:#0F1F19; --rail-ink:#E9E4D6; --rail-ink-2:#93A79B;
+    --rail-line:rgba(233,228,214,.14); --rail-fill:rgba(233,228,214,.07);
+    --s1:#25A075; --s2:#B08E2A;
+    --grid:#263B31;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:#0D1A15; --surface:#14241D; --surface-2:#1B2F26; --surface-3:#22392F;
+  --line:#263B31; --line-soft:#1E322A;
+  --ink:#E9E4D6; --ink-2:#A9B8AE; --ink-3:#7E8F85;
+  --gold:#B08E2A; --gold-ink:#DCC167; --gold-soft:#2C2718;
+  --green:#25A075; --green-deep:#B7DCC9; --green-soft:#152E25;
+  --critical:#E8756F; --critical-soft:#33201E;
+  --warn:#D8A34B; --warn-soft:#2E2617;
+  --rail:#091410; --rail-2:#0F1F19; --rail-ink:#E9E4D6; --rail-ink-2:#93A79B;
+  --rail-line:rgba(233,228,214,.14); --rail-fill:rgba(233,228,214,.07);
+  --s1:#25A075; --s2:#B08E2A;
+  --grid:#263B31;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
+}
+
+/* ------------------------------------------------------------------ base */
+*, *::before, *::after { box-sizing:border-box; }
+body {
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4 { margin:0; font-family:"Source Serif 4", Georgia, "Times New Roman", serif;
+  font-weight:600; letter-spacing:-.012em; text-wrap:balance; color:var(--ink); }
+h1 { font-size:2.05rem; line-height:1.12; }
+h2 { font-size:1.28rem; line-height:1.2; }
+h3 { font-size:1.02rem; }
+p { margin:0; }
+button, input, select, textarea { font:inherit; color:inherit; }
+a { color:var(--gold-ink); }
+:focus-visible { outline:2px solid var(--gold); outline-offset:2px; border-radius:4px; }
+.mono { font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric:tabular-nums; }
+.num { font-variant-numeric:tabular-nums; }
+.sr { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+  clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+
+/* ------------------------------------------------------------------ shell */
+.app { display:grid; grid-template-columns:288px minmax(0,1fr); min-height:100vh; }
+.rail { background:var(--rail); color:var(--rail-ink); padding:22px 20px 40px;
+  border-right:1px solid var(--rail-line); display:flex; flex-direction:column; gap:20px; }
+.canvas { min-width:0; padding:26px 30px 72px; }
+.wrap { max-width:1120px; margin:0 auto; }
+@media (max-width:900px) {
+  .app { grid-template-columns:minmax(0,1fr); }
+  .rail { border-right:none; border-bottom:1px solid var(--rail-line); }
+  .canvas { padding:20px 16px 60px; }
+}
+
+/* ------------------------------------------------------------- rail parts */
+.brand { display:flex; align-items:center; gap:11px; }
+.brand .mark { width:34px; height:34px; border-radius:9px; background:var(--gold);
+  color:#12211A; display:grid; place-items:center; font-weight:700; font-size:1.05rem;
+  font-family:"Source Serif 4", serif; flex:none; }
+.brand .name { font-family:"Source Serif 4", serif; font-size:1.22rem; font-weight:600;
+  letter-spacing:.02em; color:var(--rail-ink); line-height:1.1; }
+.brand .tag { font-size:.66rem; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--rail-ink-2); }
+.rail-sec { display:flex; flex-direction:column; gap:9px; }
+.rail-sec + .rail-sec { border-top:1px solid var(--rail-line); padding-top:18px; }
+.rail-label { font-size:.66rem; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--rail-ink-2); font-weight:600; }
+.rail-note { font-size:.79rem; color:var(--rail-ink-2); line-height:1.45; }
+.rail select, .rail input {
+  width:100%; background:var(--rail-fill); color:var(--rail-ink);
+  border:1px solid var(--rail-line); border-radius:8px; padding:8px 10px; font-size:.86rem;
+}
+.rail select { appearance:none; background-image:
+  linear-gradient(45deg,transparent 50%,var(--rail-ink-2) 50%),
+  linear-gradient(135deg,var(--rail-ink-2) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size:5px 5px,5px 5px; background-repeat:no-repeat; padding-right:28px; }
+.rail select option { background:var(--rail-2); color:var(--rail-ink); }
+.btn-row { display:flex; gap:6px; }
+.rail button {
+  background:var(--rail-fill); color:var(--rail-ink); border:1px solid var(--rail-line);
+  border-radius:8px; padding:8px 10px; font-size:.84rem; font-weight:500; cursor:pointer;
+  flex:1; transition:background .12s ease, border-color .12s ease, color .12s ease;
+}
+.rail button:hover { background:var(--gold); border-color:var(--gold); color:#12211A; }
+.rail button.danger:hover { background:var(--critical); border-color:var(--critical); color:#fff; }
+.clock-read { font-size:.95rem; font-weight:500; }
+.clock-off { font-size:.76rem; color:var(--rail-ink-2); }
+.agent-dot { width:8px; height:8px; border-radius:50%; background:var(--gold);
+  display:inline-block; margin-right:6px; }
+@media (prefers-reduced-motion: no-preference) {
+  .agent-dot.live { animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+}
+
+/* -------------------------------------------------------------- nav tabs */
+.tabs { display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid var(--line);
+  margin-bottom:22px; }
+.tab { background:none; border:none; border-bottom:2px solid transparent; cursor:pointer;
+  padding:9px 14px; font-size:.9rem; font-weight:500; color:var(--ink-3); border-radius:6px 6px 0 0; }
+.tab:hover { color:var(--ink); background:var(--surface-2); }
+.tab[aria-selected="true"] { color:var(--ink); border-bottom-color:var(--gold); font-weight:600; }
+
+/* ------------------------------------------------------------ page header */
+.phead { margin-bottom:22px; }
+.eyebrow { font-size:.68rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--gold-ink); font-weight:600; margin-bottom:7px; }
+.phead p { color:var(--ink-2); margin-top:7px; max-width:66ch; }
+
+/* ------------------------------------------------------------------ cards */
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:15px 17px; box-shadow:var(--shadow); }
+.card + .card { margin-top:9px; }
+.card.flag { border-left:3px solid var(--gold); }
+.card.alarm { border-left:3px solid var(--critical); }
+.card-t { font-weight:600; font-size:.97rem; }
+.card-m { color:var(--ink-2); font-size:.82rem; margin-top:3px;
+  display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+.card-b { margin-top:9px; font-size:.9rem; color:var(--ink-2); white-space:pre-wrap; }
+.rowline { display:flex; gap:12px; align-items:center; }
+.rowline > .card { flex:1; margin:0; }
+.stack { display:flex; flex-direction:column; gap:9px; }
+.grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:20px; }
+.charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); gap:18px; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:10px;
+  margin-bottom:26px; }
+
+/* ------------------------------------------------------------------ tiles */
+.tile { background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:13px 15px; box-shadow:var(--shadow); }
+.tile .l { font-size:.66rem; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600; }
+.tile .v { font-family:"Source Serif 4",serif; font-size:1.85rem; font-weight:600;
+  line-height:1.2; margin-top:4px; font-variant-numeric:tabular-nums; }
+.tile .s { font-size:.78rem; color:var(--ink-3); }
+.tile.warn { border-left:3px solid var(--warn); }
+.tile.bad  { border-left:3px solid var(--critical); }
+.tile.good { border-left:3px solid var(--green); }
+
+/* ----------------------------------------------------------------- badges */
+.b { display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:999px;
+  font-size:.71rem; font-weight:600; letter-spacing:.01em; border:1px solid transparent;
+  white-space:nowrap; }
+.b.pending{background:var(--warn-soft);color:var(--warn);border-color:currentColor}
+.b.acknowledged{background:var(--green-soft);color:var(--green);border-color:currentColor}
+.b.in_progress{background:var(--gold-soft);color:var(--gold-ink);border-color:currentColor}
+.b.completed{background:var(--green-soft);color:var(--green);border-color:currentColor}
+.b.escalated{background:var(--critical-soft);color:var(--critical);border-color:currentColor}
+.b.ooo{background:var(--warn-soft);color:var(--warn);border-color:currentColor}
+.b.role{background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
+.b.gold{background:var(--gold-soft);color:var(--gold-ink);border-color:currentColor}
+.b.mute{background:var(--surface-2);color:var(--ink-3);border-color:var(--line)}
+.dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex:none; }
+
+/* ------------------------------------------------- the audit-trail motif */
+.trail { position:relative; margin:4px 0 4px 7px; padding-left:19px;
+  border-left:1px solid var(--line); }
+.trail .node { position:relative; padding:8px 0; }
+.trail .node::before { content:""; position:absolute; left:-24px; top:14px; width:9px; height:9px;
+  border-radius:50%; background:var(--ink-3); box-shadow:0 0 0 3px var(--surface); }
+.trail .node.ok::before{background:var(--green)}
+.trail .node.warn::before{background:var(--warn)}
+.trail .node.fail::before{background:var(--critical)}
+.trail .node.agent::before{background:var(--gold)}
+.trail .k { font-weight:600; font-size:.86rem; }
+.trail .d { font-size:.86rem; color:var(--ink-2); }
+.trail .w { font-size:.72rem; color:var(--ink-3); letter-spacing:.02em; }
+.trail .who { color:var(--gold-ink); font-weight:600; }
+
+/* --------------------------------------------------------------- controls */
+.btn { background:var(--surface); border:1px solid var(--line); border-radius:8px;
+  padding:8px 14px; font-size:.88rem; font-weight:500; cursor:pointer; color:var(--ink);
+  transition:border-color .12s ease, background .12s ease; }
+.btn:hover { border-color:var(--green); }
+.btn.primary { background:var(--green-deep); border-color:var(--green-deep); color:#F5F0E3; }
+:root[data-theme="dark"] .btn.primary,
+:root:not([data-theme="light"]) .btn.primary { }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn.primary { background:var(--green); border-color:var(--green); color:#08150F; }
+}
+:root[data-theme="dark"] .btn.primary { background:var(--green); border-color:var(--green); color:#08150F; }
+.btn.primary:hover { filter:brightness(1.08); }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+.btn.sm { padding:5px 11px; font-size:.81rem; }
+.btn.link { background:none; border:none; padding:0; color:var(--gold-ink);
+  text-decoration:underline; text-underline-offset:3px; }
+.field { width:100%; background:var(--surface); border:1px solid var(--line);
+  border-radius:8px; padding:9px 11px; font-size:.9rem; }
+textarea.field { resize:vertical; min-height:96px; font-family:inherit; }
+.chips { display:flex; flex-wrap:wrap; gap:7px; }
+.chip { background:var(--surface); border:1px solid var(--line); border-radius:999px;
+  padding:6px 13px; font-size:.82rem; cursor:pointer; color:var(--ink-2); }
+.chip:hover { border-color:var(--gold); color:var(--ink); }
+.toolbar { display:flex; gap:9px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px; }
+.toolbar .grow { flex:1; min-width:190px; }
+label.lbl { display:block; font-size:.73rem; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600; margin-bottom:5px; }
+
+/* ------------------------------------------------------------------ misc */
+.empty { border:1px dashed var(--line); border-radius:var(--r); padding:30px 20px;
+  text-align:center; color:var(--ink-3); background:var(--surface); }
+.empty .big { color:var(--ink); font-weight:600; margin-bottom:4px; }
+.note { border-radius:8px; padding:10px 13px; font-size:.87rem; border:1px solid; }
+.note.info { background:var(--green-soft); border-color:var(--green); color:var(--ink); }
+.note.warn { background:var(--warn-soft); border-color:var(--warn); color:var(--ink); }
+.note.bad  { background:var(--critical-soft); border-color:var(--critical); color:var(--ink); }
+.kv { font-size:.87rem; padding:3px 0; display:flex; gap:10px; }
+.kv .k { color:var(--ink-3); min-width:124px; flex:none; }
+.sub { color:var(--ink-2); font-size:.87rem; }
+.muted { color:var(--ink-3); font-size:.8rem; }
+.sect { margin:26px 0 12px; display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; }
+.sect p { color:var(--ink-2); font-size:.85rem; }
+.tblwrap { overflow-x:auto; border:1px solid var(--line); border-radius:var(--r);
+  background:var(--surface); }
+table { border-collapse:collapse; width:100%; font-size:.86rem; }
+th { text-align:left; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600; padding:10px 13px; border-bottom:1px solid var(--line);
+  white-space:nowrap; }
+td { padding:9px 13px; border-bottom:1px solid var(--line-soft); }
+tr:last-child td { border-bottom:none; }
+td.n { text-align:right; font-variant-numeric:tabular-nums; }
+.flash { position:fixed; right:18px; bottom:18px; z-index:40; max-width:340px;
+  background:var(--green-deep); color:#F5F0E3; padding:11px 15px; border-radius:9px;
+  font-size:.87rem; box-shadow:0 10px 30px -8px rgba(0,0,0,.45); }
+@media (prefers-reduced-motion: no-preference) { .flash { animation:rise .22s ease-out; } }
+@keyframes rise { from { transform:translateY(7px); opacity:0 } }
+
+/* ----------------------------------------------------------------- charts */
+.chart { background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:15px 17px 11px; box-shadow:var(--shadow); }
+.chart h3 { font-family:"IBM Plex Sans",sans-serif; font-size:.92rem; font-weight:600; }
+.chart .csub { font-size:.78rem; color:var(--ink-3); margin-top:2px; }
+.legend { display:flex; gap:14px; flex-wrap:wrap; margin:9px 0 3px; font-size:.79rem;
+  color:var(--ink-2); }
+.legend i { width:10px; height:10px; border-radius:3px; display:inline-block;
+  margin-right:5px; vertical-align:-1px; }
+.chart svg { display:block; width:100%; height:auto; overflow:visible; }
+.chart .gl { stroke:var(--grid); stroke-width:1; }
+.chart .axl { fill:var(--ink-3); font-size:11px; font-family:"IBM Plex Mono",monospace; }
+.chart .vl { fill:var(--ink-2); font-size:11px; font-weight:600;
+  font-family:"IBM Plex Mono",monospace; }
+.chart .cat { fill:var(--ink-2); font-size:11.5px; }
+.bar { transition:opacity .12s ease; }
+.bar:hover { opacity:.78; }
+.tip { position:fixed; z-index:50; pointer-events:none; background:var(--rail);
+  color:var(--rail-ink); font-size:.79rem; padding:7px 10px; border-radius:7px;
+  box-shadow:0 8px 24px -8px rgba(0,0,0,.5); max-width:250px; }
+.tip .tt { font-weight:600; }
+.gnode { cursor:default; }
+</style>
+<div id="root"></div>
+<div id="tip" class="tip" hidden></div>
+
+<script>
+const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"name":"Finance"},{"id":3,"name":"Legal & Compliance"},{"id":4,"name":"IT"},{"id":5,"name":"Operations / HR"}],"people":[{"id":1,"name":"Khalid Al-Rayes","title":"Chief Executive Officer","department_id":null,"manager_id":null,"email":"khalid.rayes@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":2,"name":"Faisal Al-Otaibi","title":"Managing Director, Investments","department_id":1,"manager_id":1,"email":"faisal.otaibi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":3,"name":"Sarah Whitfield","title":"Investment Director","department_id":1,"manager_id":2,"email":"sarah.whitfield@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":4,"name":"Omar Haddad","title":"Principal","department_id":1,"manager_id":2,"email":"omar.haddad@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":5,"name":"Layla Mansour","title":"Senior Associate","department_id":1,"manager_id":3,"email":"layla.mansour@atlas-capital.example","is_ooo":true,"ooo_until":144.0},{"id":6,"name":"James Okonkwo","title":"Associate","department_id":1,"manager_id":3,"email":"james.okonkwo@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":7,"name":"Noura Al-Sabah","title":"Associate","department_id":1,"manager_id":4,"email":"noura.sabah@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":8,"name":"Marco Bianchi","title":"Investment Analyst","department_id":1,"manager_id":4,"email":"marco.bianchi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":9,"name":"Yousef Darwish","title":"Investment Analyst","department_id":1,"manager_id":5,"email":"yousef.darwish@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":10,"name":"Sofia Marchetti","title":"Investment Analyst","department_id":1,"manager_id":5,"email":"sofia.marchetti@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":11,"name":"Amira Haddadin","title":"Chief Financial Officer","department_id":2,"manager_id":1,"email":"amira.haddadin@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":12,"name":"Daniel Reyes","title":"Finance Director","department_id":2,"manager_id":11,"email":"daniel.reyes@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":13,"name":"Huda Al-Najjar","title":"Financial Controller","department_id":2,"manager_id":11,"email":"huda.najjar@atlas-capital.example","is_ooo":true,"ooo_until":96.0},{"id":14,"name":"Peter Lindqvist","title":"Senior Accountant","department_id":2,"manager_id":13,"email":"peter.lindqvist@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":15,"name":"Rania Khoury","title":"Accounts Payable Lead","department_id":2,"manager_id":12,"email":"rania.khoury@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":16,"name":"Tomas Ferreira","title":"Treasury Analyst","department_id":2,"manager_id":12,"email":"tomas.ferreira@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":17,"name":"Mariam Al-Balushi","title":"Fund Accountant","department_id":2,"manager_id":13,"email":"mariam.balushi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":18,"name":"Karim El-Masri","title":"Payroll Specialist","department_id":2,"manager_id":12,"email":"karim.masri@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":19,"name":"Nadia Suleiman","title":"General Counsel","department_id":3,"manager_id":1,"email":"nadia.suleiman@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":20,"name":"Robert Ashby","title":"Deputy General Counsel","department_id":3,"manager_id":19,"email":"robert.ashby@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":21,"name":"Zainab Al-Hashimi","title":"Head of Compliance","department_id":3,"manager_id":19,"email":"zainab.hashimi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":22,"name":"Eleanor Voss","title":"Senior Legal Counsel","department_id":3,"manager_id":20,"email":"eleanor.voss@atlas-capital.example","is_ooo":true,"ooo_until":72.0},{"id":23,"name":"Tariq Benali","title":"Compliance Officer, KYC","department_id":3,"manager_id":21,"email":"tariq.benali@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":24,"name":"Grace Mwangi","title":"Legal Counsel","department_id":3,"manager_id":20,"email":"grace.mwangi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":25,"name":"Hassan Al-Farsi","title":"Paralegal","department_id":3,"manager_id":22,"email":"hassan.farsi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":26,"name":"Vikram Chandra","title":"Head of Technology","department_id":4,"manager_id":1,"email":"vikram.chandra@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":27,"name":"Elena Petrova","title":"Infrastructure Lead","department_id":4,"manager_id":26,"email":"elena.petrova@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":28,"name":"Ahmed Zaki","title":"Systems Administrator","department_id":4,"manager_id":27,"email":"ahmed.zaki@atlas-capital.example","is_ooo":true,"ooo_until":48.0},{"id":29,"name":"Chloe Dubois","title":"Security Engineer","department_id":4,"manager_id":26,"email":"chloe.dubois@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":30,"name":"Bilal Rahman","title":"IT Support Lead","department_id":4,"manager_id":26,"email":"bilal.rahman@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":31,"name":"Ivan Kovacs","title":"Application Support Analyst","department_id":4,"manager_id":30,"email":"ivan.kovacs@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":32,"name":"Fatima Al-Zahrani","title":"Data Engineer","department_id":4,"manager_id":27,"email":"fatima.zahrani@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":33,"name":"Claire Donovan","title":"Chief Operating Officer","department_id":5,"manager_id":1,"email":"claire.donovan@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":34,"name":"Salma Bouzid","title":"Head of Human Resources","department_id":5,"manager_id":33,"email":"salma.bouzid@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":35,"name":"Michael Trent","title":"Operations Manager","department_id":5,"manager_id":33,"email":"michael.trent@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":36,"name":"Dina Al-Kaabi","title":"HR Business Partner","department_id":5,"manager_id":34,"email":"dina.kaabi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":37,"name":"Anna Sorenson","title":"Office Manager","department_id":5,"manager_id":35,"email":"anna.sorenson@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":38,"name":"Youssef Karim","title":"Procurement Lead","department_id":5,"manager_id":35,"email":"youssef.karim@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":39,"name":"Priya Nair","title":"Executive Assistant to the CEO","department_id":5,"manager_id":33,"email":"priya.nair@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":40,"name":"Hamza Al-Dosari","title":"Travel & Facilities Coordinator","department_id":5,"manager_id":37,"email":"hamza.dosari@atlas-capital.example","is_ooo":false,"ooo_until":null}],"processes":[{"id":1,"name":"Data Room Access","description":"Grant a colleague or counterparty access to a project virtual data room, including folder-level permissions and NDA verification.","category":"Deal Support","keywords":"data room, dataroom, virtual data room, vdr, deal documents, project access, folder access, diligence documents, deal folder, project falcon"},{"id":2,"name":"Invoice Approval","description":"Approve a supplier invoice for payment once goods or services are confirmed received.","category":"Finance","keywords":"invoice, approve invoice, supplier payment, pay invoice, billing, accounts payable, ap, invoice sign off, payment run"},{"id":3,"name":"KYC Refresh","description":"Periodic refresh of know-your-customer and anti-money-laundering documentation for an existing investor or counterparty.","category":"Compliance","keywords":"kyc, know your customer, aml, client due diligence, cdd, refresh, screening, investor documentation, sanctions check"},{"id":4,"name":"NDA Review","description":"Legal review and mark-up of an inbound or outbound non-disclosure agreement.","category":"Legal","keywords":"nda, non-disclosure, non disclosure agreement, confidentiality agreement, mutual nda, sign nda, review nda, confidentiality"},{"id":5,"name":"Vendor Onboarding","description":"Onboard a new supplier: due diligence, bank details verification and system setup.","category":"Procurement","keywords":"vendor, supplier onboarding, new supplier, third party, vendor setup, supplier form, counterparty setup, new vendor"},{"id":6,"name":"IT Access Provisioning","description":"Provision system access, licences or shared drive permissions for a colleague.","category":"IT","keywords":"access, permissions, system access, provisioning, licence, license, vpn access, shared drive, new account, joiner setup"},{"id":7,"name":"Expense Reimbursement","description":"Reimburse out-of-pocket business expenses against submitted receipts.","category":"Finance","keywords":"expense, expenses, reimbursement, reimburse, claim, receipts, out of pocket, expense report, mileage"},{"id":8,"name":"Valuation Sign-off","description":"Quarterly fair-value sign-off for portfolio holdings feeding the NAV.","category":"Finance","keywords":"valuation, nav, fair value, portfolio valuation, sign off, mark, quarterly valuation, pricing, net asset value"},{"id":9,"name":"Board Pack Preparation","description":"Compile, format and distribute the board or investment committee pack ahead of a meeting.","category":"Executive","keywords":"board pack, board meeting, board deck, committee papers, board materials, ic pack, investment committee, board papers"},{"id":10,"name":"Travel Approval","description":"Approve business travel and book flights, hotels and ground transport.","category":"Operations","keywords":"travel, flight, flights, trip, hotel, business travel, travel request, itinerary, travel booking, visa"},{"id":11,"name":"Contract Renewal","description":"Review and renew an expiring supplier or service contract before its termination date.","category":"Legal","keywords":"contract renewal, renew contract, msa, agreement renewal, extension, contract expiry, renewal, service agreement"},{"id":12,"name":"Password Reset","description":"Reset a forgotten password or unlock an account, including MFA re-enrolment.","category":"IT","keywords":"password, reset password, locked out, mfa, login issue, cannot log in, account locked, forgot password, two factor"},{"id":13,"name":"Purchase Order Approval","description":"Raise and approve a purchase order before committing firm spend.","category":"Procurement","keywords":"purchase order, po, raise po, procurement request, spend approval, commit spend, buy, order form"},{"id":14,"name":"Policy Exception Approval","description":"Approve a documented deviation from an internal policy, with rationale and expiry.","category":"Compliance","keywords":"policy exception, waiver, exemption, deviation, override, policy breach, one off approval, dispensation"}],"responsibilities":[{"id":1,"process_id":1,"person_id":5,"role":"owner"},{"id":2,"process_id":1,"person_id":2,"role":"approver"},{"id":3,"process_id":1,"person_id":6,"role":"delegate"},{"id":4,"process_id":1,"person_id":4,"role":"backup"},{"id":5,"process_id":2,"person_id":15,"role":"owner"},{"id":6,"process_id":2,"person_id":13,"role":"approver"},{"id":7,"process_id":2,"person_id":18,"role":"delegate"},{"id":8,"process_id":2,"person_id":16,"role":"backup"},{"id":9,"process_id":3,"person_id":23,"role":"owner"},{"id":10,"process_id":3,"person_id":21,"role":"approver"},{"id":11,"process_id":3,"person_id":25,"role":"delegate"},{"id":12,"process_id":4,"person_id":22,"role":"owner"},{"id":13,"process_id":4,"person_id":19,"role":"approver"},{"id":14,"process_id":4,"person_id":24,"role":"delegate"},{"id":15,"process_id":5,"person_id":38,"role":"owner"},{"id":16,"process_id":5,"person_id":13,"role":"approver"},{"id":17,"process_id":5,"person_id":35,"role":"approver"},{"id":18,"process_id":5,"person_id":37,"role":"delegate"},{"id":19,"process_id":6,"person_id":30,"role":"owner"},{"id":20,"process_id":6,"person_id":26,"role":"approver"},{"id":21,"process_id":6,"person_id":31,"role":"delegate"},{"id":22,"process_id":6,"person_id":28,"role":"backup"},{"id":23,"process_id":7,"person_id":14,"role":"owner"},{"id":24,"process_id":7,"person_id":13,"role":"approver"},{"id":25,"process_id":7,"person_id":17,"role":"delegate"},{"id":26,"process_id":8,"person_id":13,"role":"owner"},{"id":27,"process_id":8,"person_id":11,"role":"approver"},{"id":28,"process_id":9,"person_id":39,"role":"owner"},{"id":29,"process_id":9,"person_id":33,"role":"approver"},{"id":30,"process_id":9,"person_id":37,"role":"delegate"},{"id":31,"process_id":10,"person_id":40,"role":"owner"},{"id":32,"process_id":10,"person_id":35,"role":"approver"},{"id":33,"process_id":10,"person_id":37,"role":"delegate"},{"id":34,"process_id":11,"person_id":20,"role":"owner"},{"id":35,"process_id":11,"person_id":19,"role":"approver"},{"id":36,"process_id":12,"person_id":28,"role":"owner"},{"id":37,"process_id":12,"person_id":31,"role":"delegate"},{"id":38,"process_id":12,"person_id":30,"role":"backup"}],"requests":[{"id":1,"requester_id":8,"process_id":7,"assignee_id":14,"original_assignee_id":14,"title":"Reimbursement for Riyadh site visit","body":"Three nights and taxis for the Riyadh management meeting. Receipts attached.","status":"completed","created_at":-410.0,"updated_at":-381.0,"last_action_at":-381.0,"chase_count":0,"acknowledged_at":-406.5,"completed_at":-381.0},{"id":2,"requester_id":10,"process_id":6,"assignee_id":30,"original_assignee_id":30,"title":"Access to the portfolio monitoring drive","body":"I need read access to the portfolio monitoring shared drive for the quarterly pack.","status":"completed","created_at":-330.0,"updated_at":-322.0,"last_action_at":-322.0,"chase_count":0,"acknowledged_at":-328.5,"completed_at":-322.0},{"id":3,"requester_id":3,"process_id":4,"assignee_id":22,"original_assignee_id":22,"title":"Mutual NDA with Cedarline Partners","body":"Counterparty sent their paper. Please review and mark up before Thursday.","status":"completed","created_at":-290.0,"updated_at":-238.0,"last_action_at":-238.0,"chase_count":0,"acknowledged_at":-284.0,"completed_at":-238.0},{"id":4,"requester_id":37,"process_id":12,"assignee_id":28,"original_assignee_id":28,"title":"Locked out of the expenses portal","body":"MFA re-enrolment failed after my phone was replaced.","status":"completed","created_at":-220.0,"updated_at":-218.0,"last_action_at":-218.0,"chase_count":0,"acknowledged_at":-219.5,"completed_at":-218.0},{"id":5,"requester_id":38,"process_id":2,"assignee_id":15,"original_assignee_id":15,"title":"Invoice 88412 — Meridian Advisory","body":"Q1 advisory retainer, goods receipted. Please approve for the Friday payment run.","status":"completed","created_at":-190.0,"updated_at":-164.0,"last_action_at":-164.0,"chase_count":0,"acknowledged_at":-186.0,"completed_at":-164.0},{"id":6,"requester_id":7,"process_id":10,"assignee_id":40,"original_assignee_id":40,"title":"Travel to Manama for portfolio review","body":"Two nights, flying out Tuesday morning, returning Thursday evening.","status":"completed","created_at":-150.0,"updated_at":-138.0,"last_action_at":-138.0,"chase_count":0,"acknowledged_at":-148.0,"completed_at":-138.0},{"id":7,"requester_id":4,"process_id":3,"assignee_id":23,"original_assignee_id":23,"title":"KYC refresh — Northgate Investments","body":"Their documentation lapsed last month and we cannot draw down until it is refreshed.","status":"completed","created_at":-120.0,"updated_at":-79.0,"last_action_at":-79.0,"chase_count":0,"acknowledged_at":-115.0,"completed_at":-79.0},{"id":8,"requester_id":35,"process_id":5,"assignee_id":38,"original_assignee_id":38,"title":"Onboard Halcyon Facilities Management","body":"New cleaning contractor for the Dubai office. Bank details attached for verification.","status":"in_progress","created_at":-70.0,"updated_at":-63.5,"last_action_at":-63.5,"chase_count":0,"acknowledged_at":-65.0,"completed_at":null},{"id":9,"requester_id":37,"process_id":11,"assignee_id":20,"original_assignee_id":20,"title":"Renewal — Bloomberg terminal agreement","body":"The agreement lapses in six weeks. Please confirm whether we roll or renegotiate.","status":"in_progress","created_at":-58.0,"updated_at":-47.5,"last_action_at":-47.5,"chase_count":0,"acknowledged_at":-49.0,"completed_at":null},{"id":10,"requester_id":1,"process_id":9,"assignee_id":39,"original_assignee_id":39,"title":"March investment committee pack","body":"Please pull the March IC pack together — three deal papers plus the pipeline update.","status":"in_progress","created_at":-44.0,"updated_at":-40.5,"last_action_at":-40.5,"chase_count":0,"acknowledged_at":-42.0,"completed_at":null},{"id":11,"requester_id":11,"process_id":8,"assignee_id":13,"original_assignee_id":13,"title":"Q1 valuation sign-off — Falcon and Cedar holdings","body":"Both marks need controller sign-off before the NAV is struck on the 15th.","status":"acknowledged","created_at":-36.0,"updated_at":-32.0,"last_action_at":-32.0,"chase_count":0,"acknowledged_at":-32.0,"completed_at":null},{"id":12,"requester_id":9,"process_id":7,"assignee_id":14,"original_assignee_id":14,"title":"Client dinner — Cedarline management","body":"Dinner with the Cedarline management team after the site visit.","status":"acknowledged","created_at":-30.0,"updated_at":-27.0,"last_action_at":-27.0,"chase_count":0,"acknowledged_at":-27.0,"completed_at":null},{"id":13,"requester_id":36,"process_id":6,"assignee_id":30,"original_assignee_id":30,"title":"HR system access for new joiner","body":"New HR business partner starts Monday and needs the usual joiner bundle.","status":"acknowledged","created_at":-26.0,"updated_at":-25.0,"last_action_at":-25.0,"chase_count":0,"acknowledged_at":-25.0,"completed_at":null},{"id":14,"requester_id":37,"process_id":2,"assignee_id":15,"original_assignee_id":15,"title":"Invoice 88596 — Halcyon Facilities","body":"First invoice from the new facilities contractor. Please approve.","status":"pending","created_at":-9.0,"updated_at":-9.0,"last_action_at":-9.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":15,"requester_id":8,"process_id":10,"assignee_id":40,"original_assignee_id":40,"title":"Travel to London for the Cedarline signing","body":"One night, needs to be booked this week while fares hold.","status":"pending","created_at":-5.0,"updated_at":-5.0,"last_action_at":-5.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":16,"requester_id":3,"process_id":3,"assignee_id":23,"original_assignee_id":23,"title":"KYC refresh — Sandpiper Family Office","body":"Annual refresh due. They have already sent the updated corporate documents.","status":"pending","created_at":-3.0,"updated_at":-3.0,"last_action_at":-3.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":17,"requester_id":6,"process_id":4,"assignee_id":22,"original_assignee_id":22,"title":"NDA for Project Falcon vendor diligence","body":"Technical diligence vendor needs an NDA before we open the data room to them.","status":"pending","created_at":-1.5,"updated_at":-1.5,"last_action_at":-1.5,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":18,"requester_id":16,"process_id":11,"assignee_id":20,"original_assignee_id":20,"title":"Renewal — custodian service agreement","body":"The custodian agreement auto-renews in three weeks unless we serve notice.","status":"pending","created_at":-53.0,"updated_at":-53.0,"last_action_at":-53.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":19,"requester_id":33,"process_id":9,"assignee_id":39,"original_assignee_id":39,"title":"Ops committee pack — April","body":"Operations committee papers for the April cycle.","status":"pending","created_at":-51.0,"updated_at":-51.0,"last_action_at":-51.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":20,"requester_id":32,"process_id":8,"assignee_id":11,"original_assignee_id":13,"title":"Valuation inputs for the data warehouse feed","body":"I need the signed-off marks to backfill the warehouse before quarter end.","status":"escalated","created_at":-146.0,"updated_at":-50.0,"last_action_at":-50.0,"chase_count":2,"acknowledged_at":null,"completed_at":null}],"messages":[{"id":1,"request_id":1,"sender_id":8,"recipient_id":14,"type":"dispatch","body":"Three nights and taxis for the Riyadh management meeting. Receipts attached.","created_at":-410.0,"read":true},{"id":2,"request_id":1,"sender_id":14,"recipient_id":8,"type":"status_update","body":"Your request 'Reimbursement for Riyadh site visit' has been completed.","created_at":-381.0,"read":false},{"id":3,"request_id":2,"sender_id":10,"recipient_id":30,"type":"dispatch","body":"I need read access to the portfolio monitoring shared drive for the quarterly pack.","created_at":-330.0,"read":true},{"id":4,"request_id":2,"sender_id":30,"recipient_id":10,"type":"status_update","body":"Your request 'Access to the portfolio monitoring drive' has been completed.","created_at":-322.0,"read":false},{"id":5,"request_id":3,"sender_id":3,"recipient_id":22,"type":"dispatch","body":"Counterparty sent their paper. Please review and mark up before Thursday.","created_at":-290.0,"read":true},{"id":6,"request_id":3,"sender_id":22,"recipient_id":3,"type":"status_update","body":"Your request 'Mutual NDA with Cedarline Partners' has been completed.","created_at":-238.0,"read":false},{"id":7,"request_id":4,"sender_id":37,"recipient_id":28,"type":"dispatch","body":"MFA re-enrolment failed after my phone was replaced.","created_at":-220.0,"read":true},{"id":8,"request_id":4,"sender_id":28,"recipient_id":37,"type":"status_update","body":"Your request 'Locked out of the expenses portal' has been completed.","created_at":-218.0,"read":false},{"id":9,"request_id":5,"sender_id":38,"recipient_id":15,"type":"dispatch","body":"Q1 advisory retainer, goods receipted. Please approve for the Friday payment run.","created_at":-190.0,"read":true},{"id":10,"request_id":5,"sender_id":15,"recipient_id":38,"type":"status_update","body":"Your request 'Invoice 88412 — Meridian Advisory' has been completed.","created_at":-164.0,"read":false},{"id":11,"request_id":6,"sender_id":7,"recipient_id":40,"type":"dispatch","body":"Two nights, flying out Tuesday morning, returning Thursday evening.","created_at":-150.0,"read":true},{"id":12,"request_id":6,"sender_id":40,"recipient_id":7,"type":"status_update","body":"Your request 'Travel to Manama for portfolio review' has been completed.","created_at":-138.0,"read":false},{"id":13,"request_id":7,"sender_id":4,"recipient_id":23,"type":"dispatch","body":"Their documentation lapsed last month and we cannot draw down until it is refreshed.","created_at":-120.0,"read":true},{"id":14,"request_id":7,"sender_id":23,"recipient_id":4,"type":"status_update","body":"Your request 'KYC refresh — Northgate Investments' has been completed.","created_at":-79.0,"read":false},{"id":15,"request_id":8,"sender_id":35,"recipient_id":38,"type":"dispatch","body":"New cleaning contractor for the Dubai office. Bank details attached for verification.","created_at":-70.0,"read":true},{"id":16,"request_id":9,"sender_id":37,"recipient_id":20,"type":"dispatch","body":"The agreement lapses in six weeks. Please confirm whether we roll or renegotiate.","created_at":-58.0,"read":true},{"id":17,"request_id":10,"sender_id":1,"recipient_id":39,"type":"dispatch","body":"Please pull the March IC pack together — three deal papers plus the pipeline update.","created_at":-44.0,"read":true},{"id":18,"request_id":11,"sender_id":11,"recipient_id":13,"type":"dispatch","body":"Both marks need controller sign-off before the NAV is struck on the 15th.","created_at":-36.0,"read":true},{"id":19,"request_id":12,"sender_id":9,"recipient_id":14,"type":"dispatch","body":"Dinner with the Cedarline management team after the site visit.","created_at":-30.0,"read":true},{"id":20,"request_id":13,"sender_id":36,"recipient_id":30,"type":"dispatch","body":"New HR business partner starts Monday and needs the usual joiner bundle.","created_at":-26.0,"read":true},{"id":21,"request_id":14,"sender_id":37,"recipient_id":15,"type":"dispatch","body":"First invoice from the new facilities contractor. Please approve.","created_at":-9.0,"read":true},{"id":22,"request_id":15,"sender_id":8,"recipient_id":40,"type":"dispatch","body":"One night, needs to be booked this week while fares hold.","created_at":-5.0,"read":true},{"id":23,"request_id":16,"sender_id":3,"recipient_id":23,"type":"dispatch","body":"Annual refresh due. They have already sent the updated corporate documents.","created_at":-3.0,"read":false},{"id":24,"request_id":17,"sender_id":6,"recipient_id":22,"type":"dispatch","body":"Technical diligence vendor needs an NDA before we open the data room to them.","created_at":-1.5,"read":false},{"id":25,"request_id":18,"sender_id":16,"recipient_id":20,"type":"dispatch","body":"The custodian agreement auto-renews in three weeks unless we serve notice.","created_at":-53.0,"read":true},{"id":26,"request_id":19,"sender_id":33,"recipient_id":39,"type":"dispatch","body":"Operations committee papers for the April cycle.","created_at":-51.0,"read":false},{"id":27,"request_id":20,"sender_id":32,"recipient_id":13,"type":"dispatch","body":"I need the signed-off marks to backfill the warehouse before quarter end.","created_at":-146.0,"read":false},{"id":28,"request_id":20,"sender_id":null,"recipient_id":11,"type":"escalation","body":"Escalated: 'Valuation inputs for the data warehouse feed' was not picked up by Huda Al-Najjar after two chases.","created_at":-50.0,"read":false}],"events":[{"id":1,"request_id":1,"type":"created","detail":"Marco Bianchi raised a request under 'Expense Reimbursement'.","actor":"Marco Bianchi","created_at":-410.0},{"id":2,"request_id":1,"type":"dispatch","detail":"Dispatched to Peter Lindqvist (Senior Accountant) as accountable owner.","actor":"system","created_at":-410.0},{"id":3,"request_id":1,"type":"acknowledged","detail":"Peter Lindqvist acknowledged the request.","actor":"Peter Lindqvist","created_at":-406.5},{"id":4,"request_id":1,"type":"completed","detail":"Peter Lindqvist completed the request.","actor":"Peter Lindqvist","created_at":-381.0},{"id":5,"request_id":2,"type":"created","detail":"Sofia Marchetti raised a request under 'IT Access Provisioning'.","actor":"Sofia Marchetti","created_at":-330.0},{"id":6,"request_id":2,"type":"dispatch","detail":"Dispatched to Bilal Rahman (IT Support Lead) as accountable owner.","actor":"system","created_at":-330.0},{"id":7,"request_id":2,"type":"acknowledged","detail":"Bilal Rahman acknowledged the request.","actor":"Bilal Rahman","created_at":-328.5},{"id":8,"request_id":2,"type":"completed","detail":"Bilal Rahman completed the request.","actor":"Bilal Rahman","created_at":-322.0},{"id":9,"request_id":3,"type":"created","detail":"Sarah Whitfield raised a request under 'NDA Review'.","actor":"Sarah Whitfield","created_at":-290.0},{"id":10,"request_id":3,"type":"dispatch","detail":"Dispatched to Eleanor Voss (Senior Legal Counsel) as accountable owner.","actor":"system","created_at":-290.0},{"id":11,"request_id":3,"type":"acknowledged","detail":"Eleanor Voss acknowledged the request.","actor":"Eleanor Voss","created_at":-284.0},{"id":12,"request_id":3,"type":"completed","detail":"Eleanor Voss completed the request.","actor":"Eleanor Voss","created_at":-238.0},{"id":13,"request_id":4,"type":"created","detail":"Anna Sorenson raised a request under 'Password Reset'.","actor":"Anna Sorenson","created_at":-220.0},{"id":14,"request_id":4,"type":"dispatch","detail":"Dispatched to Ahmed Zaki (Systems Administrator) as accountable owner.","actor":"system","created_at":-220.0},{"id":15,"request_id":4,"type":"acknowledged","detail":"Ahmed Zaki acknowledged the request.","actor":"Ahmed Zaki","created_at":-219.5},{"id":16,"request_id":4,"type":"completed","detail":"Ahmed Zaki completed the request.","actor":"Ahmed Zaki","created_at":-218.0},{"id":17,"request_id":5,"type":"created","detail":"Youssef Karim raised a request under 'Invoice Approval'.","actor":"Youssef Karim","created_at":-190.0},{"id":18,"request_id":5,"type":"dispatch","detail":"Dispatched to Rania Khoury (Accounts Payable Lead) as accountable owner.","actor":"system","created_at":-190.0},{"id":19,"request_id":5,"type":"acknowledged","detail":"Rania Khoury acknowledged the request.","actor":"Rania Khoury","created_at":-186.0},{"id":20,"request_id":5,"type":"completed","detail":"Rania Khoury completed the request.","actor":"Rania Khoury","created_at":-164.0},{"id":21,"request_id":6,"type":"created","detail":"Noura Al-Sabah raised a request under 'Travel Approval'.","actor":"Noura Al-Sabah","created_at":-150.0},{"id":22,"request_id":6,"type":"dispatch","detail":"Dispatched to Hamza Al-Dosari (Travel & Facilities Coordinator) as accountable owner.","actor":"system","created_at":-150.0},{"id":23,"request_id":6,"type":"acknowledged","detail":"Hamza Al-Dosari acknowledged the request.","actor":"Hamza Al-Dosari","created_at":-148.0},{"id":24,"request_id":6,"type":"completed","detail":"Hamza Al-Dosari completed the request.","actor":"Hamza Al-Dosari","created_at":-138.0},{"id":25,"request_id":7,"type":"created","detail":"Omar Haddad raised a request under 'KYC Refresh'.","actor":"Omar Haddad","created_at":-120.0},{"id":26,"request_id":7,"type":"dispatch","detail":"Dispatched to Tariq Benali (Compliance Officer, KYC) as accountable owner.","actor":"system","created_at":-120.0},{"id":27,"request_id":7,"type":"acknowledged","detail":"Tariq Benali acknowledged the request.","actor":"Tariq Benali","created_at":-115.0},{"id":28,"request_id":7,"type":"completed","detail":"Tariq Benali completed the request.","actor":"Tariq Benali","created_at":-79.0},{"id":29,"request_id":8,"type":"created","detail":"Michael Trent raised a request under 'Vendor Onboarding'.","actor":"Michael Trent","created_at":-70.0},{"id":30,"request_id":8,"type":"dispatch","detail":"Dispatched to Youssef Karim (Procurement Lead) as accountable owner.","actor":"system","created_at":-70.0},{"id":31,"request_id":8,"type":"acknowledged","detail":"Youssef Karim acknowledged the request.","actor":"Youssef Karim","created_at":-65.0},{"id":32,"request_id":8,"type":"status_update","detail":"Youssef Karim moved the request to In progress.","actor":"Youssef Karim","created_at":-63.5},{"id":33,"request_id":9,"type":"created","detail":"Anna Sorenson raised a request under 'Contract Renewal'.","actor":"Anna Sorenson","created_at":-58.0},{"id":34,"request_id":9,"type":"dispatch","detail":"Dispatched to Robert Ashby (Deputy General Counsel) as accountable owner.","actor":"system","created_at":-58.0},{"id":35,"request_id":9,"type":"acknowledged","detail":"Robert Ashby acknowledged the request.","actor":"Robert Ashby","created_at":-49.0},{"id":36,"request_id":9,"type":"status_update","detail":"Robert Ashby moved the request to In progress.","actor":"Robert Ashby","created_at":-47.5},{"id":37,"request_id":10,"type":"created","detail":"Khalid Al-Rayes raised a request under 'Board Pack Preparation'.","actor":"Khalid Al-Rayes","created_at":-44.0},{"id":38,"request_id":10,"type":"dispatch","detail":"Dispatched to Priya Nair (Executive Assistant to the CEO) as accountable owner.","actor":"system","created_at":-44.0},{"id":39,"request_id":10,"type":"acknowledged","detail":"Priya Nair acknowledged the request.","actor":"Priya Nair","created_at":-42.0},{"id":40,"request_id":10,"type":"status_update","detail":"Priya Nair moved the request to In progress.","actor":"Priya Nair","created_at":-40.5},{"id":41,"request_id":11,"type":"created","detail":"Amira Haddadin raised a request under 'Valuation Sign-off'.","actor":"Amira Haddadin","created_at":-36.0},{"id":42,"request_id":11,"type":"dispatch","detail":"Dispatched to Huda Al-Najjar (Financial Controller) as accountable owner.","actor":"system","created_at":-36.0},{"id":43,"request_id":11,"type":"acknowledged","detail":"Huda Al-Najjar acknowledged the request.","actor":"Huda Al-Najjar","created_at":-32.0},{"id":44,"request_id":12,"type":"created","detail":"Yousef Darwish raised a request under 'Expense Reimbursement'.","actor":"Yousef Darwish","created_at":-30.0},{"id":45,"request_id":12,"type":"dispatch","detail":"Dispatched to Peter Lindqvist (Senior Accountant) as accountable owner.","actor":"system","created_at":-30.0},{"id":46,"request_id":12,"type":"acknowledged","detail":"Peter Lindqvist acknowledged the request.","actor":"Peter Lindqvist","created_at":-27.0},{"id":47,"request_id":13,"type":"created","detail":"Dina Al-Kaabi raised a request under 'IT Access Provisioning'.","actor":"Dina Al-Kaabi","created_at":-26.0},{"id":48,"request_id":13,"type":"dispatch","detail":"Dispatched to Bilal Rahman (IT Support Lead) as accountable owner.","actor":"system","created_at":-26.0},{"id":49,"request_id":13,"type":"acknowledged","detail":"Bilal Rahman acknowledged the request.","actor":"Bilal Rahman","created_at":-25.0},{"id":50,"request_id":14,"type":"created","detail":"Anna Sorenson raised a request under 'Invoice Approval'.","actor":"Anna Sorenson","created_at":-9.0},{"id":51,"request_id":14,"type":"dispatch","detail":"Dispatched to Rania Khoury (Accounts Payable Lead) as accountable owner.","actor":"system","created_at":-9.0},{"id":52,"request_id":15,"type":"created","detail":"Marco Bianchi raised a request under 'Travel Approval'.","actor":"Marco Bianchi","created_at":-5.0},{"id":53,"request_id":15,"type":"dispatch","detail":"Dispatched to Hamza Al-Dosari (Travel & Facilities Coordinator) as accountable owner.","actor":"system","created_at":-5.0},{"id":54,"request_id":16,"type":"created","detail":"Sarah Whitfield raised a request under 'KYC Refresh'.","actor":"Sarah Whitfield","created_at":-3.0},{"id":55,"request_id":16,"type":"dispatch","detail":"Dispatched to Tariq Benali (Compliance Officer, KYC) as accountable owner.","actor":"system","created_at":-3.0},{"id":56,"request_id":17,"type":"created","detail":"James Okonkwo raised a request under 'NDA Review'.","actor":"James Okonkwo","created_at":-1.5},{"id":57,"request_id":17,"type":"dispatch","detail":"Dispatched to Eleanor Voss (Senior Legal Counsel) as accountable owner.","actor":"system","created_at":-1.5},{"id":58,"request_id":18,"type":"created","detail":"Tomas Ferreira raised a request under 'Contract Renewal'.","actor":"Tomas Ferreira","created_at":-53.0},{"id":59,"request_id":18,"type":"dispatch","detail":"Dispatched to Robert Ashby (Deputy General Counsel) as accountable owner.","actor":"system","created_at":-53.0},{"id":60,"request_id":19,"type":"created","detail":"Claire Donovan raised a request under 'Board Pack Preparation'.","actor":"Claire Donovan","created_at":-51.0},{"id":61,"request_id":19,"type":"dispatch","detail":"Dispatched to Priya Nair (Executive Assistant to the CEO) as accountable owner.","actor":"system","created_at":-51.0},{"id":62,"request_id":20,"type":"created","detail":"Fatima Al-Zahrani raised a request under 'Valuation Sign-off'.","actor":"Fatima Al-Zahrani","created_at":-146.0},{"id":63,"request_id":20,"type":"dispatch","detail":"Dispatched to Huda Al-Najjar (Financial Controller) as accountable owner.","actor":"system","created_at":-146.0},{"id":64,"request_id":20,"type":"chase","detail":"No acknowledgement after 48h — chase 1 of 2 sent to Huda Al-Najjar.","actor":"system","created_at":-98.0},{"id":65,"request_id":20,"type":"chase","detail":"Still unacknowledged — chase 2 of 2 sent to Huda Al-Najjar.","actor":"system","created_at":-74.0},{"id":66,"request_id":20,"type":"escalation","detail":"Two chases went unanswered and no delegate is configured for 'Valuation Sign-off'. Escalated to Amira Haddadin (Chief Financial Officer).","actor":"system","created_at":-50.0},{"id":67,"request_id":null,"type":"seed","detail":"Database seeded: 40 people, 5 departments, 14 processes.","actor":"system","created_at":0.0}],"settings":{"chase_after_hours":48,"chase_interval_hours":24,"max_chases":2}};
+/* Atlas engine — a faithful port of the Python prototype's logic.
+   Pure functions plus a small mutable store; no DOM access, so it can be
+   unit-tested in Node against the Python implementation. */
+(function (root) {
+  "use strict";
+
+  /* ---------------- rapidfuzz-compatible string similarity ---------------- */
+
+  // Longest common subsequence length — the basis of the Indel distance that
+  // rapidfuzz's ratio() normalises.
+  function lcsLength(a, b) {
+    const n = a.length, m = b.length;
+    if (!n || !m) return 0;
+    let prev = new Int32Array(m + 1), cur = new Int32Array(m + 1);
+    for (let i = 1; i <= n; i++) {
+      const ai = a.charCodeAt(i - 1);
+      for (let j = 1; j <= m; j++) {
+        cur[j] = ai === b.charCodeAt(j - 1)
+          ? prev[j - 1] + 1
+          : (cur[j - 1] > prev[j] ? cur[j - 1] : prev[j]);
+      }
+      const t = prev; prev = cur; cur = t; cur.fill(0);
+    }
+    return prev[m];
+  }
+
+  // fuzz.ratio: 100 * 2*LCS / (len1 + len2)
+  function ratio(a, b) {
+    if (!a.length && !b.length) return 100;
+    if (!a.length || !b.length) return 0;
+    return (200 * lcsLength(a, b)) / (a.length + b.length);
+  }
+
+  // fuzz.partial_ratio: best ratio of the shorter string against any window of
+  // the longer one.
+  function partialRatio(a, b) {
+    let shorter = a, longer = b;
+    if (a.length > b.length) { shorter = b; longer = a; }
+    const sl = shorter.length, ll = longer.length;
+    if (!sl || !ll) return 0;
+    if (sl === ll) return ratio(shorter, longer);
+    let best = 0;
+    for (let start = 0; start + sl <= ll; start++) {
+      const r = ratio(shorter, longer.substr(start, sl));
+      if (r > best) best = r;
+      if (best === 100) break;
+    }
+    // Ragged ends: also try windows that overhang either edge.
+    for (let len = 1; len < sl; len++) {
+      best = Math.max(best, ratio(shorter, longer.substr(0, len)),
+                            ratio(shorter, longer.substr(ll - len, len)));
+    }
+    return best;
+  }
+
+  function splitTokens(s) { return s.split(/\s+/).filter(Boolean); }
+
+  // fuzz.token_set_ratio
+  function tokenSetRatio(a, b) {
+    const t1 = Array.from(new Set(splitTokens(a))).sort();
+    const t2 = Array.from(new Set(splitTokens(b))).sort();
+    const set2 = new Set(t2), set1 = new Set(t1);
+    const inter = t1.filter(t => set2.has(t));
+    const d1 = t1.filter(t => !set2.has(t));
+    const d2 = t2.filter(t => !set1.has(t));
+    const si = inter.join(" ");
+    const s1 = (si + " " + d1.join(" ")).trim();
+    const s2 = (si + " " + d2.join(" ")).trim();
+    if (!si) return ratio(s1, s2);
+    return Math.max(ratio(si, s1), ratio(si, s2), ratio(s1, s2));
+  }
+
+  /* ------------------------------ matching ------------------------------- */
+
+  const STOPWORDS = new Set(("a an and are as at be can could do does for from get getting give has " +
+    "have help how i if in is it just like me my need needs of on or our please so someone that the " +
+    "their there this to up want was we what when which who will with would you your").split(" "));
+
+  const TOKEN_RE = /[a-z0-9]+/g;
+
+  function tokenize(text) {
+    const out = [];
+    const matches = String(text || "").toLowerCase().match(TOKEN_RE) || [];
+    for (const t of matches) if (!STOPWORDS.has(t) && t.length > 1) out.push(t);
+    return out;
+  }
+
+  const WEIGHTS = { keywords: 0.45, name: 0.20, tfidf: 0.25, description: 0.10 };
+
+  function tf(tokens) {
+    const counts = new Map();
+    for (const t of tokens) counts.set(t, (counts.get(t) || 0) + 1);
+    const total = tokens.length || 1;
+    const out = new Map();
+    for (const [k, v] of counts) out.set(k, v / total);
+    return out;
+  }
+
+  function cosine(a, b) {
+    if (!a.size || !b.size) return 0;
+    let dot = 0, na = 0, nb = 0;
+    for (const [k, v] of a) { na += v * v; const w = b.get(k); if (w !== undefined) dot += v * w; }
+    for (const v of b.values()) nb += v * v;
+    if (!na || !nb) return 0;
+    return dot / (Math.sqrt(na) * Math.sqrt(nb));
+  }
+
+  function wordMatches(word, queryTokens) {
+    for (const token of queryTokens) {
+      if (token === word) return true;
+      if (ratio(word, token) >= 88) return true;
+      const shorter = word.length <= token.length ? word : token;
+      const longer = word.length <= token.length ? token : word;
+      if (shorter.length >= 4 && longer.startsWith(shorter)) return true;
+    }
+    return false;
+  }
+
+  function keywordHits(query, queryTokens, keywords) {
+    const lowered = query.toLowerCase();
+    const hits = [], seen = new Set();
+    for (const keyword of keywords) {
+      const kw = keyword.trim().toLowerCase();
+      if (!kw) continue;
+      let hit = false;
+      if (lowered.includes(kw)) {
+        hit = true;
+      } else {
+        const words = (kw.match(TOKEN_RE) || []).filter(w => w.length > 1);
+        if (!words.length) continue;
+        if (words.length > 1) {
+          if (partialRatio(kw, lowered) >= 92) hit = true;
+          else {
+            let covered = 0;
+            for (const w of words) if (wordMatches(w, queryTokens)) covered++;
+            if (covered / words.length >= 0.75) hit = true;
+          }
+        } else if (wordMatches(words[0], queryTokens)) {
+          hit = true;
+        }
+      }
+      if (hit && !seen.has(kw)) { seen.add(kw); hits.push(keyword); }
+    }
+    return hits;
+  }
+
+  function keywordList(process) {
+    return (process.keywords || "").split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+  }
+
+  function corpusFor(p) {
+    return [p.name, p.category || "", p.keywords || "", p.description || ""].join(" ");
+  }
+
+  function confidenceLabel(c) {
+    if (c >= 70) return "High confidence";
+    if (c >= 45) return "Likely";
+    if (c >= 25) return "Weak";
+    return "No usable match";
+  }
+
+  function matchProcesses(processes, query, limit) {
+    limit = limit || 3;
+    query = String(query || "").trim();
+    const ordered = processes.slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (!query || !ordered.length) return [];
+
+    const queryTokens = tokenize(query);
+    const queryTf = tf(queryTokens);
+
+    const docTokens = new Map();
+    for (const p of ordered) docTokens.set(p.id, tokenize(corpusFor(p)));
+    const docCount = ordered.length;
+    const df = new Map();
+    for (const tokens of docTokens.values())
+      for (const t of new Set(tokens)) df.set(t, (df.get(t) || 0) + 1);
+    const idf = new Map();
+    for (const [t, n] of df) idf.set(t, Math.log((1 + docCount) / (1 + n)) + 1);
+
+    const queryVec = new Map();
+    for (const [t, v] of queryTf) queryVec.set(t, v * (idf.get(t) === undefined ? 1 : idf.get(t)));
+
+    const lowerQuery = query.toLowerCase();
+    const matches = ordered.map(process => {
+      const hits = keywordHits(query, queryTokens, keywordList(process));
+      const keywordScore = hits.length ? Math.min(1, hits.length / 3) : 0;
+      const nameScore = tokenSetRatio(lowerQuery, process.name.toLowerCase()) / 100;
+      const descScore = tokenSetRatio(lowerQuery, (process.description || "").toLowerCase()) / 100;
+
+      const docTf = tf(docTokens.get(process.id));
+      const docVec = new Map();
+      for (const [t, v] of docTf) docVec.set(t, v * (idf.get(t) === undefined ? 1 : idf.get(t)));
+      const tfidfScore = cosine(queryVec, docVec);
+
+      const signals = { keywords: keywordScore, name: nameScore, tfidf: tfidfScore, description: descScore };
+      let raw = 0;
+      for (const k of Object.keys(WEIGHTS)) raw += WEIGHTS[k] * signals[k];
+      const confidence = Math.max(0, Math.min(100, ((raw - 0.12) / 0.72) * 100));
+
+      return {
+        process_id: process.id, process_name: process.name,
+        category: process.category || "General",
+        confidence: Math.round(confidence * 10) / 10,
+        matched_keywords: hits, signals,
+        confidence_label: confidenceLabel(confidence),
+      };
+    });
+
+    matches.sort((a, b) =>
+      b.confidence - a.confidence || b.matched_keywords.length - a.matched_keywords.length);
+    return matches.slice(0, limit);
+  }
+
+  function why(match) {
+    const bits = [];
+    if (match.matched_keywords.length) {
+      const shown = match.matched_keywords.slice(0, 4).map(k => `'${k}'`).join(", ");
+      bits.push(`matched ${match.matched_keywords.length} keyword(s): ${shown}`);
+    }
+    if (match.signals.name >= 0.5) bits.push(`process name similarity ${Math.round(match.signals.name * 100)}%`);
+    if (match.signals.tfidf >= 0.15) bits.push(`term-overlap score ${Math.round(match.signals.tfidf * 100)}%`);
+    if (match.signals.description >= 0.5) bits.push(`description similarity ${Math.round(match.signals.description * 100)}%`);
+    if (!bits.length) return "Nothing in the request text lined up with a known process.";
+    const joined = bits.join("; ");
+    return joined.charAt(0).toUpperCase() + joined.slice(1) + ".";
+  }
+
+  root.AtlasFuzz = { ratio, partialRatio, tokenSetRatio, tokenize };
+  root.AtlasMatch = { matchProcesses, why, keywordList, confidenceLabel };
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { ...root.AtlasFuzz, ...root.AtlasMatch };
+  }
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+/* ==================== state, clock, routing, agent, analytics ============= */
+(function (root) {
+  "use strict";
+  const HOUR = 3600000;
+  const OPEN_STATUSES = ["pending", "acknowledged", "in_progress", "escalated"];
+  const STATUS_LABELS = {
+    pending: "Pending", acknowledged: "Acknowledged", in_progress: "In progress",
+    completed: "Completed", escalated: "Escalated",
+  };
+  const AGENT_ACTOR = "atlas-agent";
+
+  /* ------------------------------- state -------------------------------- */
+
+  function hydrate(seed, baseMs) {
+    const abs = h => (h === null || h === undefined) ? null : Math.round(baseMs + h * HOUR);
+    const st = {
+      base: baseMs,
+      clockOffsetMs: 0,
+      departments: seed.departments.map(d => ({ ...d })),
+      people: seed.people.map(p => ({ ...p, ooo_until: abs(p.ooo_until) })),
+      processes: seed.processes.map(p => ({ ...p })),
+      responsibilities: seed.responsibilities.map(r => ({ ...r })),
+      requests: seed.requests.map(r => ({
+        ...r,
+        created_at: abs(r.created_at), updated_at: abs(r.updated_at),
+        last_action_at: abs(r.last_action_at), acknowledged_at: abs(r.acknowledged_at),
+        completed_at: abs(r.completed_at),
+      })),
+      messages: seed.messages.map(m => ({ ...m, created_at: abs(m.created_at) })),
+      events: seed.events.map(e => ({ ...e, created_at: abs(e.created_at) })),
+      settings: { ...seed.settings },
+    };
+    st.nextId = {
+      request: Math.max(0, ...st.requests.map(r => r.id)) + 1,
+      message: Math.max(0, ...st.messages.map(m => m.id)) + 1,
+      event: Math.max(0, ...st.events.map(e => e.id)) + 1,
+    };
+    return st;
+  }
+
+  const byId = (list, id) => list.find(x => x.id === id) || null;
+  const person = (st, id) => byId(st.people, id);
+  const process_ = (st, id) => byId(st.processes, id);
+  const request = (st, id) => byId(st.requests, id);
+  const department = (st, id) => byId(st.departments, id);
+
+  /* ------------------------------- clock -------------------------------- */
+
+  function now(st) { return Date.now() + st.clockOffsetMs; }
+  function advance(st, hours) { st.clockOffsetMs += hours * HOUR; return now(st); }
+  function resetClock(st) { st.clockOffsetMs = 0; return now(st); }
+  function offsetHours(st) { return Math.round((st.clockOffsetMs / HOUR) * 100) / 100; }
+
+  /* ------------------------------ routing ------------------------------- */
+
+  function isOutOfOffice(p, at) {
+    if (!p || !p.is_ooo) return false;
+    if (p.ooo_until === null || p.ooo_until === undefined) return true;
+    return p.ooo_until >= at;
+  }
+
+  function holders(st, processId, role) {
+    return st.responsibilities
+      .filter(r => r.process_id === processId && r.role === role)
+      .map(r => person(st, r.person_id))
+      .filter(Boolean);
+  }
+
+  function firstHolder(st, processId, role) {
+    const list = holders(st, processId, role);
+    return list.length ? list[0] : null;
+  }
+
+  function fmtDate(ms) {
+    if (ms === null || ms === undefined) return "—";
+    const d = new Date(ms);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${String(d.getDate()).padStart(2,"0")} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  function resolve(st, proc, at) {
+    if (at === undefined) at = now(st);
+    if (!proc) {
+      return {
+        process_id: null, process_name: "Unmatched request", assignee_id: null,
+        assignee_name: null, assignee_role: null, owner_id: null, owner_name: null,
+        rerouted: false, needs_admin: true,
+        steps: [{ label: "Process match", outcome: "fail",
+          detail: "The request text did not match a known process, so no owner could be looked up." }],
+      };
+    }
+    const res = {
+      process_id: proc.id, process_name: proc.name, assignee_id: null, assignee_name: null,
+      assignee_role: null, owner_id: null, owner_name: null, rerouted: false,
+      needs_admin: false, steps: [],
+    };
+    res.steps.push({ label: "Process match", outcome: "ok",
+      detail: `Resolved to '${proc.name}' (${proc.category}).` });
+
+    const owner = firstHolder(st, proc.id, "owner");
+    if (!owner) {
+      res.needs_admin = true;
+      res.steps.push({ label: "Owner lookup", outcome: "fail",
+        detail: `'${proc.name}' is an orphan process — no owner edge exists in the responsibility ` +
+                `graph. Flagged for the Atlas admin to assign an owner.` });
+      return res;
+    }
+    res.owner_id = owner.id; res.owner_name = owner.name;
+    res.steps.push({ label: "Owner lookup", outcome: "ok",
+      detail: `${owner.name} (${owner.title}) owns this process.`,
+      person_id: owner.id, person_name: owner.name });
+
+    if (!isOutOfOffice(owner, at)) {
+      res.steps.push({ label: "Availability check", outcome: "ok",
+        detail: `${owner.name} is available.`, person_id: owner.id, person_name: owner.name });
+      res.assignee_id = owner.id; res.assignee_name = owner.name; res.assignee_role = "owner";
+      return res;
+    }
+
+    res.rerouted = true;
+    res.steps.push({ label: "Availability check", outcome: "warn",
+      detail: `${owner.name} is out of office until ${fmtDate(owner.ooo_until)}. ` +
+              `Applying out-of-office failover.`,
+      person_id: owner.id, person_name: owner.name });
+
+    for (const role of ["delegate", "backup"]) {
+      const cap = role.charAt(0).toUpperCase() + role.slice(1);
+      const candidate = firstHolder(st, proc.id, role);
+      if (!candidate) {
+        res.steps.push({ label: `${cap} lookup`, outcome: "warn",
+          detail: `No ${role} is configured for '${proc.name}'.` });
+        continue;
+      }
+      if (isOutOfOffice(candidate, at)) {
+        res.steps.push({ label: `${cap} lookup`, outcome: "warn",
+          detail: `${candidate.name} is the configured ${role} but is also out of office ` +
+                  `until ${fmtDate(candidate.ooo_until)}.`,
+          person_id: candidate.id, person_name: candidate.name });
+        continue;
+      }
+      res.steps.push({ label: `${cap} lookup`, outcome: "ok",
+        detail: `${candidate.name} (${candidate.title}) is the configured ${role} and is available.`,
+        person_id: candidate.id, person_name: candidate.name });
+      res.assignee_id = candidate.id; res.assignee_name = candidate.name; res.assignee_role = role;
+      return res;
+    }
+
+    const manager = owner.manager_id ? person(st, owner.manager_id) : null;
+    if (manager && !isOutOfOffice(manager, at)) {
+      res.steps.push({ label: "Manager fallback", outcome: "warn",
+        detail: `No available delegate or backup. Routing to ${owner.name}'s manager, ` +
+                `${manager.name} (${manager.title}). This process is a single point of failure.`,
+        person_id: manager.id, person_name: manager.name });
+      res.assignee_id = manager.id; res.assignee_name = manager.name; res.assignee_role = "manager";
+      return res;
+    }
+
+    res.needs_admin = true;
+    res.steps.push({ label: "Escalation", outcome: "fail",
+      detail: `Owner, delegate, backup and manager are all unavailable for '${proc.name}'. ` +
+              `Flagged for the Atlas admin.` });
+    return res;
+  }
+
+  function resolutionSummary(res) {
+    if (res.needs_admin) return `No owner configured for '${res.process_name}' — flagged for the Atlas admin.`;
+    if (res.rerouted) return `${res.owner_name} is out of office; routed to ${res.assignee_name} as ${res.assignee_role}.`;
+    return `Routed to ${res.assignee_name}, the accountable owner of '${res.process_name}'.`;
+  }
+
+  function coverFor(st, processId, personId, at) {
+    for (const role of ["delegate", "backup"]) {
+      for (const candidate of holders(st, processId, role)) {
+        if (candidate.id === personId) continue;
+        if (!isOutOfOffice(candidate, at)) return candidate;
+      }
+    }
+    return null;
+  }
+
+  root.AtlasCore = {
+    HOUR, OPEN_STATUSES, STATUS_LABELS, AGENT_ACTOR,
+    hydrate, person, process_, request, department, byId,
+    now, advance, resetClock, offsetHours,
+    isOutOfOffice, holders, firstHolder, resolve, resolutionSummary, coverFor, fmtDate,
+  };
+  if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, root.AtlasCore);
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+/* ======================= services, agent rules, analytics ================= */
+(function (root) {
+  "use strict";
+  const C = root.AtlasCore;
+  const { HOUR, OPEN_STATUSES, AGENT_ACTOR } = C;
+
+  const hoursSince = (at, ref) => (at - ref) / HOUR;
+
+  function logEvent(st, requestId, type, detail, at, actor) {
+    const ev = { id: st.nextId.event++, request_id: requestId, type, detail,
+                 actor: actor || "system", created_at: at };
+    st.events.push(ev);
+    return ev;
+  }
+
+  function sendMessage(st, o) {
+    const msg = { id: st.nextId.message++, request_id: o.request_id, sender_id: o.sender_id,
+                  recipient_id: o.recipient_id, type: o.type, body: o.body,
+                  created_at: o.at, read: false };
+    st.messages.push(msg);
+    return msg;
+  }
+
+  function touch(req, at) { req.updated_at = at; req.last_action_at = at; }
+
+  /* ------------------------------ drafting ------------------------------ */
+
+  function draftBody(requester, proc, res, query) {
+    const target = res.assignee_name || "the Atlas admin";
+    const processName = proc ? proc.name : "an unmatched request";
+    const lines = [
+      `Hi ${res.assignee_name ? target.split(" ")[0] : "there"},`, "",
+      `${requester.name} (${requester.title}) has raised a request under ${processName}:`, "",
+      `    ${String(query).trim()}`, "",
+    ];
+    if (res.rerouted && res.owner_name) {
+      lines.push(`You are receiving this because ${res.owner_name} is out of office and you are ` +
+                 `the configured ${res.assignee_role} for this process.`);
+      lines.push("");
+    }
+    lines.push("Atlas will chase this automatically if it is not acknowledged.");
+    return lines.join("\n");
+  }
+
+  function suggestTitle(query, processName) {
+    const text = String(query || "").split(/\s+/).filter(Boolean).join(" ");
+    if (!text) return processName || "New request";
+    if (text.length <= 70) return text.replace(/[.!?]+$/, "");
+    return text.slice(0, 67).replace(/\s+\S*$/, "") + "...";
+  }
+
+  function findSimilarOpen(st, o) {
+    if (o.process_id === null || o.process_id === undefined) return [];
+    const threshold = 62;
+    const rows = st.requests
+      .filter(r => r.process_id === o.process_id && OPEN_STATUSES.includes(r.status))
+      .sort((a, b) => b.created_at - a.created_at);
+    const out = [];
+    for (const row of rows) {
+      let similarity = root.AtlasFuzz.tokenSetRatio(
+        String(o.title || "").toLowerCase(), String(row.title || "").toLowerCase());
+      let reason;
+      if (row.requester_id === o.requester_id) {
+        reason = "You already have an open request on this process.";
+        similarity = Math.max(similarity, threshold);
+      } else if (similarity >= threshold) {
+        reason = "An open request with very similar wording is already in flight.";
+      } else continue;
+      out.push({ request: row, similarity: Math.round(similarity * 10) / 10, reason });
+    }
+    out.sort((a, b) => b.similarity - a.similarity);
+    return out.slice(0, 3);
+  }
+
+  /* ------------------------------ lifecycle ----------------------------- */
+
+  function createRequest(st, o) {
+    const at = C.now(st);
+    const requester = C.person(st, o.requester_id);
+    const req = {
+      id: st.nextId.request++, requester_id: o.requester_id, process_id: o.process_id,
+      assignee_id: o.assignee_id, original_assignee_id: o.assignee_id,
+      title: (o.title || "").trim() || "New request", body: o.body, status: "pending",
+      created_at: at, updated_at: at, last_action_at: at, chase_count: 0,
+      acknowledged_at: null, completed_at: null,
+    };
+    st.requests.push(req);
+
+    const processName = o.resolution ? o.resolution.process_name : "an unmatched request";
+    logEvent(st, req.id, "created",
+      `${requester.name} raised a request under '${processName}'.`, at, requester.name);
+
+    if (o.resolution) {
+      for (const step of o.resolution.steps)
+        logEvent(st, req.id, "routing", `${step.label}: ${step.detail}`, at, "router");
+    }
+
+    if (o.assignee_id === null || o.assignee_id === undefined) {
+      logEvent(st, req.id, "orphan",
+        "No accountable person could be resolved. Request is parked for the Atlas admin.", at);
+    } else {
+      const assignee = C.person(st, o.assignee_id);
+      logEvent(st, req.id, "dispatch", `Dispatched to ${assignee.name} (${assignee.title}).`, at);
+      sendMessage(st, { request_id: req.id, sender_id: o.requester_id,
+        recipient_id: o.assignee_id, type: "dispatch", body: o.body, at });
+    }
+    return req;
+  }
+
+  function notifyRequester(st, req, body, at) {
+    sendMessage(st, { request_id: req.id, sender_id: req.assignee_id,
+      recipient_id: req.requester_id, type: "status_update", body, at });
+  }
+
+  function acknowledge(st, requestId, actorId) {
+    const at = C.now(st), req = C.request(st, requestId), actor = C.person(st, actorId);
+    if (req.status === "completed") return req;
+    if (req.acknowledged_at === null) req.acknowledged_at = at;
+    req.status = "acknowledged"; touch(req, at);
+    logEvent(st, req.id, "acknowledged", `${actor.name} acknowledged the request.`, at, actor.name);
+    notifyRequester(st, req, `${actor.name} has acknowledged '${req.title}'.`, at);
+    return req;
+  }
+
+  function startProgress(st, requestId, actorId) {
+    const at = C.now(st), req = C.request(st, requestId), actor = C.person(st, actorId);
+    if (req.status === "completed") return req;
+    if (req.acknowledged_at === null) req.acknowledged_at = at;
+    req.status = "in_progress"; touch(req, at);
+    logEvent(st, req.id, "status_update",
+      `${actor.name} moved the request to In progress.`, at, actor.name);
+    notifyRequester(st, req, `${actor.name} is working on '${req.title}'.`, at);
+    return req;
+  }
+
+  function complete(st, requestId, actorId, note) {
+    const at = C.now(st), req = C.request(st, requestId), actor = C.person(st, actorId);
+    if (req.status === "completed") return req;
+    if (req.acknowledged_at === null) req.acknowledged_at = at;
+    req.status = "completed"; req.completed_at = at; touch(req, at);
+    let detail = `${actor.name} completed the request.`;
+    if (note && note.trim()) detail += ` Note: ${note.trim()}`;
+    logEvent(st, req.id, "completed", detail, at, actor.name);
+    let body = `'${req.title}' has been completed by ${actor.name}.`;
+    if (note && note.trim()) body += `\n\n${note.trim()}`;
+    notifyRequester(st, req, body, at);
+    return req;
+  }
+
+  function addNote(st, requestId, actorId, note) {
+    const at = C.now(st), req = C.request(st, requestId), actor = C.person(st, actorId);
+    logEvent(st, req.id, "note", `${actor.name}: ${note.trim()}`, at, actor.name);
+    const recipientId = actorId === req.assignee_id ? req.requester_id : req.assignee_id;
+    if (recipientId) sendMessage(st, { request_id: req.id, sender_id: actorId,
+      recipient_id: recipientId, type: "status_update", body: note.trim(), at });
+    touch(req, at);
+    return req;
+  }
+
+  function followExisting(st, requestId, followerId) {
+    const at = C.now(st), req = C.request(st, requestId), follower = C.person(st, followerId);
+    logEvent(st, req.id, "follow",
+      `${follower.name} joined this request instead of raising a duplicate.`, at, follower.name);
+    if (req.assignee_id) sendMessage(st, { request_id: req.id, sender_id: followerId,
+      recipient_id: req.assignee_id, type: "status_update",
+      body: `${follower.name} is also waiting on this request.`, at });
+    touch(req, at);
+    return req;
+  }
+
+  function reassign(st, requestId, actorId, newAssigneeId, reason) {
+    const at = C.now(st), req = C.request(st, requestId), actor = C.person(st, actorId);
+    const newAssignee = C.person(st, newAssigneeId);
+    const previous = req.assignee_id ? C.person(st, req.assignee_id) : null;
+    req.assignee_id = newAssigneeId;
+    if (req.status === "escalated") req.status = "pending";
+    touch(req, at);
+    let detail = `${actor.name} reassigned the request ` +
+      `${previous ? "from " + previous.name + " " : ""}to ${newAssignee.name}.`;
+    if (reason && reason.trim()) detail += ` Reason: ${reason.trim()}`;
+    logEvent(st, req.id, "reroute", detail, at, actor.name);
+    sendMessage(st, { request_id: req.id, sender_id: actorId, recipient_id: newAssigneeId,
+      type: "reroute",
+      body: `'${req.title}' has been reassigned to you by ${actor.name}. ${(reason||"").trim()}`.trim(), at });
+    return req;
+  }
+
+  function markRead(st, personId, requestId) {
+    let n = 0;
+    for (const m of st.messages) {
+      if (m.recipient_id !== personId || m.read) continue;
+      if (requestId !== undefined && requestId !== null && m.request_id !== requestId) continue;
+      m.read = true; n++;
+    }
+    return n;
+  }
+
+  function setOoo(st, personId, isOoo, untilMs) {
+    const p = C.person(st, personId);
+    if (!p) return;
+    const at = C.now(st);
+    p.is_ooo = isOoo;
+    p.ooo_until = isOoo ? untilMs : null;
+    logEvent(st, null, "ooo_change",
+      `${p.name} marked ${isOoo ? "out of office" : "back in the office"}` +
+      (isOoo && untilMs ? ` until ${C.fmtDate(untilMs)}.` : "."), at, "demo");
+  }
+
+  /* -------------------------------- agent ------------------------------- */
+
+  function hasEvent(st, requestId, type) {
+    return st.events.some(e => e.request_id === requestId && e.type === type);
+  }
+
+  function ruleOooReroute(st, req, at) {
+    const assignee = req.assignee_id ? C.person(st, req.assignee_id) : null;
+    if (!assignee || !C.isOutOfOffice(assignee, at)) return 0;
+    if (req.process_id === null || req.process_id === undefined) return 0;
+
+    const cover = C.coverFor(st, req.process_id, assignee.id, at);
+    const proc = C.process_(st, req.process_id);
+    if (!cover) {
+      if (!hasEvent(st, req.id, "ooo_no_cover")) {
+        logEvent(st, req.id, "ooo_no_cover",
+          `${assignee.name} is out of office until ${C.fmtDate(assignee.ooo_until)} ` +
+          `and no available delegate or backup is configured for ` +
+          `'${proc ? proc.name : "this process"}'. ` +
+          `The request stays with them and will be chased.`, at, AGENT_ACTOR);
+        return 1;
+      }
+      return 0;
+    }
+    const note = `${assignee.name} was marked out of office until ` +
+      `${C.fmtDate(assignee.ooo_until)}. Rerouted to ${cover.name} (${cover.title}).`;
+    req.assignee_id = cover.id;
+    touch(req, at);
+    logEvent(st, req.id, "reroute_ooo", note, at, AGENT_ACTOR);
+    sendMessage(st, { request_id: req.id, sender_id: null, recipient_id: cover.id, type: "reroute",
+      body: `You are now covering '${req.title}'.\n\n${note}\n\n` +
+            `Atlas rerouted this automatically because you are the configured cover.`, at });
+    sendMessage(st, { request_id: req.id, sender_id: null, recipient_id: req.requester_id,
+      type: "status_update", body: `'${req.title}' was rerouted: ${note}`, at });
+    return 1;
+  }
+
+  function ruleChase(st, req, at, chaseAfter, interval, maxChases) {
+    if (req.status !== "pending" || req.assignee_id === null) return 0;
+    if (req.chase_count >= maxChases) return 0;
+    const threshold = req.chase_count === 0 ? chaseAfter : interval;
+    const elapsed = hoursSince(at, req.last_action_at);
+    if (elapsed < threshold) return 0;
+
+    const assignee = C.person(st, req.assignee_id);
+    req.chase_count += 1;
+    touch(req, at);
+    const final = req.chase_count >= maxChases;
+    const detail = `No acknowledgement after ${Math.floor(elapsed)}h — chase ` +
+      `${req.chase_count} of ${maxChases} sent to ${assignee.name}.` +
+      (final ? " This is the final reminder before escalation." : "");
+    logEvent(st, req.id, "chase", detail, at, AGENT_ACTOR);
+    sendMessage(st, { request_id: req.id, sender_id: null, recipient_id: assignee.id, type: "chase",
+      body: `Reminder ${req.chase_count} of ${maxChases}: '${req.title}' is still awaiting ` +
+            `your acknowledgement. It was raised ` +
+            `${Math.floor(hoursSince(at, req.created_at))}h ago.` +
+            (final ? " If it is not picked up it will be escalated." : ""), at });
+    return 1;
+  }
+
+  function ruleHandoverOrEscalate(st, req, at, interval, maxChases) {
+    if (req.status !== "pending" || req.assignee_id === null) return 0;
+    if (req.chase_count < maxChases) return 0;
+    if (hoursSince(at, req.last_action_at) < interval) return 0;
+
+    const assignee = C.person(st, req.assignee_id);
+    const proc = req.process_id ? C.process_(st, req.process_id) : null;
+    const procName = proc ? proc.name : "this process";
+    const alreadyRerouted = hasEvent(st, req.id, "reroute_chase");
+    const cover = (req.process_id && !alreadyRerouted)
+      ? C.coverFor(st, req.process_id, assignee.id, at) : null;
+
+    if (cover) {
+      const detail = `${maxChases} chases went unanswered by ${assignee.name}. Handed over to ` +
+        `${cover.name} (${cover.title}), the configured cover for '${procName}'. ` +
+        `One further chase will be sent before escalation.`;
+      req.assignee_id = cover.id;
+      req.chase_count = Math.max(0, maxChases - 1);
+      touch(req, at);
+      logEvent(st, req.id, "reroute_chase", detail, at, AGENT_ACTOR);
+      sendMessage(st, { request_id: req.id, sender_id: null, recipient_id: cover.id,
+        type: "reroute", body: `'${req.title}' has been handed over to you.\n\n${detail}`, at });
+      sendMessage(st, { request_id: req.id, sender_id: null, recipient_id: req.requester_id,
+        type: "status_update", body: `'${req.title}' was rerouted: ${detail}`, at });
+      return 1;
+    }
+
+    const manager = assignee.manager_id ? C.person(st, assignee.manager_id) : null;
+    if (!manager) {
+      if (!hasEvent(st, req.id, "escalation_blocked")) {
+        logEvent(st, req.id, "escalation_blocked",
+          `${assignee.name} has no manager on record and no cover is configured, so this ` +
+          `request cannot be escalated automatically. Flagged for the Atlas admin.`, at, AGENT_ACTOR);
+        return 1;
+      }
+      return 0;
+    }
+
+    const reason = !alreadyRerouted ? "no cover is configured" : "the cover did not respond either";
+    const detail = `${maxChases} chases went unanswered and ${reason} for '${procName}'. ` +
+      `Escalated to ${manager.name} (${manager.title}).`;
+    req.status = "escalated";
+    req.assignee_id = manager.id;
+    touch(req, at);
+    logEvent(st, req.id, "escalation", detail, at, AGENT_ACTOR);
+    sendMessage(st, { request_id: req.id, sender_id: null, recipient_id: manager.id,
+      type: "escalation",
+      body: `Escalation: '${req.title}'.\n\n${detail}\n\nIt is now assigned to you.`, at });
+    sendMessage(st, { request_id: req.id, sender_id: null, recipient_id: req.requester_id,
+      type: "escalation",
+      body: `Your request '${req.title}' has been escalated to ${manager.name}. ${detail}`, at });
+    return 1;
+  }
+
+  function tick(st) {
+    const at = C.now(st);
+    const chaseAfter = st.settings.chase_after_hours;
+    const interval = st.settings.chase_interval_hours;
+    const maxChases = st.settings.max_chases;
+    let actions = 0;
+    const open = st.requests
+      .filter(r => OPEN_STATUSES.includes(r.status))
+      .sort((a, b) => a.id - b.id);
+    for (const req of open) {
+      if (req.status === "escalated") continue;
+      actions += ruleOooReroute(st, req, at);
+      actions += ruleChase(st, req, at, chaseAfter, interval, maxChases);
+      actions += ruleHandoverOrEscalate(st, req, at, interval, maxChases);
+    }
+    st.lastTickAt = at;
+    st.lastTickActions = actions;
+    return actions;
+  }
+
+  function runUntilSettled(st, maxPasses) {
+    let total = 0;
+    for (let i = 0; i < (maxPasses || 6); i++) {
+      const fired = tick(st);
+      total += fired;
+      if (!fired) break;
+    }
+    return total;
+  }
+
+  root.AtlasServices = {
+    logEvent, sendMessage, draftBody, suggestTitle, findSimilarOpen, createRequest,
+    acknowledge, startProgress, complete, addNote, followExisting, reassign, markRead, setOoo,
+    tick, runUntilSettled, hoursSince,
+  };
+  if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, root.AtlasServices);
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+/* ================================ analytics ============================== */
+(function (root) {
+  "use strict";
+  const C = root.AtlasCore;
+  const { HOUR, OPEN_STATUSES, STATUS_LABELS } = C;
+
+  const isOpen = r => OPEN_STATUSES.includes(r.status);
+  const hrs = (a, b) => (a - b) / HOUR;
+
+  function departmentName(st, p) {
+    if (!p) return "Unassigned";
+    if (p.department_id === null || p.department_id === undefined) return "Executive";
+    const d = C.department(st, p.department_id);
+    return d ? d.name : "Unassigned";
+  }
+
+  function headline(st) {
+    const at = C.now(st);
+    const reqs = st.requests;
+    const open = reqs.filter(isOpen);
+    const escalatedIds = new Set(st.events.filter(e => e.type === "escalation" && e.request_id)
+                                          .map(e => e.request_id));
+    const ack = reqs.filter(r => r.acknowledged_at).map(r => hrs(r.acknowledged_at, r.created_at));
+    const cycle = reqs.filter(r => r.completed_at).map(r => hrs(r.completed_at, r.created_at));
+    const waiting = open.map(r => hrs(at, r.created_at));
+    const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    return {
+      total_requests: reqs.length,
+      open_requests: open.length,
+      completed_requests: reqs.filter(r => r.status === "completed").length,
+      escalated_requests: escalatedIds.size,
+      escalation_rate: reqs.length ? (escalatedIds.size / reqs.length) * 100 : 0,
+      avg_ack_hours: mean(ack), avg_cycle_hours: mean(cycle), avg_queue_hours: mean(waiting),
+      oldest_open_hours: waiting.length ? Math.max(...waiting) : 0,
+    };
+  }
+
+  function byStatus(st) {
+    const order = ["pending", "acknowledged", "in_progress", "escalated", "completed"];
+    const counts = {};
+    for (const r of st.requests) counts[r.status] = (counts[r.status] || 0) + 1;
+    return order.map(s => ({ key: s, status: STATUS_LABELS[s], count: counts[s] || 0 }));
+  }
+
+  function openByDepartment(st) {
+    const counts = new Map();
+    for (const r of st.requests.filter(isOpen)) {
+      const dept = departmentName(st, r.assignee_id ? C.person(st, r.assignee_id) : null);
+      const row = counts.get(dept) || { department: dept, count: 0, escalated: 0 };
+      row.count++;
+      if (r.status === "escalated") row.escalated++;
+      counts.set(dept, row);
+    }
+    return Array.from(counts.values()).sort((a, b) => b.count - a.count || a.department.localeCompare(b.department));
+  }
+
+  function turnaroundByDepartment(st) {
+    const ack = new Map(), cycle = new Map();
+    const push = (m, k, v) => { if (!m.has(k)) m.set(k, []); m.get(k).push(v); };
+    for (const r of st.requests) {
+      const dept = departmentName(st, r.assignee_id ? C.person(st, r.assignee_id) : null);
+      if (r.acknowledged_at) push(ack, dept, hrs(r.acknowledged_at, r.created_at));
+      if (r.completed_at) push(cycle, dept, hrs(r.completed_at, r.created_at));
+    }
+    const depts = Array.from(new Set([...ack.keys(), ...cycle.keys()])).sort();
+    const mean = a => (a && a.length) ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    return depts.map(d => ({
+      department: d,
+      avg_ack_hours: Math.round(mean(ack.get(d)) * 10) / 10,
+      avg_complete_hours: Math.round(mean(cycle.get(d)) * 10) / 10,
+      sample: Math.max((ack.get(d) || []).length, (cycle.get(d) || []).length),
+    }));
+  }
+
+  function orphanProcesses(st) {
+    const owned = new Set(st.responsibilities.filter(r => r.role === "owner").map(r => r.process_id));
+    return st.processes.slice().sort((a, b) => a.name.localeCompare(b.name))
+      .filter(p => !owned.has(p.id))
+      .map(p => ({
+        process: p.name, category: p.category,
+        open_requests: st.requests.filter(r => r.process_id === p.id && isOpen(r)).length,
+        other_roles: Array.from(new Set(st.responsibilities.filter(r => r.process_id === p.id)
+          .map(r => r.role))).sort().join(", ") || "none",
+      }));
+  }
+
+  function singlePointsOfFailure(st, threshold) {
+    threshold = threshold === undefined ? 2 : threshold;
+    const at = C.now(st);
+    const byPerson = new Map();
+    for (const row of st.responsibilities) {
+      if (!byPerson.has(row.person_id)) byPerson.set(row.person_id, {});
+      const roles = byPerson.get(row.person_id);
+      (roles[row.role] = roles[row.role] || []).push(C.process_(st, row.process_id));
+    }
+    const rows = [];
+    for (const [personId, roles] of byPerson) {
+      const p = C.person(st, personId);
+      if (!p) continue;
+      const owns = roles.owner || [], approves = roles.approver || [];
+      if (owns.length + approves.length < threshold) continue;
+      const uncovered = [];
+      for (const proc of owns) {
+        const covers = st.responsibilities.filter(r => r.process_id === proc.id &&
+          (r.role === "delegate" || r.role === "backup") && r.person_id !== personId)
+          .map(r => C.person(st, r.person_id));
+        if (!covers.some(c => c && !C.isOutOfOffice(c, at))) uncovered.push(proc.name);
+      }
+      rows.push({
+        person: p.name, title: p.title, department: departmentName(st, p),
+        owns: owns.length, approves: approves.length, uncovered: uncovered.sort(),
+        open_load: st.requests.filter(r => r.assignee_id === personId && isOpen(r)).length,
+        is_ooo: C.isOutOfOffice(p, at),
+      });
+    }
+    rows.sort((a, b) => b.uncovered.length - a.uncovered.length ||
+      (b.owns + b.approves) - (a.owns + a.approves) || b.open_load - a.open_load);
+    return rows;
+  }
+
+  function bottlenecks(st, limit) {
+    const at = C.now(st);
+    const rows = new Map();
+    for (const r of st.requests.filter(isOpen)) {
+      if (!r.assignee_id) continue;
+      if (!rows.has(r.assignee_id)) rows.set(r.assignee_id, { open: 0, waits: [] });
+      const e = rows.get(r.assignee_id);
+      e.open++; e.waits.push(hrs(at, r.created_at));
+    }
+    const out = [];
+    for (const [pid, e] of rows) {
+      const p = C.person(st, pid);
+      if (!p) continue;
+      out.push({
+        person: p.name, title: p.title, department: departmentName(st, p), open: e.open,
+        avg_wait_hours: Math.round((e.waits.reduce((x, y) => x + y, 0) / e.waits.length) * 10) / 10,
+        oldest_wait_hours: Math.round(Math.max(...e.waits) * 10) / 10,
+        is_ooo: C.isOutOfOffice(p, at),
+      });
+    }
+    out.sort((a, b) => b.open - a.open || b.oldest_wait_hours - a.oldest_wait_hours);
+    return out.slice(0, limit || 8);
+  }
+
+  function queueAges(st) {
+    const at = C.now(st);
+    return st.requests.filter(isOpen).map(r => {
+      const a = r.assignee_id ? C.person(st, r.assignee_id) : null;
+      return {
+        id: r.id, title: r.title, status: STATUS_LABELS[r.status],
+        department: departmentName(st, a), assignee: a ? a.name : "Unassigned",
+        age_hours: Math.round(hrs(at, r.created_at) * 10) / 10, chases: r.chase_count,
+      };
+    }).sort((a, b) => b.age_hours - a.age_hours);
+  }
+
+  function processStats(st, processId) {
+    const reqs = st.requests.filter(r => r.process_id === processId);
+    const done = reqs.filter(r => r.completed_at);
+    const t = done.map(r => hrs(r.completed_at, r.created_at));
+    return {
+      total: reqs.length, open: reqs.filter(isOpen).length, completed: done.length,
+      avg_turnaround_hours: t.length ? Math.round((t.reduce((x, y) => x + y, 0) / t.length) * 10) / 10 : null,
+    };
+  }
+
+  function personStats(st, personId) {
+    const handled = st.requests.filter(r => r.assignee_id === personId);
+    const done = handled.filter(r => r.completed_at);
+    const t = done.map(r => hrs(r.completed_at, r.created_at));
+    const a = handled.filter(r => r.acknowledged_at).map(r => hrs(r.acknowledged_at, r.created_at));
+    const mean = arr => arr.length ? Math.round((arr.reduce((x, y) => x + y, 0) / arr.length) * 10) / 10 : null;
+    return {
+      open_load: handled.filter(isOpen).length, completed: done.length,
+      avg_turnaround_hours: mean(t), avg_ack_hours: mean(a),
+    };
+  }
+
+  function responsibilitiesOf(st, personId) {
+    const grouped = { owner: [], approver: [], delegate: [], backup: [] };
+    for (const row of st.responsibilities.filter(r => r.person_id === personId)) {
+      const p = C.process_(st, row.process_id);
+      if (p) (grouped[row.role] = grouped[row.role] || []).push(p);
+    }
+    for (const k of Object.keys(grouped)) grouped[k].sort((a, b) => a.name.localeCompare(b.name));
+    return grouped;
+  }
+
+  function responsibilityGraph(st, dept) {
+    const nodes = [], edges = [];
+    for (const p of st.processes.slice().sort((a, b) => a.name.localeCompare(b.name)))
+      nodes.push({ id: "p" + p.id, label: p.name, kind: "process", group: p.category });
+    const peopleIds = Array.from(new Set(st.responsibilities.map(r => r.person_id))).sort((a, b) => a - b);
+    for (const pid of peopleIds) {
+      const p = C.person(st, pid);
+      if (!p) continue;
+      const d = departmentName(st, p);
+      if (dept && d !== dept) continue;
+      nodes.push({ id: "h" + p.id, label: p.name, kind: "person", group: d });
+    }
+    const ids = new Set(nodes.map(n => n.id));
+    for (const row of st.responsibilities) {
+      const s = "h" + row.person_id, t = "p" + row.process_id;
+      if (ids.has(s) && ids.has(t)) edges.push({ source: s, target: t, role: row.role });
+    }
+    return { nodes, edges };
+  }
+
+  root.AtlasAnalytics = {
+    headline, byStatus, openByDepartment, turnaroundByDepartment, orphanProcesses,
+    singlePointsOfFailure, bottlenecks, queueAges, processStats, personStats,
+    responsibilitiesOf, responsibilityGraph, departmentName, isOpen,
+  };
+  if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, root.AtlasAnalytics);
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+/* Flatten the namespaces onto the global object so browser code sees exactly
+   the same flat surface that `require()` gives the Node tests. */
+(function (root) {
+  Object.assign(root, root.AtlasFuzz, root.AtlasMatch, root.AtlasCore,
+                root.AtlasServices, root.AtlasAnalytics);
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+/* Atlas preview UI. All logic lives in the engine above; this file only
+   renders it and wires the controls. State is per-viewer, in localStorage. */
+(function () {
+  "use strict";
+  const E = globalThis;
+  const HOUR = E.HOUR || 3600000;
+  const STORE = "atlas.preview.v1";
+
+  let S = null;                      // engine state
+  let UI = { actor: null, page: "intake", tab: {}, open: null, query: "", override: null,
+             sent: null, person: null, process: null, filter: "Autonomous actions",
+             search: "", dept: "All departments", flash: null };
+
+  /* ------------------------------- storage ------------------------------ */
+
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify({ s: S, ui: UI })); }
+    catch (err) { /* private mode, quota, blocked storage - run in memory */ }
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.s || !parsed.s.people) return false;
+      S = parsed.s;
+      UI = Object.assign(UI, parsed.ui || {});
+      return true;
+    } catch (err) { return false; }
+  }
+  function reseed() {
+    S = E.hydrate(SEED, Date.now());
+    UI.actor = (S.people.find(p => p.name === "Noura Al-Sabah") || S.people[0]).id;
+    UI.open = UI.sent = UI.person = UI.process = null;
+    UI.query = ""; UI.override = null; UI.tab = {};
+    E.runUntilSettled(S);
+    save();
+  }
+
+  /* ------------------------------- helpers ------------------------------ */
+
+  const esc = s => String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const person = id => E.person(S, id);
+  const actor = () => person(UI.actor) || S.people[0];
+  const now = () => E.now(S);
+
+  function fmtTime(ms) {
+    if (ms === null || ms === undefined) return "—";
+    const d = new Date(ms);
+    const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const p2 = n => String(n).padStart(2, "0");
+    return `${p2(d.getDate())} ${M[d.getMonth()]} ${d.getFullYear()}, ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  }
+  function human(ms) {
+    if (ms === null || ms === undefined) return "—";
+    const sign = ms < 0 ? "-" : "";
+    let s = Math.floor(Math.abs(ms) / 1000);
+    const d = Math.floor(s / 86400); s -= d * 86400;
+    const h = Math.floor(s / 3600); s -= h * 3600;
+    const m = Math.floor(s / 60);
+    if (d) return `${sign}${d}d ${h}h`;
+    if (h) return `${sign}${h}h ${m}m`;
+    return `${sign}${m}m`;
+  }
+  const ago = ms => human(now() - ms) + " ago";
+  const badge = (t, k) => `<span class="b ${k || "mute"}">${esc(t)}</span>`;
+  const statusBadge = s => `<span class="b ${s}">${esc(E.STATUS_LABELS[s] || s)}</span>`;
+  const tile = (l, v, s, tone) => `<div class="tile ${tone || ""}"><div class="l">${esc(l)}</div>
+    <div class="v">${esc(v)}</div><div class="s">${esc(s || "")}</div></div>`;
+  const empty = (b, h2) => `<div class="empty"><div class="big">${esc(b)}</div>
+    <div>${esc(h2 || "")}</div></div>`;
+  const phead = (e, t, s) => `<div class="phead"><div class="eyebrow">${esc(e)}</div>
+    <h1>${esc(t)}</h1><p>${esc(s || "")}</p></div>`;
+
+  const EVENT_LABELS = {
+    created:"Request raised", routing:"Routing", dispatch:"Dispatched", chase:"Chase sent",
+    escalation:"Escalated", escalation_blocked:"Escalation blocked", reroute:"Reassigned",
+    reroute_ooo:"Rerouted — out of office", reroute_chase:"Rerouted — no response",
+    ooo_no_cover:"No cover available", acknowledged:"Acknowledged", status_update:"Status update",
+    completed:"Completed", note:"Note", follow:"Follower joined", orphan:"No owner",
+    ooo_change:"Out-of-office change", seed:"Database seeded",
+  };
+  const AGENT_TYPES = new Set(["chase","escalation","reroute_ooo","reroute_chase",
+                               "ooo_no_cover","escalation_blocked"]);
+  const ALERT_TYPES = new Set(["escalation","escalation_blocked","orphan"]);
+
+  function trail(events) {
+    if (!events.length) return empty("Nothing has happened yet.",
+      "Events appear here as the request moves.");
+    return `<div class="trail">` + events.map(e => {
+      let cls = "node";
+      if (ALERT_TYPES.has(e.type)) cls += " fail";
+      else if (e.actor === E.AGENT_ACTOR || AGENT_TYPES.has(e.type)) cls += " agent";
+      else cls += " ok";
+      const label = EVENT_LABELS[e.type] ||
+        e.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      return `<div class="${cls}">
+        <div class="w mono">${esc(fmtTime(e.created_at))} · <span class="who">${esc(e.actor)}</span></div>
+        <div class="d"><span class="k">${esc(label)}</span> — ${esc(e.detail)}</div></div>`;
+    }).join("") + `</div>`;
+  }
+
+  function timelineOf(id) {
+    return S.events.filter(e => e.request_id === id)
+      .sort((a, b) => a.created_at - b.created_at || a.id - b.id);
+  }
+  const unreadFor = id => S.messages.filter(m => m.recipient_id === id && !m.read).length;
+
+  /* --------------------------------- rail ------------------------------- */
+
+  function railHTML() {
+    const me = actor();
+    const at = now();
+    const people = S.people.slice().sort((a, b) => a.name.localeCompare(b.name));
+    const opt = p => `<option value="${p.id}"${p.id === UI.actor ? " selected" : ""}>` +
+      `${esc(p.name)} — ${esc(p.title)}${E.isOutOfOffice(p, at) ? "  (OOO)" : ""}</option>`;
+    const unread = unreadFor(UI.actor);
+    const oooTarget = person(UI.oooPerson) || people[0];
+    const oooOpt = p => `<option value="${p.id}"${p.id === oooTarget.id ? " selected" : ""}>` +
+      `${esc(p.name)}${E.isOutOfOffice(p, at) ? "  (OOO)" : ""}</option>`;
+    const isOoo = E.isOutOfOffice(oooTarget, at);
+
+    return `
+    <div class="brand"><span class="mark">A</span>
+      <span><span class="name">ATLAS</span><br><span class="tag">Responsibility, routed</span></span></div>
+
+    <div class="rail-sec">
+      <span class="rail-label">Acting as</span>
+      <select data-act="actor" aria-label="Acting as">${people.map(opt).join("")}</select>
+      <span class="rail-note">${unread ? unread + " unread message" + (unread === 1 ? "" : "s") +
+        " in your inbox." : "Inbox clear."}</span>
+    </div>
+
+    <div class="rail-sec">
+      <span class="rail-label">Demo controls</span>
+      <span class="rail-note">None of this exists in a real deployment — it is how the
+        prototype is driven.</span>
+    </div>
+
+    <div class="rail-sec">
+      <span class="rail-label">Simulated clock</span>
+      <span class="clock-read mono">${esc(fmtTime(at))}</span>
+      <span class="clock-off mono">offset ${E.offsetHours(S) >= 0 ? "+" : ""}${E.offsetHours(S)}h from real time</span>
+      <div class="btn-row">
+        <button data-act="adv" data-h="1">+1h</button>
+        <button data-act="adv" data-h="24">+24h</button>
+        <button data-act="adv" data-h="48">+48h</button>
+      </div>
+      <label class="sr" for="advh">Advance by hours</label>
+      <input id="advh" type="number" min="1" max="720" value="${UI.advH || 24}" data-act="advh">
+      <button data-act="advcustom">Advance clock</button>
+      <button data-act="clockreset">Reset clock to real time</button>
+    </div>
+
+    <div class="rail-sec">
+      <span class="rail-label">Out of office</span>
+      <select data-act="oooperson" aria-label="Person">${people.map(oooOpt).join("")}</select>
+      <label class="sr" for="oood">Away for days</label>
+      <input id="oood" type="number" min="1" max="60" value="${UI.oooDays || 5}" data-act="oood">
+      <button data-act="ooo">${isOoo ? "Mark back in office" : "Mark out of office"}</button>
+    </div>
+
+    <div class="rail-sec">
+      <span class="rail-label"><span class="agent-dot live"></span>Agent</span>
+      <span class="rail-note">Evaluating its rules every 2s<br>
+        last pass ${esc(S.lastTickAt ? fmtTime(S.lastTickAt) : "—")}</span>
+      <button data-act="tick">Run agent now</button>
+    </div>
+
+    <div class="rail-sec">
+      <span class="rail-label">Database</span>
+      <button class="danger" data-act="reseed">Reset &amp; reseed</button>
+    </div>`;
+  }
+
+  /* --------------------------------- shell ------------------------------ */
+
+  const PAGES = ["Intake", "Requests", "Directory", "Agent Log", "Dashboard"];
+  const KEYS  = ["intake", "requests", "directory", "agentlog", "dashboard"];
+
+  function render() {
+    const root = document.getElementById("root");
+    const idx = KEYS.indexOf(UI.page);
+    const tabs = PAGES.map((p, i) => `<button class="tab" role="tab" data-act="page"
+      data-page="${KEYS[i]}" aria-selected="${i === idx}">${esc(p)}</button>`).join("");
+    root.innerHTML = `<div class="app">
+      <aside class="rail">${railHTML()}</aside>
+      <main class="canvas"><div class="wrap">
+        <div class="tabs" role="tablist">${tabs}</div>
+        <div id="page">${pageHTML()}</div>
+      </div></main></div>` +
+      (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "");
+    if (UI.flash) { const f = UI.flash; setTimeout(() => {
+      if (UI.flash === f) { UI.flash = null; const el = document.querySelector(".flash");
+        if (el) el.remove(); } }, 4200); }
+    bindCharts();
+  }
+
+  function pageHTML() {
+    switch (UI.page) {
+      case "requests":  return pageRequests();
+      case "directory": return pageDirectory();
+      case "agentlog":  return pageAgentLog();
+      case "dashboard": return pageDashboard();
+      default:          return pageIntake();
+    }
+  }
+
+  function flash(msg) { UI.flash = msg; }
+  function commit(msg) { if (msg) flash(msg); save(); render(); }
+
+  /* ================================ intake ============================== */
+
+  const EXAMPLES = [
+    "I need access to the data room for Project Falcon",
+    "Invoice 88596 from Halcyon needs approving before Friday's payment run",
+    "I am locked out of my account and cannot log in",
+    "We need to renew the Bloomberg contract before it expires",
+  ];
+
+  function pageIntake() {
+    if (UI.sent) return intakeSent(UI.sent);
+    const head = phead("Intake", "What do you need?",
+      "Describe it in your own words. Atlas identifies the process, finds who is accountable " +
+      "right now, and drafts the request for you.");
+
+    const chips = `<div class="chips">` + EXAMPLES.map((x, i) =>
+      `<button class="chip" data-act="example" data-i="${i}" title="${esc(x)}">${
+        esc(x.length <= 40 ? x : x.slice(0, 37).replace(/\s+\S*$/, "") + "…")}</button>`).join("") +
+      `</div>`;
+
+    const box = `<label class="sr" for="q">Your request</label>
+      <textarea id="q" class="field" data-act="query" rows="3"
+        placeholder="e.g. I need access to the data room for Project Falcon">${esc(UI.query)}</textarea>`;
+
+    const query = (UI.query || "").trim();
+    if (!query) return head + box + chips +
+      `<div style="margin-top:20px">${empty("Nothing to route yet.",
+        "Type a request above, or pick one of the examples to see the resolution trace.")}</div>`;
+
+    const matches = E.matchProcesses(S.processes, query, 3);
+    const top = matches[0];
+    const chosenId = UI.override !== null && UI.override !== undefined
+      ? UI.override : (top && top.confidence >= 25 ? top.process_id : S.processes[0].id);
+    const proc = E.process_(S, chosenId);
+    const res = E.resolve(S, proc);
+    const me = actor();
+    const title = UI.title !== undefined && UI.title !== null
+      ? UI.title : E.suggestTitle(query, proc ? proc.name : null);
+    const body = UI.body !== undefined && UI.body !== null
+      ? UI.body : E.draftBody(me, proc, res, query);
+    const dupes = E.findSimilarOpen(S, { process_id: chosenId, requester_id: UI.actor, title });
+
+    const weak = !top || top.confidence < 25;
+    const kw = top && top.matched_keywords.length
+      ? top.matched_keywords.slice(0, 6).map(k => badge(k, "role")).join(" ")
+      : `<span class="muted">no direct keyword hits</span>`;
+
+    const matchCard = top ? `<div class="card flag">
+        <div class="card-t">${esc(top.process_name)}
+          ${badge(top.confidence.toFixed(0) + "% · " + top.confidence_label,
+                  top.confidence >= 70 ? "gold" : "mute")}</div>
+        <div class="card-m">${esc(top.category)}</div>
+        <div class="card-b">${esc(E.why(top))}</div>
+        <div style="margin-top:9px" class="chips">${kw}</div>
+      </div>
+      <details class="card" style="margin-top:9px"><summary style="cursor:pointer;font-size:.88rem">
+        Why this matched — signal breakdown</summary>
+        <div style="margin-top:9px">${matches.map(m => `<div class="kv">
+          <span class="k">${esc(m.process_name)}</span>
+          <span class="mono">${m.confidence.toFixed(0)}% · ` +
+          ["keywords","name","tfidf","description"].map(k =>
+            `${k}: ${Math.round(m.signals[k] * 100)}%`).join(" · ") +
+          `</span></div>`).join("")}</div></details>` : "";
+
+    const options = S.processes.slice().sort((a, b) => a.name.localeCompare(b.name)).map(p =>
+      `<option value="${p.id}"${p.id === chosenId ? " selected" : ""}>${esc(p.name)} — ${esc(p.category)}</option>`
+    ).join("");
+
+    const steps = `<div class="trail">` + res.steps.map(s =>
+      `<div class="node ${s.outcome}"><div class="k">${esc(s.label)}</div>
+       <div class="d">${esc(s.detail)}</div></div>`).join("") + `</div>`;
+
+    const dupBlock = dupes.length ? `<div class="sect"><h2>Possible duplicate</h2></div>
+      <div class="note warn">An open request on this process already looks like yours. Follow it
+        instead of adding another item to the same queue.</div>
+      <div class="stack" style="margin-top:9px">` + dupes.map(d => `
+        <div class="rowline"><div class="card">
+          <div class="card-t">#${d.request.id} — ${esc(d.request.title)}</div>
+          <div class="card-m">${statusBadge(d.request.status)}
+            <span>with ${esc(d.request.assignee_id ? person(d.request.assignee_id).name : "Unassigned")}</span>
+            <span class="mono">${d.similarity.toFixed(0)}% similar</span></div>
+          <div class="card-b">${esc(d.reason)}</div></div>
+        <button class="btn sm" data-act="follow" data-id="${d.request.id}">Follow</button></div>`
+      ).join("") + `</div>` : "";
+
+    return head + box + chips +
+      `<div class="sect"><h2>Process match</h2></div>` +
+      (weak ? `<div class="note warn" style="margin-bottom:9px">No process matched with usable
+        confidence. Pick one manually, or send it anyway and Atlas will park it for the admin.</div>` : "") +
+      matchCard +
+      `<div style="margin-top:12px"><label class="lbl" for="routeas">Route as</label>
+        <select id="routeas" class="field" data-act="override">${options}</select></div>` +
+      `<div class="sect"><h2>Resolution trace</h2></div>` + steps +
+      `<div class="note ${res.needs_admin ? "bad" : "info"}">${esc(E.resolutionSummary(res))}</div>` +
+      dupBlock +
+      `<div class="sect"><h2>Drafted request</h2></div>
+       <label class="lbl" for="rt">Title</label>
+       <input id="rt" class="field" data-act="title" value="${esc(title)}">
+       <label class="lbl" for="rb" style="margin-top:11px">Message</label>
+       <textarea id="rb" class="field" data-act="body" rows="9">${esc(body)}</textarea>
+       <div style="margin-top:13px" class="stack">
+         <div class="kv"><span class="k">Will be sent to</span><strong>${
+           esc(res.assignee_name || "the Atlas admin (no owner resolved)")}</strong></div>
+         <div class="kv"><span class="k">Raised by</span>${esc(me.name)}</div>
+         <div class="kv"><span class="k">Simulated time</span><span class="mono">${esc(fmtTime(now()))}</span></div>
+       </div>
+       <div style="margin-top:15px;display:flex;gap:9px">
+         <button class="btn primary" data-act="send">Send request</button>
+         <button class="btn" data-act="clear">Clear</button>
+       </div>`;
+  }
+
+  function intakeSent(id) {
+    const r = E.request(S, id);
+    if (!r) { UI.sent = null; return pageIntake(); }
+    const proc = r.process_id ? E.process_(S, r.process_id) : null;
+    const a = r.assignee_id ? person(r.assignee_id) : null;
+    return phead("Intake", "Request dispatched", "") +
+      `<div class="note info">Request #${r.id} dispatched.</div>
+       <div class="card flag" style="margin-top:11px">
+         <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+         <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
+           <span>assigned to ${esc(a ? a.name : "the Atlas admin")}</span></div>
+       </div>
+       <div class="sect"><h2>Timeline</h2></div>${trail(timelineOf(id))}
+       <div style="margin-top:15px"><button class="btn primary" data-act="another">Raise another request</button></div>`;
+  }
+
+  /* =============================== requests ============================= */
+
+  function requestRow(r, counterpartId, label, prefix) {
+    const proc = r.process_id ? E.process_(S, r.process_id) : null;
+    const cp = counterpartId ? person(counterpartId) : null;
+    const unread = S.messages.filter(m => m.request_id === r.id && !m.read &&
+      m.recipient_id === UI.actor).length;
+    const chase = r.chase_count ? ` · ${r.chase_count} chase${r.chase_count === 1 ? "" : "s"}` : "";
+    return `<div class="rowline">
+      <div class="card ${r.status === "escalated" ? "alarm" : (r.status === "pending" ? "flag" : "")}">
+        <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+        <div class="card-m">${statusBadge(r.status)}
+          <span>${esc(proc ? proc.name : "Unmatched")}</span>
+          <span>${esc(label)} ${esc(cp ? cp.name : "—")}</span>
+          <span class="mono">raised ${esc(human(now() - r.created_at))} ago · quiet for ${
+            esc(human(now() - r.last_action_at))}${esc(chase)}</span></div>
+      </div>
+      <button class="btn sm" data-act="open" data-id="${r.id}">Open${unread ? ` (${unread})` : ""}</button>
+    </div>`;
+  }
+
+  function pageRequests() {
+    if (UI.open) return requestDetail(UI.open);
+    const me = actor();
+    const open = S.requests.filter(r => r.assignee_id === UI.actor && E.OPEN_STATUSES.includes(r.status))
+      .sort((a, b) => b.last_action_at - a.last_action_at);
+    const mine = S.requests.filter(r => r.requester_id === UI.actor)
+      .sort((a, b) => b.created_at - a.created_at);
+    const done = S.requests.filter(r => r.assignee_id === UI.actor && r.status === "completed")
+      .sort((a, b) => b.last_action_at - a.last_action_at);
+    const which = UI.tab.requests || "inbox";
+    const rows = which === "inbox" ? open : which === "mine" ? mine : done;
+    const label = which === "mine" ? "with" : "from";
+    const cp = r => which === "mine" ? r.assignee_id : r.requester_id;
+
+    const tabs = [["inbox", `My inbox (${open.length})`], ["mine", `My requests (${mine.length})`],
+                  ["done", "Completed by me"]].map(([k, t]) =>
+      `<button class="tab" role="tab" data-act="subtab" data-group="requests" data-k="${k}"
+        aria-selected="${which === k}">${esc(t)}</button>`).join("");
+
+    const caption = which === "inbox" ? "Work Atlas has routed to you, newest activity first."
+      : which === "mine" ? "Everything you have raised, including what the agent has done with it."
+      : "Requests you have closed.";
+
+    return phead("Requests", `${me.name}'s desk`,
+      `${open.length} open with you · ${mine.length} raised by you · ${unreadFor(UI.actor)} unread`) +
+      `<div class="tabs" role="tablist">${tabs}</div>
+       <p class="sub" style="margin-bottom:11px">${esc(caption)}</p>` +
+      (rows.length ? `<div class="stack">${rows.map(r =>
+        requestRow(r, cp(r), label, which)).join("")}</div>`
+        : empty("Nothing here.", "Requests will appear as they are raised or routed to you."));
+  }
+
+  function requestDetail(id) {
+    const r = E.request(S, id);
+    if (!r) { UI.open = null; return pageRequests(); }
+    E.markRead(S, UI.actor, id);
+    const proc = r.process_id ? E.process_(S, r.process_id) : null;
+    const a = r.assignee_id ? person(r.assignee_id) : null;
+    const req = person(r.requester_id);
+    const orig = r.original_assignee_id ? person(r.original_assignee_id) : null;
+    const msgs = S.messages.filter(m => m.request_id === id)
+      .sort((x, y) => x.created_at - y.created_at || x.id - y.id);
+    const isAssignee = r.assignee_id === UI.actor;
+    const isOpen = E.OPEN_STATUSES.includes(r.status);
+
+    const actions = !isOpen
+      ? `<div class="note info">This request is closed.</div>`
+      : isAssignee ? `
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <button class="btn" data-act="ack" data-id="${id}"${
+            r.status === "pending" || r.status === "escalated" ? "" : " disabled"}>Acknowledge</button>
+          <button class="btn" data-act="prog" data-id="${id}"${
+            r.status === "in_progress" ? " disabled" : ""}>Mark in progress</button>
+          <button class="btn primary" data-act="done" data-id="${id}">Complete</button>
+        </div>
+        <label class="lbl" style="margin-top:13px" for="note">Add a note (sent to the requester)</label>
+        <div style="display:flex;gap:9px">
+          <input id="note" class="field" data-act="note" value="${esc(UI.note || "")}">
+          <button class="btn" data-act="sendnote" data-id="${id}">Send note</button>
+        </div>`
+      : `<p class="sub">You are watching this request. Switch to
+         <strong>${esc(a ? a.name : "the assignee")}</strong> in the sidebar to act on it.</p>`;
+
+    return `<button class="btn sm" data-act="back">← Back to the list</button>
+      <div class="card flag" style="margin-top:13px">
+        <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+        <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
+          <span class="mono">raised ${esc(human(now() - r.created_at))} ago</span></div>
+        <div class="card-b">${esc(r.body)}</div>
+      </div>
+      <div class="grid2" style="margin-top:20px">
+        <div><h2>Timeline</h2><div style="margin-top:9px">${trail(timelineOf(id))}</div></div>
+        <div>
+          <h2>Detail</h2>
+          <div style="margin-top:9px">
+            <div class="kv"><span class="k">Requester</span>${esc(req ? req.name : "—")}</div>
+            <div class="kv"><span class="k">Assignee</span>${esc(a ? a.name : "Unassigned")}</div>
+            ${orig && a && orig.id !== a.id ? `<div class="kv"><span class="k">Originally</span>
+              ${esc(orig.name)} ${badge("rerouted", "gold")}</div>` : ""}
+            <div class="kv"><span class="k">Raised</span><span class="mono">${esc(fmtTime(r.created_at))}</span></div>
+            <div class="kv"><span class="k">Acknowledged</span><span class="mono">${esc(fmtTime(r.acknowledged_at))}</span></div>
+            <div class="kv"><span class="k">Completed</span><span class="mono">${esc(fmtTime(r.completed_at))}</span></div>
+            <div class="kv"><span class="k">Chases sent</span><span class="mono">${r.chase_count}</span></div>
+          </div>
+          <h2 style="margin-top:20px">Messages</h2>
+          <div class="stack" style="margin-top:9px">${msgs.map(m => `<div class="card">
+            <div class="card-m">${badge(m.type.replace(/_/g, " "), "role")}
+              <span>${esc(m.sender_id ? person(m.sender_id).name : "Atlas agent")} →
+                ${esc(person(m.recipient_id) ? person(m.recipient_id).name : "—")}</span>
+              <span class="mono">${esc(fmtTime(m.created_at))}</span></div>
+            <div class="card-b">${esc(m.body)}</div></div>`).join("")}</div>
+        </div>
+      </div>
+      <div class="sect"><h2>Actions</h2></div>${actions}`;
+  }
+
+  /* =============================== directory ============================ */
+
+  function pageDirectory() {
+    if (UI.person) return personProfile(UI.person);
+    if (UI.process) return processProfile(UI.process);
+    const which = UI.tab.directory || "people";
+    const tabs = [["people", "People"], ["processes", "Processes"], ["graph", "Responsibility graph"]]
+      .map(([k, t]) => `<button class="tab" role="tab" data-act="subtab" data-group="directory"
+        data-k="${k}" aria-selected="${which === k}">${esc(t)}</button>`).join("");
+    const head = phead("Directory & Graph", "Who is responsible for what",
+      "The org chart says who reports to whom. This says who owns the work.") +
+      `<div class="tabs" role="tablist">${tabs}</div>`;
+    if (which === "processes") return head + processList();
+    if (which === "graph") return head + graphPanel();
+    return head + peopleList();
+  }
+
+  function deptOptions(selected) {
+    const names = ["All departments"].concat(S.departments.map(d => d.name).sort());
+    return names.map(n => `<option${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
+  }
+
+  function peopleList() {
+    const at = now();
+    const term = (UI.search || "").trim().toLowerCase();
+    const rows = S.people.slice().sort((a, b) => a.name.localeCompare(b.name)).filter(p => {
+      const dept = E.departmentName(S, p);
+      if (UI.dept !== "All departments" && dept !== UI.dept) return false;
+      if (term && !(p.name.toLowerCase().includes(term) || p.title.toLowerCase().includes(term)))
+        return false;
+      return true;
+    });
+    const cards = rows.map(p => {
+      const owned = S.responsibilities.filter(r => r.person_id === p.id &&
+        (r.role === "owner" || r.role === "approver")).length;
+      const load = S.requests.filter(r => r.assignee_id === p.id &&
+        E.OPEN_STATUSES.includes(r.status)).length;
+      const ooo = E.isOutOfOffice(p, at);
+      return `<div class="rowline"><div class="card">
+        <div class="card-t">${esc(p.name)}</div>
+        <div class="card-m"><span>${esc(p.title)}</span><span>${esc(E.departmentName(S, p))}</span></div>
+        <div class="card-m" style="margin-top:7px">${badge(owned + " owned/approved", "role")}
+          ${badge(load + " open", load ? "gold" : "mute")}
+          ${ooo ? badge("OOO until " + E.fmtDate(p.ooo_until), "ooo") : ""}</div>
+      </div><button class="btn sm" data-act="person" data-id="${p.id}">View</button></div>`;
+    }).join("");
+    return `<div class="toolbar">
+        <div class="grow"><label class="lbl" for="ps">Search people</label>
+          <input id="ps" class="field" data-act="search" placeholder="name or title"
+            value="${esc(UI.search || "")}"></div>
+        <div class="grow"><label class="lbl" for="pd">Department</label>
+          <select id="pd" class="field" data-act="dept">${deptOptions(UI.dept)}</select></div>
+      </div>
+      <p class="muted" style="margin-bottom:9px">${rows.length} people</p>` +
+      (rows.length ? `<div class="stack">${cards}</div>` : empty("Nobody matches that search."));
+  }
+
+  function processList() {
+    const at = now();
+    const cards = S.processes.slice().sort((a, b) => a.name.localeCompare(b.name)).map(p => {
+      const owners = E.holders(S, p.id, "owner");
+      const dels = E.holders(S, p.id, "delegate");
+      const open = S.requests.filter(r => r.process_id === p.id &&
+        E.OPEN_STATUSES.includes(r.status)).length;
+      const ownerBadge = owners.length
+        ? badge("Owner: " + owners[0].name, E.isOutOfOffice(owners[0], at) ? "ooo" : "role")
+        : badge("Orphan — no owner", "escalated");
+      return `<div class="rowline"><div class="card${owners.length ? "" : " alarm"}">
+        <div class="card-t">${esc(p.name)}</div>
+        <div class="card-m"><span>${esc(p.category)}</span></div>
+        <div class="card-m" style="margin-top:7px">${ownerBadge}
+          ${dels.length ? badge("Delegate: " + dels[0].name, "mute") : ""}
+          ${badge(open + " open", open ? "gold" : "mute")}</div>
+      </div><button class="btn sm" data-act="process" data-id="${p.id}">View</button></div>`;
+    }).join("");
+    return `<div class="stack">${cards}</div>`;
+  }
+
+  function personProfile(id) {
+    const p = person(id);
+    if (!p) { UI.person = null; return pageDirectory(); }
+    const at = now();
+    const stats = E.personStats(S, id);
+    const grouped = E.responsibilitiesOf(S, id);
+    const mgr = p.manager_id ? person(p.manager_id) : null;
+    const reports = S.people.filter(x => x.manager_id === id).sort((a, b) => a.name.localeCompare(b.name));
+    const recent = S.requests.filter(r => r.assignee_id === id)
+      .sort((a, b) => b.last_action_at - a.last_action_at).slice(0, 6);
+    const ooo = E.isOutOfOffice(p, at);
+    const roleRows = ["owner", "approver", "delegate", "backup"].map(role => {
+      const list = grouped[role] || [];
+      if (!list.length) return "";
+      return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() + role.slice(1))}</span>
+        <span class="chips">${list.map(x => badge(x.name, "role")).join(" ")}</span></div>`;
+    }).join("");
+
+    return `<button class="btn sm" data-act="backdir">← Back to the directory</button>
+      <div class="card flag" style="margin-top:13px">
+        <div class="card-t">${esc(p.name)} ${ooo ? badge("Out of office until " +
+          E.fmtDate(p.ooo_until), "ooo") : ""}</div>
+        <div class="card-m"><span>${esc(p.title)}</span><span>${esc(E.departmentName(S, p))}</span>
+          <span class="mono">${esc(p.email)}</span></div>
+      </div>
+      <div class="tiles" style="margin-top:16px">
+        ${tile("Open load", String(stats.open_load), "requests with them now",
+               stats.open_load >= 3 ? "warn" : "")}
+        ${tile("Completed", String(stats.completed), "all time")}
+        ${tile("Avg turnaround", stats.avg_turnaround_hours !== null ?
+               Math.round(stats.avg_turnaround_hours) + "h" : "—", "raised to completed")}
+        ${tile("Avg to acknowledge", stats.avg_ack_hours !== null ?
+               Math.round(stats.avg_ack_hours) + "h" : "—", "first response")}
+      </div>
+      <div class="grid2">
+        <div>
+          <h2>Reporting line</h2>
+          <div style="margin-top:9px">
+            <div class="kv"><span class="k">Manager</span>${esc(mgr ? mgr.name : "—")}</div>
+            <div class="kv"><span class="k">Direct reports</span>${
+              esc(reports.length ? reports.map(r => r.name).join(", ") : "—")}</div>
+          </div>
+          <h2 style="margin-top:20px">Responsibilities</h2>
+          <div style="margin-top:9px">${roleRows ||
+            `<p class="muted">No edges in the responsibility graph.</p>`}</div>
+        </div>
+        <div><h2>Recent requests</h2><div class="stack" style="margin-top:9px">${
+          recent.length ? recent.map(r => `<div class="card">
+            <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+            <div class="card-m">${statusBadge(r.status)}
+              <span>${esc(r.process_id ? E.process_(S, r.process_id).name : "Unmatched")}</span>
+              <span class="mono">${esc(human(now() - r.created_at))} old</span></div></div>`).join("")
+            : empty("No requests routed here yet.")}</div></div>
+      </div>`;
+  }
+
+  function processProfile(id) {
+    const p = E.process_(S, id);
+    if (!p) { UI.process = null; return pageDirectory(); }
+    const at = now();
+    const stats = E.processStats(S, id);
+    const orphan = !E.holders(S, id, "owner").length;
+    const recent = S.requests.filter(r => r.process_id === id)
+      .sort((a, b) => b.created_at - a.created_at).slice(0, 8);
+    const roleRows = ["owner", "approver", "delegate", "backup"].map(role => {
+      const list = E.holders(S, id, role);
+      if (!list.length) return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() +
+        role.slice(1))}</span><span class="muted">not configured</span></div>`;
+      return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() + role.slice(1))}</span>
+        <span class="chips">${list.map(x => badge(x.name + (E.isOutOfOffice(x, at) ? " · OOO" : ""),
+          E.isOutOfOffice(x, at) ? "ooo" : "role")).join(" ")}</span></div>`;
+    }).join("");
+
+    return `<button class="btn sm" data-act="backdir">← Back to processes</button>
+      <div class="card ${orphan ? "alarm" : "flag"}" style="margin-top:13px">
+        <div class="card-t">${esc(p.name)} ${orphan ? badge("Orphan — no owner", "escalated") : ""}</div>
+        <div class="card-m"><span>${esc(p.category)}</span></div>
+        <div class="card-b">${esc(p.description)}</div>
+      </div>
+      <div class="tiles" style="margin-top:16px">
+        ${tile("Requests", String(stats.total), "all time")}
+        ${tile("Open now", String(stats.open), "in the queue", stats.open ? "warn" : "")}
+        ${tile("Completed", String(stats.completed), "all time")}
+        ${tile("Avg turnaround", stats.avg_turnaround_hours !== null ?
+               Math.round(stats.avg_turnaround_hours) + "h" : "—", "raised to completed")}
+      </div>
+      <div class="grid2">
+        <div><h2>Who is accountable</h2>
+          ${orphan ? `<div class="note bad" style="margin:9px 0">Nobody owns this process.
+            Requests matched to it are parked for the Atlas admin.</div>` : ""}
+          <div style="margin-top:9px">${roleRows}</div>
+          <h2 style="margin-top:20px">Matching keywords</h2>
+          <div class="chips" style="margin-top:9px">${
+            E.keywordList(p).map(k => badge(k, "mute")).join(" ") || `<span class="muted">none</span>`}</div>
+        </div>
+        <div><h2>Recent requests</h2><div class="stack" style="margin-top:9px">${
+          recent.length ? recent.map(r => `<div class="card">
+            <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+            <div class="card-m">${statusBadge(r.status)}
+              <span>with ${esc(r.assignee_id ? person(r.assignee_id).name : "Unassigned")}</span>
+              <span class="mono">${esc(human(now() - r.created_at))} old</span></div></div>`).join("")
+            : empty("No requests have used this process yet.")}</div></div>
+      </div>`;
+  }
+
+  function graphPanel() {
+    const dept = UI.graphDept || "All departments";
+    const g = E.responsibilityGraph(S, dept === "All departments" ? null : dept);
+    return `<p class="sub">Gold nodes are processes, green nodes are people. Line colour is the
+        role: owner, approver, delegate or backup. Hover a node for its name.</p>
+      <div class="toolbar" style="margin-top:11px"><div class="grow">
+        <label class="lbl" for="gd">Filter people by department</label>
+        <select id="gd" class="field" data-act="graphdept">${deptOptions(dept)}</select></div></div>` +
+      (g.edges.length ? `<div class="chart">${graphSVG(g)}</div>`
+        : empty("No responsibility edges to draw for that filter."));
+  }
+
+  /* =============================== agent log ============================ */
+
+  const LOG_FILTERS = {
+    "Autonomous actions": ["chase","escalation","escalation_blocked","reroute_ooo","reroute_chase","ooo_no_cover"],
+    "Chases": ["chase"],
+    "Reroutes": ["reroute","reroute_ooo","reroute_chase"],
+    "Escalations": ["escalation","escalation_blocked"],
+    "Routing decisions": ["routing","dispatch","orphan"],
+    "Everything": null,
+  };
+
+  function pageAgentLog() {
+    const at = now();
+    const counts = {
+      chase: S.events.filter(e => e.type === "chase").length,
+      reroute: S.events.filter(e => e.type === "reroute_ooo" || e.type === "reroute_chase").length,
+      esc: S.events.filter(e => e.type === "escalation").length,
+    };
+    const types = LOG_FILTERS[UI.filter] || null;
+    const rows = S.events.filter(e => !types || types.includes(e.type))
+      .sort((a, b) => b.created_at - a.created_at || b.id - a.id).slice(0, 200);
+
+    const cards = rows.map(e => {
+      const r = e.request_id ? E.request(S, e.request_id) : null;
+      const tone = e.type.indexOf("escalation") === 0 ? "escalated"
+        : (AGENT_TYPES.has(e.type) ? "gold" : "mute");
+      const label = EVENT_LABELS[e.type] ||
+        e.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      return `<div class="card${e.type.indexOf("escalation") === 0 ? " alarm" : ""}">
+        <div class="card-m">${badge(label, tone)}
+          <span class="mono">${esc(fmtTime(e.created_at))} · ${esc(human(at - e.created_at))} ago</span>
+          <strong>${esc(e.actor)}</strong>
+          <span>${esc(r ? "#" + r.id + " — " + r.title : "no request")}</span></div>
+        <div class="card-b">${esc(e.detail)}</div></div>`;
+    }).join("");
+
+    const opts = Object.keys(LOG_FILTERS).map(k =>
+      `<option${k === UI.filter ? " selected" : ""}>${esc(k)}</option>`).join("");
+
+    return phead("Agent Log", "What the agent did, and why",
+      "The agent evaluates its rules against simulated time every couple of seconds. " +
+      "Nothing here was triggered by a human.") +
+      `<div class="tiles">
+        ${tile("Agent", "Running", "last pass " + (S.lastTickAt ? fmtTime(S.lastTickAt) : "—"), "good")}
+        ${tile("Chases sent", String(counts.chase), "unacknowledged after 48h")}
+        ${tile("Reroutes", String(counts.reroute), "cover picked up the work")}
+        ${tile("Escalations", String(counts.esc), "handed to a manager", counts.esc ? "bad" : "")}
+      </div>
+      <div class="toolbar">
+        <div class="grow"><label class="lbl" for="lf">Show</label>
+          <select id="lf" class="field" data-act="logfilter">${opts}</select></div>
+        <button class="btn" data-act="tick">Run the agent now</button>
+      </div>
+      <p class="muted" style="margin-bottom:9px">${rows.length} entries · simulated time
+        <span class="mono">${esc(fmtTime(at))}</span></p>` +
+      (rows.length ? `<div class="stack">${cards}</div>`
+        : empty("The agent has not needed to act yet.",
+                "Advance the simulated clock in the sidebar to make chases and escalations fire."));
+  }
+
+  /* ================================ charts ============================== */
+  /* Hand-built inline SVG: thin marks, rounded data-ends on the baseline,
+     recessive grid, selective direct labels, hover tooltip on every mark. */
+
+  const CH = { w: 560, rowH: 30, gap: 9, pad: { l: 124, r: 54, t: 8, b: 26 } };
+
+  // Department names are long; the axis has a fixed gutter, so trim to fit.
+  const SHORT = { "Investments / Deal Team": "Investments", "Legal & Compliance": "Legal & Comp.",
+                  "Operations / HR": "Operations" };
+  const shortLabel = s => SHORT[s] || s;
+  const tipAttr = (title, body) =>
+    `data-tip="${esc(title)}" data-tipb="${esc(body)}" tabindex="0"`;
+
+  function barTrack(x, y, w, h) {
+    return `<rect x="${x}" y="${y}" width="${Math.max(w, 0)}" height="${h}" rx="4" ry="4"
+      class="bar" />`;
+  }
+
+  // Horizontal category bars, one series. Identity comes from the axis label,
+  // so colour is not carrying meaning; escalated is tinted as a status.
+  function hbar(rows, opts) {
+    opts = opts || {};
+    const max = Math.max(1, ...rows.map(r => r.value));
+    const h = CH.pad.t + rows.length * (CH.rowH + CH.gap) + CH.pad.b;
+    const plotW = CH.w - CH.pad.l - CH.pad.r;
+    const ticks = niceTicks(max, 4);
+    const grid = ticks.map(t => {
+      const x = CH.pad.l + (t / max) * plotW;
+      return `<line class="gl" x1="${x}" y1="${CH.pad.t}" x2="${x}" y2="${h - CH.pad.b}"/>
+        <text class="axl" x="${x}" y="${h - CH.pad.b + 15}" text-anchor="middle">${t}</text>`;
+    }).join("");
+    const bars = rows.map((r, i) => {
+      const y = CH.pad.t + i * (CH.rowH + CH.gap);
+      const w = (r.value / max) * plotW;
+      const fill = r.color || "var(--s1)";
+      return `<g ${tipAttr(r.label, r.tip || (r.value + " requests"))}>
+        <text class="cat" x="${CH.pad.l - 10}" y="${y + CH.rowH / 2 + 4}" text-anchor="end">${esc(shortLabel(r.label))}</text>
+        <g fill="${fill}">${barTrack(CH.pad.l, y, w, CH.rowH)}</g>
+        <text class="vl" x="${CH.pad.l + w + 7}" y="${y + CH.rowH / 2 + 4}">${r.value}</text>
+      </g>`;
+    }).join("");
+    return `<svg viewBox="0 0 ${CH.w} ${h}" role="img" aria-label="${esc(opts.aria || "bar chart")}">
+      ${grid}${bars}</svg>`;
+  }
+
+  // Two series, grouped. Legend + direct labels; validated colour pair.
+  function groupedBar(rows, opts) {
+    const pad = { l: 124, r: 66, t: 8, b: 26 };
+    const barH = 13, inner = 5, groupH = barH * 2 + inner, gap = 14;
+    const max = Math.max(1, ...rows.map(r => Math.max(r.a, r.b)));
+    const h = pad.t + rows.length * (groupH + gap) + pad.b;
+    const plotW = CH.w - pad.l - pad.r;
+    const ticks = niceTicks(max, 4);
+    const grid = ticks.map(t => {
+      const x = pad.l + (t / max) * plotW;
+      return `<line class="gl" x1="${x}" y1="${pad.t}" x2="${x}" y2="${h - pad.b}"/>
+        <text class="axl" x="${x}" y="${h - pad.b + 15}" text-anchor="middle">${t}</text>`;
+    }).join("");
+    const bars = rows.map((r, i) => {
+      const y = pad.t + i * (groupH + gap);
+      const wa = (r.a / max) * plotW, wb = (r.b / max) * plotW;
+      return `<g>
+        <text class="cat" x="${pad.l - 10}" y="${y + groupH / 2 + 4}" text-anchor="end">${esc(shortLabel(r.label))}</text>
+        <g fill="var(--s2)" ${tipAttr(r.label, opts.aLabel + ": " + r.a + "h")}>
+          ${barTrack(pad.l, y, wa, barH)}</g>
+        <text class="vl" x="${pad.l + wa + 6}" y="${y + barH - 2}">${r.a}h</text>
+        <g fill="var(--s1)" ${tipAttr(r.label, opts.bLabel + ": " + r.b + "h")}>
+          ${barTrack(pad.l, y + barH + inner, wb, barH)}</g>
+        <text class="vl" x="${pad.l + wb + 6}" y="${y + barH + inner + barH - 2}">${r.b}h</text>
+      </g>`;
+    }).join("");
+    return `<svg viewBox="0 0 ${CH.w} ${h}" role="img" aria-label="${esc(opts.aria || "grouped bar chart")}">
+      ${grid}${bars}</svg>`;
+  }
+
+  function histogram(values, opts) {
+    const pad = { l: 40, r: 14, t: 10, b: 34 };
+    const w = CH.w, h = 210;
+    if (!values.length) return "";
+    const max = Math.max(...values), bins = 10;
+    const size = Math.max(1, Math.ceil(max / bins));
+    const counts = new Array(bins).fill(0);
+    for (const v of values) counts[Math.min(bins - 1, Math.floor(v / size))]++;
+    const top = Math.max(1, ...counts);
+    const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+    const bw = plotW / bins;
+    const ticks = niceTicks(top, 3);
+    const grid = ticks.map(t => {
+      const y = pad.t + plotH - (t / top) * plotH;
+      return `<line class="gl" x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}"/>
+        <text class="axl" x="${pad.l - 7}" y="${y + 4}" text-anchor="end">${t}</text>`;
+    }).join("");
+    const bars = counts.map((c, i) => {
+      const bh = (c / top) * plotH;
+      const x = pad.l + i * bw + 2, y = pad.t + plotH - bh;
+      const lo = i * size, hi = (i + 1) * size;
+      return `<g fill="var(--s1)" ${tipAttr(`${lo}–${hi}h old`,
+        `${c} open request${c === 1 ? "" : "s"}`)}>
+        ${barTrack(x, y, Math.max(bw - 4, 1), Math.max(bh, c ? 3 : 0))}</g>`;
+    }).join("");
+    const labels = [0, Math.floor(bins / 2), bins].map(i => {
+      const x = pad.l + i * bw;
+      return `<text class="axl" x="${x}" y="${h - 12}" text-anchor="middle">${i * size}h</text>`;
+    }).join("");
+    return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(opts.aria || "histogram")}">
+      ${grid}${bars}${labels}</svg>`;
+  }
+
+  function niceTicks(max, count) {
+    const raw = max / count;
+    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || mag * 10;
+    const out = [];
+    for (let v = 0; v <= max + 1e-9; v += step) out.push(Math.round(v * 10) / 10);
+    if (out[out.length - 1] < max) out.push(Math.round((out[out.length - 1] + step) * 10) / 10);
+    return out;
+  }
+
+  // Backup is distinguished by a dash pattern, not by a paler colour: a fourth
+  // hue would not clear the CVD gate, and a near-surface grey is invisible.
+  const ROLE_STROKE = { owner: "var(--s1)", approver: "var(--s2)",
+                        delegate: "var(--ink-3)", backup: "var(--ink-3)" };
+  const ROLE_DASH = { backup: "4 4" };
+
+  function graphSVG(g) {
+    const procs = g.nodes.filter(n => n.kind === "process");
+    const people = g.nodes.filter(n => n.kind === "person");
+    const W = 1180, H = 560, cx = W / 2, cy = H / 2;   // wide enough for edge labels
+    const rp = 130, rq = 232;
+    const pos = {};
+    people.forEach((n, i) => {
+      const a = (2 * Math.PI * i) / Math.max(people.length, 1) - Math.PI / 2;
+      pos[n.id] = [cx + rp * Math.cos(a) * 1.42, cy + rp * Math.sin(a)];
+    });
+    procs.forEach((n, i) => {
+      const a = (2 * Math.PI * i) / Math.max(procs.length, 1) - Math.PI / 2;
+      pos[n.id] = [cx + rq * Math.cos(a) * 1.42, cy + rq * Math.sin(a), a];
+    });
+    const lines = ["backup", "delegate", "approver", "owner"].map(role =>
+      g.edges.filter(e => e.role === role).map(e => {
+        const s = pos[e.source], t = pos[e.target];
+        if (!s || !t) return "";
+        return `<line x1="${s[0].toFixed(1)}" y1="${s[1].toFixed(1)}" x2="${t[0].toFixed(1)}"
+          y2="${t[1].toFixed(1)}" stroke="${ROLE_STROKE[role]}"
+          stroke-width="${role === "owner" ? 1.5 : 1}"
+          ${ROLE_DASH[role] ? `stroke-dasharray="${ROLE_DASH[role]}"` : ""}
+          opacity="${role === "owner" ? .82 : (role === "backup" ? .5 : .38)}"/>`;
+      }).join("")).join("");
+    const dots = people.map(n => `<circle class="gnode" cx="${pos[n.id][0].toFixed(1)}"
+      cy="${pos[n.id][1].toFixed(1)}" r="5" fill="var(--s1)" stroke="var(--surface)"
+      stroke-width="1.5" ${tipAttr(n.label, n.group)}/>`).join("");
+    const pnodes = procs.map(n => {
+      const [x, y, a] = pos[n.id];
+      const right = Math.cos(a) >= 0;
+      return `<circle class="gnode" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.5"
+          fill="var(--s2)" stroke="var(--surface)" stroke-width="1.5" ${tipAttr(n.label, n.group)}/>
+        <text x="${(x + (right ? 11 : -11)).toFixed(1)}" y="${(y + 4).toFixed(1)}"
+          text-anchor="${right ? "start" : "end"}" class="cat"
+          style="font-size:11px">${esc(n.label)}</text>`;
+    }).join("");
+    const legend = `<div class="legend">
+      <span><i style="background:var(--s1)"></i>Owner</span>
+      <span><i style="background:var(--s2)"></i>Approver</span>
+      <span><i style="background:var(--ink-3)"></i>Delegate</span>
+      <span><i style="background:repeating-linear-gradient(90deg,var(--ink-3) 0 4px,transparent 4px 8px)"></i>Backup (dashed)</span>
+      <span><i style="background:var(--s2);border-radius:50%"></i>Processes</span>
+      <span><i style="background:var(--s1);border-radius:50%"></i>People</span></div>`;
+    return legend + `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="Responsibility graph: ${people.length} people, ${procs.length} processes,
+      ${g.edges.length} edges" style="min-width:640px">${lines}${dots}${pnodes}</svg></div>`;
+  }
+
+  /* =============================== dashboard ============================ */
+
+  function pageDashboard() {
+    const at = now();
+    const h = E.headline(S);
+    const status = E.byStatus(S);
+    const depts = E.openByDepartment(S);
+    const turn = E.turnaroundByDepartment(S);
+    const orphans = E.orphanProcesses(S);
+    const spofs = E.singlePointsOfFailure(S, 2);
+    const necks = E.bottlenecks(S);
+    const ages = E.queueAges(S);
+
+    const statusRows = status.map(r => ({
+      label: r.status, value: r.count,
+      color: r.key === "escalated" ? "var(--critical)" : "var(--s1)",
+      tip: r.count + " request" + (r.count === 1 ? "" : "s"),
+    }));
+    const deptRows = depts.map(d => ({
+      label: d.department, value: d.count,
+      tip: d.count + " open" + (d.escalated ? ` · ${d.escalated} escalated` : ""),
+    }));
+    const turnRows = turn.map(t => ({ label: t.department, a: t.avg_ack_hours, b: t.avg_complete_hours }));
+
+    const charts = `<div class="charts">
+      <div class="chart"><h3>Requests by status</h3>
+        <div class="csub">Every request ever raised. Escalated is marked in the critical colour
+          and named on the axis.</div>
+        ${hbar(statusRows, { aria: "Requests by status" })}</div>
+      <div class="chart"><h3>Open requests by department</h3>
+        <div class="csub">Where the open queue sits right now.</div>
+        ${deptRows.length ? hbar(deptRows, { aria: "Open requests by department" })
+          : empty("Nothing open right now.")}</div>
+      <div class="chart"><h3>Turnaround by department</h3>
+        <div class="legend"><span><i style="background:var(--s2)"></i>Time to acknowledge</span>
+          <span><i style="background:var(--s1)"></i>Time to complete</span></div>
+        ${turnRows.length ? groupedBar(turnRows, { aLabel: "Time to acknowledge",
+          bLabel: "Time to complete", aria: "Turnaround by department" })
+          : empty("No completed requests yet.")}</div>
+      <div class="chart"><h3>How long open items have been waiting</h3>
+        <div class="csub">Age of every open request, in simulated hours.</div>
+        ${ages.length ? histogram(ages.map(a => a.age_hours), { aria: "Queue age distribution" })
+          : empty("Nothing is waiting.")}</div>
+    </div>`;
+
+    const neckTable = necks.length ? `<div class="tblwrap"><table>
+      <thead><tr><th>Person</th><th>Title</th><th>Department</th><th class="n">Open</th>
+        <th class="n">Avg wait</th><th class="n">Oldest</th><th>Status</th></tr></thead>
+      <tbody>${necks.map(b => `<tr><td><strong>${esc(b.person)}</strong></td><td>${esc(b.title)}</td>
+        <td>${esc(b.department)}</td><td class="n">${b.open}</td>
+        <td class="n">${b.avg_wait_hours}h</td><td class="n">${b.oldest_wait_hours}h</td>
+        <td>${b.is_ooo ? badge("Out of office", "ooo") : `<span class="muted">In office</span>`}</td>
+        </tr>`).join("")}</tbody></table></div>` : empty("No queues are backing up.");
+
+    const orphanCards = orphans.length ? orphans.map(o => `<div class="card alarm">
+        <div class="card-t">${esc(o.process)} ${badge("No owner", "escalated")}</div>
+        <div class="card-m"><span>${esc(o.category)}</span>
+          <span>${o.open_requests} open request(s)</span>
+          <span>other roles configured: ${esc(o.other_roles)}</span></div></div>`).join("")
+      : `<div class="note info">Every process has an owner.</div>`;
+
+    const spofCards = spofs.length ? spofs.map(r => {
+      const detail = r.uncovered.length ? "Uncovered: " + r.uncovered.join(", ")
+        : r.owns ? "Every process they own has a delegate or backup."
+        : `Approves on ${r.approves} process(es) but owns none outright.`;
+      return `<div class="card${r.uncovered.length ? " alarm" : ""}">
+        <div class="card-t">${esc(r.person)}</div>
+        <div class="card-m"><span>${esc(r.title)}</span><span>${esc(r.department)}</span></div>
+        <div class="card-m" style="margin-top:7px">${badge(r.owns + " owned", "role")}
+          ${badge(r.approves + " approved", "role")}
+          ${badge(r.open_load + " open", r.open_load ? "gold" : "mute")}
+          ${r.is_ooo ? badge("Out of office", "ooo") : ""}
+          ${r.uncovered.length ? badge(r.uncovered.length + " uncovered", "escalated") : ""}</div>
+        <div class="card-b">${esc(detail)}</div></div>`;
+    }).join("") : `<div class="note info">No individual carries enough uncovered processes
+      to be a concern.</div>`;
+
+    return phead("Dashboard", "Where work is actually stuck",
+      "Queue times, bottlenecks, orphaned processes and single points of failure — computed live " +
+      "against simulated time.") +
+      `<p class="muted" style="margin-bottom:11px">Simulated time
+        <span class="mono">${esc(fmtTime(at))}</span></p>
+      <div class="tiles">
+        ${tile("Open requests", String(h.open_requests), "of " + h.total_requests + " raised")}
+        ${tile("Avg time to acknowledge", h.avg_ack_hours.toFixed(1) + "h", "first response")}
+        ${tile("Avg time to complete", h.avg_cycle_hours.toFixed(1) + "h", "raised to closed")}
+        ${tile("Escalation rate", Math.round(h.escalation_rate) + "%",
+               h.escalated_requests + " escalated", h.escalation_rate >= 20 ? "bad" : "")}
+        ${tile("Oldest open item", Math.round(h.oldest_open_hours) + "h", "still waiting",
+               h.oldest_open_hours >= 48 ? "warn" : "")}
+      </div>
+      <div class="sect"><h2>Queue</h2></div>${charts}
+      <div class="sect"><h2>Bottlenecks</h2><p>Who the open queue is piling up behind.</p></div>
+      ${neckTable}
+      <div class="sect"><h2>Orphaned processes</h2>
+        <p>Requests matched to these have no owner to route to — they park for the admin.</p></div>
+      <div class="stack">${orphanCards}</div>
+      <div class="sect"><h2>Single points of failure</h2>
+        <p>People carrying several processes. “Uncovered” means the process has no available
+          delegate or backup behind them.</p></div>
+      <div class="stack">${spofCards}</div>`;
+  }
+
+  /* ============================ event wiring ============================ */
+
+  function val(sel) { const el = document.querySelector(sel); return el ? el.value : ""; }
+  function captureDraft() {
+    const t = document.querySelector('[data-act="title"]');
+    const b = document.querySelector('[data-act="body"]');
+    if (t) UI.title = t.value;
+    if (b) UI.body = b.value;
+  }
+  function clearDraft() { UI.title = UI.body = null; }
+
+  document.addEventListener("click", ev => {
+    const el = ev.target.closest("[data-act]");
+    if (!el) return;
+    const act = el.dataset.act;
+    const id = el.dataset.id ? Number(el.dataset.id) : null;
+
+    switch (act) {
+      case "page": UI.page = el.dataset.page; UI.open = UI.person = UI.process = null;
+        return commit();
+      case "subtab": UI.tab[el.dataset.group] = el.dataset.k;
+        UI.person = UI.process = null; return commit();
+
+      /* rail */
+      case "adv": {
+        E.advance(S, Number(el.dataset.h));
+        const n = E.runUntilSettled(S);
+        return commit(`Advanced ${el.dataset.h}h. The agent took ${n} action${n === 1 ? "" : "s"}.`);
+      }
+      case "advcustom": {
+        const hrs = Math.max(1, Math.min(720, Number(UI.advH || 24)));
+        E.advance(S, hrs);
+        const n = E.runUntilSettled(S);
+        return commit(`Advanced ${hrs}h. The agent took ${n} action${n === 1 ? "" : "s"}.`);
+      }
+      case "clockreset": E.resetClock(S); return commit("Simulated clock reset to real time.");
+      case "ooo": {
+        const target = person(UI.oooPerson) ||
+          S.people.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
+        const isOoo = E.isOutOfOffice(target, now());
+        const days = Math.max(1, Math.min(60, Number(UI.oooDays || 5)));
+        E.setOoo(S, target.id, !isOoo, isOoo ? null : now() + days * 24 * HOUR);
+        const n = E.runUntilSettled(S);
+        return commit(`${target.name} is now ${isOoo ? "back in the office" : "out of office"}. ` +
+          `The agent took ${n} action${n === 1 ? "" : "s"}.`);
+      }
+      case "tick": {
+        const n = E.runUntilSettled(S);
+        return commit(`Agent evaluated its rules and took ${n} action${n === 1 ? "" : "s"}.`);
+      }
+      case "reseed": reseed(); return commit("Database reset and reseeded.");
+
+      /* intake */
+      case "example": UI.query = EXAMPLES[Number(el.dataset.i)]; UI.override = null;
+        clearDraft(); return commit();
+      case "clear": UI.query = ""; UI.override = null; clearDraft(); return commit();
+      case "send": {
+        captureDraft();
+        const query = (UI.query || "").trim();
+        const matches = E.matchProcesses(S.processes, query, 3);
+        const top = matches[0];
+        const chosen = UI.override !== null && UI.override !== undefined ? UI.override
+          : (top && top.confidence >= 25 ? top.process_id : S.processes[0].id);
+        const proc = E.process_(S, chosen);
+        const res = E.resolve(S, proc);
+        const me = actor();
+        const r = E.createRequest(S, {
+          requester_id: UI.actor, process_id: chosen, assignee_id: res.assignee_id,
+          title: UI.title !== null && UI.title !== undefined ? UI.title
+                 : E.suggestTitle(query, proc ? proc.name : null),
+          body: UI.body !== null && UI.body !== undefined ? UI.body
+                : E.draftBody(me, proc, res, query),
+          resolution: res,
+        });
+        UI.sent = r.id; clearDraft();
+        return commit();
+      }
+      case "another": UI.sent = null; UI.query = ""; UI.override = null; clearDraft();
+        return commit();
+      case "follow": E.followExisting(S, id, UI.actor); UI.sent = id; clearDraft();
+        return commit("Joined the existing request instead of raising a duplicate.");
+
+      /* requests */
+      case "open": UI.open = id; return commit();
+      case "back": UI.open = null; return commit();
+      case "ack": E.acknowledge(S, id, UI.actor); return commit("Acknowledged.");
+      case "prog": E.startProgress(S, id, UI.actor); return commit("Moved to In progress.");
+      case "done": E.complete(S, id, UI.actor, UI.note || ""); UI.note = "";
+        return commit("Request completed.");
+      case "sendnote": {
+        const note = (UI.note || "").trim();
+        if (!note) return;
+        E.addNote(S, id, UI.actor, note); UI.note = "";
+        return commit("Note sent.");
+      }
+
+      /* directory */
+      case "person": UI.person = id; UI.process = null; return commit();
+      case "process": UI.process = id; UI.person = null; return commit();
+      case "backdir": UI.person = UI.process = null; return commit();
+      default: return;
+    }
+  });
+
+  document.addEventListener("change", ev => {
+    const el = ev.target.closest("[data-act]");
+    if (!el) return;
+    switch (el.dataset.act) {
+      case "actor": UI.actor = Number(el.value); UI.open = null; return commit();
+      case "oooperson": UI.oooPerson = Number(el.value); return commit();
+      case "override": UI.override = Number(el.value); clearDraft(); return commit();
+      case "logfilter": UI.filter = el.value; return commit();
+      case "dept": UI.dept = el.value; return commit();
+      case "graphdept": UI.graphDept = el.value; return commit();
+      default: return;
+    }
+  });
+
+  // Text fields keep their value in UI state without a re-render per keystroke.
+  document.addEventListener("input", ev => {
+    const el = ev.target.closest("[data-act]");
+    if (!el) return;
+    switch (el.dataset.act) {
+      case "query": UI.query = el.value; clearDraft(); break;
+      case "title": UI.title = el.value; break;
+      case "body": UI.body = el.value; break;
+      case "note": UI.note = el.value; break;
+      case "advh": UI.advH = el.value; break;
+      case "oood": UI.oooDays = el.value; break;
+      case "search": UI.search = el.value; break;
+      default: return;
+    }
+    save();
+  });
+
+  // The intake query needs a render once the user pauses, so the trace updates.
+  let queryTimer = null;
+  document.addEventListener("input", ev => {
+    const el = ev.target.closest('[data-act="query"], [data-act="search"]');
+    if (!el) return;
+    clearTimeout(queryTimer);
+    const isSearch = el.dataset.act === "search";
+    queryTimer = setTimeout(() => {
+      const pos = el.selectionStart;
+      render();
+      const again = document.querySelector(`[data-act="${el.dataset.act}"]`);
+      if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch (e) {} }
+    }, isSearch ? 220 : 420);
+  });
+
+  /* ------------------------------ tooltips ------------------------------ */
+
+  const tipEl = () => document.getElementById("tip");
+  function showTip(target, ev) {
+    const el = tipEl();
+    el.innerHTML = `<div class="tt">${esc(target.dataset.tip)}</div>
+      <div>${esc(target.dataset.tipb || "")}</div>`;
+    el.hidden = false;
+    const r = el.getBoundingClientRect();
+    const x = Math.min(window.innerWidth - r.width - 10, (ev.clientX || 0) + 14);
+    const y = Math.max(8, (ev.clientY || 0) - r.height - 12);
+    el.style.left = x + "px"; el.style.top = y + "px";
+  }
+  function bindCharts() {
+    document.querySelectorAll("[data-tip]").forEach(node => {
+      node.addEventListener("mousemove", ev => showTip(node, ev));
+      node.addEventListener("mouseleave", () => { tipEl().hidden = true; });
+      node.addEventListener("focus", ev => {
+        const b = node.getBoundingClientRect();
+        showTip(node, { clientX: b.left + b.width / 2, clientY: b.top + b.height });
+      });
+      node.addEventListener("blur", () => { tipEl().hidden = true; });
+    });
+  }
+
+  /* -------------------------------- boot -------------------------------- */
+
+  if (!load()) reseed();
+  if (!E.person(S, UI.actor)) UI.actor = S.people[0].id;
+  render();
+
+  // The agent runs on its own, exactly as it does in the Python app.
+  setInterval(() => {
+    const before = S.events.length;
+    E.tick(S);
+    if (S.events.length !== before) { save(); render(); }
+    else { save(); }
+  }, 2000);
+})();
+
+</script>

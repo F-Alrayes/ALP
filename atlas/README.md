@@ -44,6 +44,11 @@ To put it on a URL someone else can open, see **[DEPLOY.md](DEPLOY.md)** —
 Streamlit Community Cloud takes about two minutes, and there is a `Dockerfile`
 for any container host.
 
+To click through it with nothing installed at all, open
+[`preview/atlas-preview.html`](preview/README.md) — a single self-contained file
+that runs the same logic in the browser. It is a mirror of this app, kept honest
+by a parity suite; the Python app here remains the source of truth.
+
 ---
 
 ## The three-minute demo
