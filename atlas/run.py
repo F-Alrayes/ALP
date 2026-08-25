@@ -35,11 +35,21 @@ def ensure_database(force_reseed: bool = False) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the Atlas prototype.")
-    parser.add_argument("--port", type=int, default=8501, help="Streamlit port (default 8501)")
+    # Hosts such as Render, Railway and Cloud Run inject the port to bind.
+    default_port = int(os.environ.get("PORT", "8501"))
+    parser.add_argument(
+        "--port", type=int, default=default_port,
+        help=f"Streamlit port (default {default_port})",
+    )
     parser.add_argument("--reseed", action="store_true", help="Wipe and reseed before launching")
     parser.add_argument("--seed-only", action="store_true", help="Seed the database and exit")
     parser.add_argument(
         "--headless", action="store_true", help="Do not try to open a browser window"
+    )
+    parser.add_argument(
+        "--address",
+        default=os.environ.get("ATLAS_ADDRESS", "localhost"),
+        help="Interface to bind (default localhost; use 0.0.0.0 to serve a network)",
     )
     args = parser.parse_args()
 
@@ -64,6 +74,8 @@ def main() -> int:
         str(HERE / "app.py"),
         "--server.port",
         str(args.port),
+        "--server.address",
+        args.address,
         "--server.headless",
         "true" if args.headless else "false",
     ]

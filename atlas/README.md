@@ -38,7 +38,11 @@ Useful flags:
 | `python run.py --port 8600` | Run on a different port |
 | `python verify.py` | Run the acceptance checks headlessly and reseed |
 
-Requires Python 3.11+. Everything runs offline.
+Requires Python 3.10+. Everything runs offline.
+
+To put it on a URL someone else can open, see **[DEPLOY.md](DEPLOY.md)** —
+Streamlit Community Cloud takes about two minutes, and there is a `Dockerfile`
+for any container host.
 
 ---
 

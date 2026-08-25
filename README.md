@@ -7,7 +7,7 @@ A family app
 | Directory | What it is |
 | --- | --- |
 | `lib/`, `android/`, `ios/`, `web/` | The Flutter family app (this project) |
-| [`atlas/`](atlas/README.md) | **Atlas** — an internal responsibility & request-routing platform. A separate, self-contained Python/Streamlit prototype: `cd atlas && pip install -r requirements.txt && python run.py` |
+| [`atlas/`](atlas/README.md) | **Atlas** — an internal responsibility & request-routing platform. A separate, self-contained Python/Streamlit prototype: `cd atlas && pip install -r requirements.txt && python run.py`. Hosting instructions in [atlas/DEPLOY.md](atlas/DEPLOY.md). |
 
 ## The Flutter family app
 
