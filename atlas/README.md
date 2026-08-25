@@ -13,6 +13,8 @@ logic, a real background agent, real analytics. The only thing that is fake is
 the data — the 40 employees, 5 departments and 14 processes are seeded. There
 are no integrations, no auth, and no network calls of any kind.
 
+![Intake — the resolution trace](docs/intake.png)
+
 ---
 
 ## Run it
@@ -96,6 +98,15 @@ agent reroutes their live work to a delegate within a couple of seconds and
 writes an explanatory note to both sides. Return to the **Dashboard** — the
 bottleneck table, escalation rate and single-point-of-failure report have all
 moved.
+
+---
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Dashboard](docs/dashboard.png) | ![Responsibility graph](docs/graph.png) |
+| The dashboard: queue health, orphans and single points of failure | The responsibility graph: people, processes and the edges between them |
 
 ---
 
