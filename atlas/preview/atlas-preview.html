@@ -16,6 +16,9 @@
   --rail-line:rgba(237,231,214,.16); --rail-fill:rgba(237,231,214,.08);
   --s1:#0F8A5F;  /* chart series 1 - validated */
   --s2:#B98B0A;  /* chart series 2 - validated */
+  /* Org-chart team stripes. These label a node, never encode a quantity, and
+     every node also carries its team name as text. */
+  --dept-b:#2A6FB0; --dept-c:#8A4FA8; --dept-d:#0E8C8C; --dept-e:#C4633A;
   --grid:#EDE6D4;
   --shadow:0 1px 2px rgba(18,53,40,.05), 0 8px 24px -18px rgba(18,53,40,.35);
   --r:10px;
@@ -32,6 +35,7 @@
     --rail:#091410; --rail-2:#0F1F19; --rail-ink:#E9E4D6; --rail-ink-2:#93A79B;
     --rail-line:rgba(233,228,214,.14); --rail-fill:rgba(233,228,214,.07);
     --s1:#25A075; --s2:#B08E2A;
+    --dept-b:#5C9BD8; --dept-c:#B183CC; --dept-d:#3FB0B0; --dept-e:#DE8B63;
     --grid:#263B31;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
   }
@@ -47,6 +51,7 @@
   --rail:#091410; --rail-2:#0F1F19; --rail-ink:#E9E4D6; --rail-ink-2:#93A79B;
   --rail-line:rgba(233,228,214,.14); --rail-fill:rgba(233,228,214,.07);
   --s1:#25A075; --s2:#B08E2A;
+  --dept-b:#5C9BD8; --dept-c:#B183CC; --dept-d:#3FB0B0; --dept-e:#DE8B63;
   --grid:#263B31;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
 }
@@ -79,6 +84,8 @@ a { color:var(--gold-ink); }
   border-right:1px solid var(--rail-line); display:flex; flex-direction:column; gap:20px; }
 .canvas { min-width:0; padding:26px 30px 72px; }
 .wrap { max-width:1120px; margin:0 auto; }
+.wrap.wide { max-width:1500px; }
+.app.chatmode .canvas { padding-bottom:0; }
 @media (max-width:900px) {
   .app { grid-template-columns:minmax(0,1fr); }
   .rail { border-right:none; border-bottom:1px solid var(--rail-line); }
@@ -283,6 +290,110 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
 </style>
 <div id="root"></div>
 <div id="tip" class="tip" hidden></div>
+
+<style>
+/* ------------------------------------------------------------------ chat */
+.chatpage { display:flex; flex-direction:column; height:calc(100vh - 150px); min-height:440px; }
+.chatlog { flex:1; overflow-y:auto; padding:4px 2px 16px; scroll-behavior:smooth; }
+.msg { display:flex; gap:11px; margin-bottom:16px; max-width:760px; }
+.msg.user { margin-left:auto; justify-content:flex-end; }
+.msg.user .bub { background:var(--green-deep); color:#F3EEE0; border-radius:14px 14px 4px 14px;
+  padding:10px 15px; max-width:85%; }
+:root[data-theme="dark"] .msg.user .bub { background:var(--surface-3); color:var(--ink); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .msg.user .bub { background:var(--surface-3); color:var(--ink); }
+}
+.msg.bot .ava { width:29px; height:29px; border-radius:8px; background:var(--gold);
+  color:#12211A; display:grid; place-items:center; font-weight:700; font-size:.83rem;
+  font-family:"Source Serif 4",serif; flex:none; margin-top:2px; }
+.msg.bot .bub { background:var(--surface); border:1px solid var(--line); border-radius:4px 14px 14px 14px;
+  padding:13px 16px; box-shadow:var(--shadow); flex:1; min-width:0; }
+.msg.bot .bub > p + p { margin-top:9px; }
+.msg .bub .small { font-size:.85rem; }
+@media (prefers-reduced-motion: no-preference) { .msg { animation:msgin .18s ease-out; } }
+@keyframes msgin { from { opacity:0; transform:translateY(4px); } }
+
+.chips.suggest { margin:0 0 16px 40px; max-width:760px; }
+.chip.sm { padding:4px 10px; font-size:.78rem; }
+.who-now { margin-top:11px; border-top:1px solid var(--line-soft); padding-top:10px; }
+.who-now .lbl { display:block; margin-bottom:2px; }
+.trail.tight { margin:2px 0 2px 6px; padding-left:17px; }
+.trail.tight .node { padding:5px 0; }
+.note.tight { margin-top:9px; padding:8px 11px; font-size:.85rem; }
+.chips.tight { margin-top:7px; }
+.card.tight { margin-top:9px; padding:11px 13px; }
+.stack.tight { gap:7px; margin-top:9px; }
+.draft { margin-top:12px; border-top:1px solid var(--line-soft); padding-top:11px; }
+.acts { display:flex; gap:8px; flex-wrap:wrap; margin-top:11px; align-items:center; }
+.picker { min-width:260px; }
+
+.composer { display:flex; gap:9px; align-items:flex-end; border-top:1px solid var(--line);
+  padding-top:13px; background:var(--ground); }
+.composer textarea { flex:1; resize:none; border:1px solid var(--line); border-radius:11px;
+  padding:11px 14px; background:var(--surface); font-family:inherit; font-size:.95rem;
+  line-height:1.45; max-height:160px; overflow-y:auto; }
+.composer-note { margin-top:7px; text-align:center; }
+
+/* -------------------------------------------------------------- org tree */
+.orgwrap { display:grid; grid-template-columns:minmax(0,1fr) 314px; gap:16px; align-items:start; }
+@media (max-width:1080px) { .orgwrap { grid-template-columns:minmax(0,1fr); } }
+.orgscroll { overflow:auto; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r); height:min(70vh,660px); cursor:grab; padding:14px;
+  box-shadow:var(--shadow); }
+.orgscroll.grabbing { cursor:grabbing; }
+.orgscroll svg { display:block; }
+.onode .obox { fill:var(--surface); stroke:var(--line); stroke-width:1.5; }
+.onode:hover .obox { stroke:var(--gold); }
+.onode.sel .obox { stroke:var(--gold); stroke-width:2.5; }
+.onode.hit .obox { fill:var(--gold-soft); stroke:var(--gold); }
+.onode.dim { opacity:.26; }
+.onode .oname { fill:var(--ink); font-size:13px; font-weight:600; }
+.onode .otitle { fill:var(--ink-2); font-size:11.5px; }
+.onode .ometa { fill:var(--ink-3); font-size:10.5px; }
+.onode .oload { fill:var(--gold-ink); font-size:10.5px; font-weight:600; }
+.onode g[data-act] { cursor:pointer; }
+.onode g[data-act]:focus-visible .obox { stroke:var(--gold); stroke-width:2.5; }
+.tgl { cursor:pointer; }
+.tgl .tglt { fill:var(--ink-2); font-size:10px; font-weight:600;
+  font-family:"IBM Plex Mono",monospace; }
+.tgl:hover circle { fill:var(--gold-soft); stroke:var(--gold); }
+.orgside { position:sticky; top:14px; }
+.side-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:15px 17px; box-shadow:var(--shadow); }
+.side-head { display:flex; justify-content:space-between; align-items:flex-start; gap:9px;
+  margin-bottom:9px; }
+.side-head h3 { font-family:"IBM Plex Sans",sans-serif; font-size:1rem; }
+.empty.side { padding:26px 18px; }
+.legend.dept { margin:11px 0 13px; gap:13px; }
+.legend.dept i { width:9px; height:9px; border-radius:2px; }
+.legend.dept .ooo-dot { width:9px; height:9px; border-radius:50%; background:var(--warn);
+  display:inline-block; margin-right:5px; vertical-align:-1px; }
+.zoomer { display:flex; align-items:center; gap:5px; }
+.zoomv { font-size:.79rem; color:var(--ink-3); min-width:40px; text-align:center; }
+.btn-pair { display:flex; gap:5px; }
+.swatch { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:7px; }
+
+/* ------------------------------------------------------------ nav pip */
+.pip { display:inline-block; min-width:17px; padding:0 5px; border-radius:999px;
+  background:var(--gold); color:#12211A; font-size:.68rem; font-weight:700;
+  vertical-align:1px; margin-left:4px; }
+
+/* --------------------------------------------------------------- modal */
+.scrim { position:fixed; inset:0; background:rgba(9,20,16,.62); display:grid; place-items:center;
+  z-index:60; padding:20px; }
+.modal { background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:22px 24px; max-width:520px; width:100%; box-shadow:0 24px 60px -20px rgba(0,0,0,.55); }
+.modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; }
+.modal h2 { margin-bottom:9px; }
+.modal p { color:var(--ink-2); }
+.modal-foot { display:flex; justify-content:space-between; align-items:center; margin-top:20px;
+  gap:11px; flex-wrap:wrap; }
+.dots { display:flex; gap:6px; }
+.dots .dot { width:7px; height:7px; border-radius:50%; background:var(--line); }
+.dots .dot.on { background:var(--gold); }
+@media (prefers-reduced-motion: no-preference) { .modal { animation:pop .18s ease-out; } }
+@keyframes pop { from { opacity:0; transform:translateY(8px) scale(.985); } }
+</style>
 
 <script>
 const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"name":"Finance"},{"id":3,"name":"Legal & Compliance"},{"id":4,"name":"IT"},{"id":5,"name":"Operations / HR"}],"people":[{"id":1,"name":"Khalid Al-Rayes","title":"Chief Executive Officer","department_id":null,"manager_id":null,"email":"khalid.rayes@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":2,"name":"Faisal Al-Otaibi","title":"Managing Director, Investments","department_id":1,"manager_id":1,"email":"faisal.otaibi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":3,"name":"Sarah Whitfield","title":"Investment Director","department_id":1,"manager_id":2,"email":"sarah.whitfield@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":4,"name":"Omar Haddad","title":"Principal","department_id":1,"manager_id":2,"email":"omar.haddad@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":5,"name":"Layla Mansour","title":"Senior Associate","department_id":1,"manager_id":3,"email":"layla.mansour@atlas-capital.example","is_ooo":true,"ooo_until":144.0},{"id":6,"name":"James Okonkwo","title":"Associate","department_id":1,"manager_id":3,"email":"james.okonkwo@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":7,"name":"Noura Al-Sabah","title":"Associate","department_id":1,"manager_id":4,"email":"noura.sabah@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":8,"name":"Marco Bianchi","title":"Investment Analyst","department_id":1,"manager_id":4,"email":"marco.bianchi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":9,"name":"Yousef Darwish","title":"Investment Analyst","department_id":1,"manager_id":5,"email":"yousef.darwish@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":10,"name":"Sofia Marchetti","title":"Investment Analyst","department_id":1,"manager_id":5,"email":"sofia.marchetti@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":11,"name":"Amira Haddadin","title":"Chief Financial Officer","department_id":2,"manager_id":1,"email":"amira.haddadin@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":12,"name":"Daniel Reyes","title":"Finance Director","department_id":2,"manager_id":11,"email":"daniel.reyes@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":13,"name":"Huda Al-Najjar","title":"Financial Controller","department_id":2,"manager_id":11,"email":"huda.najjar@atlas-capital.example","is_ooo":true,"ooo_until":96.0},{"id":14,"name":"Peter Lindqvist","title":"Senior Accountant","department_id":2,"manager_id":13,"email":"peter.lindqvist@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":15,"name":"Rania Khoury","title":"Accounts Payable Lead","department_id":2,"manager_id":12,"email":"rania.khoury@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":16,"name":"Tomas Ferreira","title":"Treasury Analyst","department_id":2,"manager_id":12,"email":"tomas.ferreira@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":17,"name":"Mariam Al-Balushi","title":"Fund Accountant","department_id":2,"manager_id":13,"email":"mariam.balushi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":18,"name":"Karim El-Masri","title":"Payroll Specialist","department_id":2,"manager_id":12,"email":"karim.masri@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":19,"name":"Nadia Suleiman","title":"General Counsel","department_id":3,"manager_id":1,"email":"nadia.suleiman@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":20,"name":"Robert Ashby","title":"Deputy General Counsel","department_id":3,"manager_id":19,"email":"robert.ashby@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":21,"name":"Zainab Al-Hashimi","title":"Head of Compliance","department_id":3,"manager_id":19,"email":"zainab.hashimi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":22,"name":"Eleanor Voss","title":"Senior Legal Counsel","department_id":3,"manager_id":20,"email":"eleanor.voss@atlas-capital.example","is_ooo":true,"ooo_until":72.0},{"id":23,"name":"Tariq Benali","title":"Compliance Officer, KYC","department_id":3,"manager_id":21,"email":"tariq.benali@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":24,"name":"Grace Mwangi","title":"Legal Counsel","department_id":3,"manager_id":20,"email":"grace.mwangi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":25,"name":"Hassan Al-Farsi","title":"Paralegal","department_id":3,"manager_id":22,"email":"hassan.farsi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":26,"name":"Vikram Chandra","title":"Head of Technology","department_id":4,"manager_id":1,"email":"vikram.chandra@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":27,"name":"Elena Petrova","title":"Infrastructure Lead","department_id":4,"manager_id":26,"email":"elena.petrova@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":28,"name":"Ahmed Zaki","title":"Systems Administrator","department_id":4,"manager_id":27,"email":"ahmed.zaki@atlas-capital.example","is_ooo":true,"ooo_until":48.0},{"id":29,"name":"Chloe Dubois","title":"Security Engineer","department_id":4,"manager_id":26,"email":"chloe.dubois@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":30,"name":"Bilal Rahman","title":"IT Support Lead","department_id":4,"manager_id":26,"email":"bilal.rahman@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":31,"name":"Ivan Kovacs","title":"Application Support Analyst","department_id":4,"manager_id":30,"email":"ivan.kovacs@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":32,"name":"Fatima Al-Zahrani","title":"Data Engineer","department_id":4,"manager_id":27,"email":"fatima.zahrani@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":33,"name":"Claire Donovan","title":"Chief Operating Officer","department_id":5,"manager_id":1,"email":"claire.donovan@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":34,"name":"Salma Bouzid","title":"Head of Human Resources","department_id":5,"manager_id":33,"email":"salma.bouzid@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":35,"name":"Michael Trent","title":"Operations Manager","department_id":5,"manager_id":33,"email":"michael.trent@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":36,"name":"Dina Al-Kaabi","title":"HR Business Partner","department_id":5,"manager_id":34,"email":"dina.kaabi@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":37,"name":"Anna Sorenson","title":"Office Manager","department_id":5,"manager_id":35,"email":"anna.sorenson@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":38,"name":"Youssef Karim","title":"Procurement Lead","department_id":5,"manager_id":35,"email":"youssef.karim@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":39,"name":"Priya Nair","title":"Executive Assistant to the CEO","department_id":5,"manager_id":33,"email":"priya.nair@atlas-capital.example","is_ooo":false,"ooo_until":null},{"id":40,"name":"Hamza Al-Dosari","title":"Travel & Facilities Coordinator","department_id":5,"manager_id":37,"email":"hamza.dosari@atlas-capital.example","is_ooo":false,"ooo_until":null}],"processes":[{"id":1,"name":"Data Room Access","description":"Grant a colleague or counterparty access to a project virtual data room, including folder-level permissions and NDA verification.","category":"Deal Support","keywords":"data room, dataroom, virtual data room, vdr, deal documents, project access, folder access, diligence documents, deal folder, project falcon"},{"id":2,"name":"Invoice Approval","description":"Approve a supplier invoice for payment once goods or services are confirmed received.","category":"Finance","keywords":"invoice, approve invoice, supplier payment, pay invoice, billing, accounts payable, ap, invoice sign off, payment run"},{"id":3,"name":"KYC Refresh","description":"Periodic refresh of know-your-customer and anti-money-laundering documentation for an existing investor or counterparty.","category":"Compliance","keywords":"kyc, know your customer, aml, client due diligence, cdd, refresh, screening, investor documentation, sanctions check"},{"id":4,"name":"NDA Review","description":"Legal review and mark-up of an inbound or outbound non-disclosure agreement.","category":"Legal","keywords":"nda, non-disclosure, non disclosure agreement, confidentiality agreement, mutual nda, sign nda, review nda, confidentiality"},{"id":5,"name":"Vendor Onboarding","description":"Onboard a new supplier: due diligence, bank details verification and system setup.","category":"Procurement","keywords":"vendor, supplier onboarding, new supplier, third party, vendor setup, supplier form, counterparty setup, new vendor"},{"id":6,"name":"IT Access Provisioning","description":"Provision system access, licences or shared drive permissions for a colleague.","category":"IT","keywords":"access, permissions, system access, provisioning, licence, license, vpn access, shared drive, new account, joiner setup"},{"id":7,"name":"Expense Reimbursement","description":"Reimburse out-of-pocket business expenses against submitted receipts.","category":"Finance","keywords":"expense, expenses, reimbursement, reimburse, claim, receipts, out of pocket, expense report, mileage"},{"id":8,"name":"Valuation Sign-off","description":"Quarterly fair-value sign-off for portfolio holdings feeding the NAV.","category":"Finance","keywords":"valuation, nav, fair value, portfolio valuation, sign off, mark, quarterly valuation, pricing, net asset value"},{"id":9,"name":"Board Pack Preparation","description":"Compile, format and distribute the board or investment committee pack ahead of a meeting.","category":"Executive","keywords":"board pack, board meeting, board deck, committee papers, board materials, ic pack, investment committee, board papers"},{"id":10,"name":"Travel Approval","description":"Approve business travel and book flights, hotels and ground transport.","category":"Operations","keywords":"travel, flight, flights, trip, hotel, business travel, travel request, itinerary, travel booking, visa"},{"id":11,"name":"Contract Renewal","description":"Review and renew an expiring supplier or service contract before its termination date.","category":"Legal","keywords":"contract renewal, renew contract, msa, agreement renewal, extension, contract expiry, renewal, service agreement"},{"id":12,"name":"Password Reset","description":"Reset a forgotten password or unlock an account, including MFA re-enrolment.","category":"IT","keywords":"password, reset password, locked out, mfa, login issue, cannot log in, account locked, forgot password, two factor"},{"id":13,"name":"Purchase Order Approval","description":"Raise and approve a purchase order before committing firm spend.","category":"Procurement","keywords":"purchase order, po, raise po, procurement request, spend approval, commit spend, buy, order form"},{"id":14,"name":"Policy Exception Approval","description":"Approve a documented deviation from an internal policy, with rationale and expiry.","category":"Compliance","keywords":"policy exception, waiver, exemption, deviation, override, policy breach, one off approval, dispensation"}],"responsibilities":[{"id":1,"process_id":1,"person_id":5,"role":"owner"},{"id":2,"process_id":1,"person_id":2,"role":"approver"},{"id":3,"process_id":1,"person_id":6,"role":"delegate"},{"id":4,"process_id":1,"person_id":4,"role":"backup"},{"id":5,"process_id":2,"person_id":15,"role":"owner"},{"id":6,"process_id":2,"person_id":13,"role":"approver"},{"id":7,"process_id":2,"person_id":18,"role":"delegate"},{"id":8,"process_id":2,"person_id":16,"role":"backup"},{"id":9,"process_id":3,"person_id":23,"role":"owner"},{"id":10,"process_id":3,"person_id":21,"role":"approver"},{"id":11,"process_id":3,"person_id":25,"role":"delegate"},{"id":12,"process_id":4,"person_id":22,"role":"owner"},{"id":13,"process_id":4,"person_id":19,"role":"approver"},{"id":14,"process_id":4,"person_id":24,"role":"delegate"},{"id":15,"process_id":5,"person_id":38,"role":"owner"},{"id":16,"process_id":5,"person_id":13,"role":"approver"},{"id":17,"process_id":5,"person_id":35,"role":"approver"},{"id":18,"process_id":5,"person_id":37,"role":"delegate"},{"id":19,"process_id":6,"person_id":30,"role":"owner"},{"id":20,"process_id":6,"person_id":26,"role":"approver"},{"id":21,"process_id":6,"person_id":31,"role":"delegate"},{"id":22,"process_id":6,"person_id":28,"role":"backup"},{"id":23,"process_id":7,"person_id":14,"role":"owner"},{"id":24,"process_id":7,"person_id":13,"role":"approver"},{"id":25,"process_id":7,"person_id":17,"role":"delegate"},{"id":26,"process_id":8,"person_id":13,"role":"owner"},{"id":27,"process_id":8,"person_id":11,"role":"approver"},{"id":28,"process_id":9,"person_id":39,"role":"owner"},{"id":29,"process_id":9,"person_id":33,"role":"approver"},{"id":30,"process_id":9,"person_id":37,"role":"delegate"},{"id":31,"process_id":10,"person_id":40,"role":"owner"},{"id":32,"process_id":10,"person_id":35,"role":"approver"},{"id":33,"process_id":10,"person_id":37,"role":"delegate"},{"id":34,"process_id":11,"person_id":20,"role":"owner"},{"id":35,"process_id":11,"person_id":19,"role":"approver"},{"id":36,"process_id":12,"person_id":28,"role":"owner"},{"id":37,"process_id":12,"person_id":31,"role":"delegate"},{"id":38,"process_id":12,"person_id":30,"role":"backup"}],"requests":[{"id":1,"requester_id":8,"process_id":7,"assignee_id":14,"original_assignee_id":14,"title":"Reimbursement for Riyadh site visit","body":"Three nights and taxis for the Riyadh management meeting. Receipts attached.","status":"completed","created_at":-410.0,"updated_at":-381.0,"last_action_at":-381.0,"chase_count":0,"acknowledged_at":-406.5,"completed_at":-381.0},{"id":2,"requester_id":10,"process_id":6,"assignee_id":30,"original_assignee_id":30,"title":"Access to the portfolio monitoring drive","body":"I need read access to the portfolio monitoring shared drive for the quarterly pack.","status":"completed","created_at":-330.0,"updated_at":-322.0,"last_action_at":-322.0,"chase_count":0,"acknowledged_at":-328.5,"completed_at":-322.0},{"id":3,"requester_id":3,"process_id":4,"assignee_id":22,"original_assignee_id":22,"title":"Mutual NDA with Cedarline Partners","body":"Counterparty sent their paper. Please review and mark up before Thursday.","status":"completed","created_at":-290.0,"updated_at":-238.0,"last_action_at":-238.0,"chase_count":0,"acknowledged_at":-284.0,"completed_at":-238.0},{"id":4,"requester_id":37,"process_id":12,"assignee_id":28,"original_assignee_id":28,"title":"Locked out of the expenses portal","body":"MFA re-enrolment failed after my phone was replaced.","status":"completed","created_at":-220.0,"updated_at":-218.0,"last_action_at":-218.0,"chase_count":0,"acknowledged_at":-219.5,"completed_at":-218.0},{"id":5,"requester_id":38,"process_id":2,"assignee_id":15,"original_assignee_id":15,"title":"Invoice 88412 — Meridian Advisory","body":"Q1 advisory retainer, goods receipted. Please approve for the Friday payment run.","status":"completed","created_at":-190.0,"updated_at":-164.0,"last_action_at":-164.0,"chase_count":0,"acknowledged_at":-186.0,"completed_at":-164.0},{"id":6,"requester_id":7,"process_id":10,"assignee_id":40,"original_assignee_id":40,"title":"Travel to Manama for portfolio review","body":"Two nights, flying out Tuesday morning, returning Thursday evening.","status":"completed","created_at":-150.0,"updated_at":-138.0,"last_action_at":-138.0,"chase_count":0,"acknowledged_at":-148.0,"completed_at":-138.0},{"id":7,"requester_id":4,"process_id":3,"assignee_id":23,"original_assignee_id":23,"title":"KYC refresh — Northgate Investments","body":"Their documentation lapsed last month and we cannot draw down until it is refreshed.","status":"completed","created_at":-120.0,"updated_at":-79.0,"last_action_at":-79.0,"chase_count":0,"acknowledged_at":-115.0,"completed_at":-79.0},{"id":8,"requester_id":35,"process_id":5,"assignee_id":38,"original_assignee_id":38,"title":"Onboard Halcyon Facilities Management","body":"New cleaning contractor for the Dubai office. Bank details attached for verification.","status":"in_progress","created_at":-70.0,"updated_at":-63.5,"last_action_at":-63.5,"chase_count":0,"acknowledged_at":-65.0,"completed_at":null},{"id":9,"requester_id":37,"process_id":11,"assignee_id":20,"original_assignee_id":20,"title":"Renewal — Bloomberg terminal agreement","body":"The agreement lapses in six weeks. Please confirm whether we roll or renegotiate.","status":"in_progress","created_at":-58.0,"updated_at":-47.5,"last_action_at":-47.5,"chase_count":0,"acknowledged_at":-49.0,"completed_at":null},{"id":10,"requester_id":1,"process_id":9,"assignee_id":39,"original_assignee_id":39,"title":"March investment committee pack","body":"Please pull the March IC pack together — three deal papers plus the pipeline update.","status":"in_progress","created_at":-44.0,"updated_at":-40.5,"last_action_at":-40.5,"chase_count":0,"acknowledged_at":-42.0,"completed_at":null},{"id":11,"requester_id":11,"process_id":8,"assignee_id":13,"original_assignee_id":13,"title":"Q1 valuation sign-off — Falcon and Cedar holdings","body":"Both marks need controller sign-off before the NAV is struck on the 15th.","status":"acknowledged","created_at":-36.0,"updated_at":-32.0,"last_action_at":-32.0,"chase_count":0,"acknowledged_at":-32.0,"completed_at":null},{"id":12,"requester_id":9,"process_id":7,"assignee_id":14,"original_assignee_id":14,"title":"Client dinner — Cedarline management","body":"Dinner with the Cedarline management team after the site visit.","status":"acknowledged","created_at":-30.0,"updated_at":-27.0,"last_action_at":-27.0,"chase_count":0,"acknowledged_at":-27.0,"completed_at":null},{"id":13,"requester_id":36,"process_id":6,"assignee_id":30,"original_assignee_id":30,"title":"HR system access for new joiner","body":"New HR business partner starts Monday and needs the usual joiner bundle.","status":"acknowledged","created_at":-26.0,"updated_at":-25.0,"last_action_at":-25.0,"chase_count":0,"acknowledged_at":-25.0,"completed_at":null},{"id":14,"requester_id":37,"process_id":2,"assignee_id":15,"original_assignee_id":15,"title":"Invoice 88596 — Halcyon Facilities","body":"First invoice from the new facilities contractor. Please approve.","status":"pending","created_at":-9.0,"updated_at":-9.0,"last_action_at":-9.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":15,"requester_id":8,"process_id":10,"assignee_id":40,"original_assignee_id":40,"title":"Travel to London for the Cedarline signing","body":"One night, needs to be booked this week while fares hold.","status":"pending","created_at":-5.0,"updated_at":-5.0,"last_action_at":-5.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":16,"requester_id":3,"process_id":3,"assignee_id":23,"original_assignee_id":23,"title":"KYC refresh — Sandpiper Family Office","body":"Annual refresh due. They have already sent the updated corporate documents.","status":"pending","created_at":-3.0,"updated_at":-3.0,"last_action_at":-3.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":17,"requester_id":6,"process_id":4,"assignee_id":22,"original_assignee_id":22,"title":"NDA for Project Falcon vendor diligence","body":"Technical diligence vendor needs an NDA before we open the data room to them.","status":"pending","created_at":-1.5,"updated_at":-1.5,"last_action_at":-1.5,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":18,"requester_id":16,"process_id":11,"assignee_id":20,"original_assignee_id":20,"title":"Renewal — custodian service agreement","body":"The custodian agreement auto-renews in three weeks unless we serve notice.","status":"pending","created_at":-53.0,"updated_at":-53.0,"last_action_at":-53.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":19,"requester_id":33,"process_id":9,"assignee_id":39,"original_assignee_id":39,"title":"Ops committee pack — April","body":"Operations committee papers for the April cycle.","status":"pending","created_at":-51.0,"updated_at":-51.0,"last_action_at":-51.0,"chase_count":0,"acknowledged_at":null,"completed_at":null},{"id":20,"requester_id":32,"process_id":8,"assignee_id":11,"original_assignee_id":13,"title":"Valuation inputs for the data warehouse feed","body":"I need the signed-off marks to backfill the warehouse before quarter end.","status":"escalated","created_at":-146.0,"updated_at":-50.0,"last_action_at":-50.0,"chase_count":2,"acknowledged_at":null,"completed_at":null}],"messages":[{"id":1,"request_id":1,"sender_id":8,"recipient_id":14,"type":"dispatch","body":"Three nights and taxis for the Riyadh management meeting. Receipts attached.","created_at":-410.0,"read":true},{"id":2,"request_id":1,"sender_id":14,"recipient_id":8,"type":"status_update","body":"Your request 'Reimbursement for Riyadh site visit' has been completed.","created_at":-381.0,"read":false},{"id":3,"request_id":2,"sender_id":10,"recipient_id":30,"type":"dispatch","body":"I need read access to the portfolio monitoring shared drive for the quarterly pack.","created_at":-330.0,"read":true},{"id":4,"request_id":2,"sender_id":30,"recipient_id":10,"type":"status_update","body":"Your request 'Access to the portfolio monitoring drive' has been completed.","created_at":-322.0,"read":false},{"id":5,"request_id":3,"sender_id":3,"recipient_id":22,"type":"dispatch","body":"Counterparty sent their paper. Please review and mark up before Thursday.","created_at":-290.0,"read":true},{"id":6,"request_id":3,"sender_id":22,"recipient_id":3,"type":"status_update","body":"Your request 'Mutual NDA with Cedarline Partners' has been completed.","created_at":-238.0,"read":false},{"id":7,"request_id":4,"sender_id":37,"recipient_id":28,"type":"dispatch","body":"MFA re-enrolment failed after my phone was replaced.","created_at":-220.0,"read":true},{"id":8,"request_id":4,"sender_id":28,"recipient_id":37,"type":"status_update","body":"Your request 'Locked out of the expenses portal' has been completed.","created_at":-218.0,"read":false},{"id":9,"request_id":5,"sender_id":38,"recipient_id":15,"type":"dispatch","body":"Q1 advisory retainer, goods receipted. Please approve for the Friday payment run.","created_at":-190.0,"read":true},{"id":10,"request_id":5,"sender_id":15,"recipient_id":38,"type":"status_update","body":"Your request 'Invoice 88412 — Meridian Advisory' has been completed.","created_at":-164.0,"read":false},{"id":11,"request_id":6,"sender_id":7,"recipient_id":40,"type":"dispatch","body":"Two nights, flying out Tuesday morning, returning Thursday evening.","created_at":-150.0,"read":true},{"id":12,"request_id":6,"sender_id":40,"recipient_id":7,"type":"status_update","body":"Your request 'Travel to Manama for portfolio review' has been completed.","created_at":-138.0,"read":false},{"id":13,"request_id":7,"sender_id":4,"recipient_id":23,"type":"dispatch","body":"Their documentation lapsed last month and we cannot draw down until it is refreshed.","created_at":-120.0,"read":true},{"id":14,"request_id":7,"sender_id":23,"recipient_id":4,"type":"status_update","body":"Your request 'KYC refresh — Northgate Investments' has been completed.","created_at":-79.0,"read":false},{"id":15,"request_id":8,"sender_id":35,"recipient_id":38,"type":"dispatch","body":"New cleaning contractor for the Dubai office. Bank details attached for verification.","created_at":-70.0,"read":true},{"id":16,"request_id":9,"sender_id":37,"recipient_id":20,"type":"dispatch","body":"The agreement lapses in six weeks. Please confirm whether we roll or renegotiate.","created_at":-58.0,"read":true},{"id":17,"request_id":10,"sender_id":1,"recipient_id":39,"type":"dispatch","body":"Please pull the March IC pack together — three deal papers plus the pipeline update.","created_at":-44.0,"read":true},{"id":18,"request_id":11,"sender_id":11,"recipient_id":13,"type":"dispatch","body":"Both marks need controller sign-off before the NAV is struck on the 15th.","created_at":-36.0,"read":true},{"id":19,"request_id":12,"sender_id":9,"recipient_id":14,"type":"dispatch","body":"Dinner with the Cedarline management team after the site visit.","created_at":-30.0,"read":true},{"id":20,"request_id":13,"sender_id":36,"recipient_id":30,"type":"dispatch","body":"New HR business partner starts Monday and needs the usual joiner bundle.","created_at":-26.0,"read":true},{"id":21,"request_id":14,"sender_id":37,"recipient_id":15,"type":"dispatch","body":"First invoice from the new facilities contractor. Please approve.","created_at":-9.0,"read":true},{"id":22,"request_id":15,"sender_id":8,"recipient_id":40,"type":"dispatch","body":"One night, needs to be booked this week while fares hold.","created_at":-5.0,"read":true},{"id":23,"request_id":16,"sender_id":3,"recipient_id":23,"type":"dispatch","body":"Annual refresh due. They have already sent the updated corporate documents.","created_at":-3.0,"read":false},{"id":24,"request_id":17,"sender_id":6,"recipient_id":22,"type":"dispatch","body":"Technical diligence vendor needs an NDA before we open the data room to them.","created_at":-1.5,"read":false},{"id":25,"request_id":18,"sender_id":16,"recipient_id":20,"type":"dispatch","body":"The custodian agreement auto-renews in three weeks unless we serve notice.","created_at":-53.0,"read":true},{"id":26,"request_id":19,"sender_id":33,"recipient_id":39,"type":"dispatch","body":"Operations committee papers for the April cycle.","created_at":-51.0,"read":false},{"id":27,"request_id":20,"sender_id":32,"recipient_id":13,"type":"dispatch","body":"I need the signed-off marks to backfill the warehouse before quarter end.","created_at":-146.0,"read":false},{"id":28,"request_id":20,"sender_id":null,"recipient_id":11,"type":"escalation","body":"Escalated: 'Valuation inputs for the data warehouse feed' was not picked up by Huda Al-Najjar after two chases.","created_at":-50.0,"read":false}],"events":[{"id":1,"request_id":1,"type":"created","detail":"Marco Bianchi raised a request under 'Expense Reimbursement'.","actor":"Marco Bianchi","created_at":-410.0},{"id":2,"request_id":1,"type":"dispatch","detail":"Dispatched to Peter Lindqvist (Senior Accountant) as accountable owner.","actor":"system","created_at":-410.0},{"id":3,"request_id":1,"type":"acknowledged","detail":"Peter Lindqvist acknowledged the request.","actor":"Peter Lindqvist","created_at":-406.5},{"id":4,"request_id":1,"type":"completed","detail":"Peter Lindqvist completed the request.","actor":"Peter Lindqvist","created_at":-381.0},{"id":5,"request_id":2,"type":"created","detail":"Sofia Marchetti raised a request under 'IT Access Provisioning'.","actor":"Sofia Marchetti","created_at":-330.0},{"id":6,"request_id":2,"type":"dispatch","detail":"Dispatched to Bilal Rahman (IT Support Lead) as accountable owner.","actor":"system","created_at":-330.0},{"id":7,"request_id":2,"type":"acknowledged","detail":"Bilal Rahman acknowledged the request.","actor":"Bilal Rahman","created_at":-328.5},{"id":8,"request_id":2,"type":"completed","detail":"Bilal Rahman completed the request.","actor":"Bilal Rahman","created_at":-322.0},{"id":9,"request_id":3,"type":"created","detail":"Sarah Whitfield raised a request under 'NDA Review'.","actor":"Sarah Whitfield","created_at":-290.0},{"id":10,"request_id":3,"type":"dispatch","detail":"Dispatched to Eleanor Voss (Senior Legal Counsel) as accountable owner.","actor":"system","created_at":-290.0},{"id":11,"request_id":3,"type":"acknowledged","detail":"Eleanor Voss acknowledged the request.","actor":"Eleanor Voss","created_at":-284.0},{"id":12,"request_id":3,"type":"completed","detail":"Eleanor Voss completed the request.","actor":"Eleanor Voss","created_at":-238.0},{"id":13,"request_id":4,"type":"created","detail":"Anna Sorenson raised a request under 'Password Reset'.","actor":"Anna Sorenson","created_at":-220.0},{"id":14,"request_id":4,"type":"dispatch","detail":"Dispatched to Ahmed Zaki (Systems Administrator) as accountable owner.","actor":"system","created_at":-220.0},{"id":15,"request_id":4,"type":"acknowledged","detail":"Ahmed Zaki acknowledged the request.","actor":"Ahmed Zaki","created_at":-219.5},{"id":16,"request_id":4,"type":"completed","detail":"Ahmed Zaki completed the request.","actor":"Ahmed Zaki","created_at":-218.0},{"id":17,"request_id":5,"type":"created","detail":"Youssef Karim raised a request under 'Invoice Approval'.","actor":"Youssef Karim","created_at":-190.0},{"id":18,"request_id":5,"type":"dispatch","detail":"Dispatched to Rania Khoury (Accounts Payable Lead) as accountable owner.","actor":"system","created_at":-190.0},{"id":19,"request_id":5,"type":"acknowledged","detail":"Rania Khoury acknowledged the request.","actor":"Rania Khoury","created_at":-186.0},{"id":20,"request_id":5,"type":"completed","detail":"Rania Khoury completed the request.","actor":"Rania Khoury","created_at":-164.0},{"id":21,"request_id":6,"type":"created","detail":"Noura Al-Sabah raised a request under 'Travel Approval'.","actor":"Noura Al-Sabah","created_at":-150.0},{"id":22,"request_id":6,"type":"dispatch","detail":"Dispatched to Hamza Al-Dosari (Travel & Facilities Coordinator) as accountable owner.","actor":"system","created_at":-150.0},{"id":23,"request_id":6,"type":"acknowledged","detail":"Hamza Al-Dosari acknowledged the request.","actor":"Hamza Al-Dosari","created_at":-148.0},{"id":24,"request_id":6,"type":"completed","detail":"Hamza Al-Dosari completed the request.","actor":"Hamza Al-Dosari","created_at":-138.0},{"id":25,"request_id":7,"type":"created","detail":"Omar Haddad raised a request under 'KYC Refresh'.","actor":"Omar Haddad","created_at":-120.0},{"id":26,"request_id":7,"type":"dispatch","detail":"Dispatched to Tariq Benali (Compliance Officer, KYC) as accountable owner.","actor":"system","created_at":-120.0},{"id":27,"request_id":7,"type":"acknowledged","detail":"Tariq Benali acknowledged the request.","actor":"Tariq Benali","created_at":-115.0},{"id":28,"request_id":7,"type":"completed","detail":"Tariq Benali completed the request.","actor":"Tariq Benali","created_at":-79.0},{"id":29,"request_id":8,"type":"created","detail":"Michael Trent raised a request under 'Vendor Onboarding'.","actor":"Michael Trent","created_at":-70.0},{"id":30,"request_id":8,"type":"dispatch","detail":"Dispatched to Youssef Karim (Procurement Lead) as accountable owner.","actor":"system","created_at":-70.0},{"id":31,"request_id":8,"type":"acknowledged","detail":"Youssef Karim acknowledged the request.","actor":"Youssef Karim","created_at":-65.0},{"id":32,"request_id":8,"type":"status_update","detail":"Youssef Karim moved the request to In progress.","actor":"Youssef Karim","created_at":-63.5},{"id":33,"request_id":9,"type":"created","detail":"Anna Sorenson raised a request under 'Contract Renewal'.","actor":"Anna Sorenson","created_at":-58.0},{"id":34,"request_id":9,"type":"dispatch","detail":"Dispatched to Robert Ashby (Deputy General Counsel) as accountable owner.","actor":"system","created_at":-58.0},{"id":35,"request_id":9,"type":"acknowledged","detail":"Robert Ashby acknowledged the request.","actor":"Robert Ashby","created_at":-49.0},{"id":36,"request_id":9,"type":"status_update","detail":"Robert Ashby moved the request to In progress.","actor":"Robert Ashby","created_at":-47.5},{"id":37,"request_id":10,"type":"created","detail":"Khalid Al-Rayes raised a request under 'Board Pack Preparation'.","actor":"Khalid Al-Rayes","created_at":-44.0},{"id":38,"request_id":10,"type":"dispatch","detail":"Dispatched to Priya Nair (Executive Assistant to the CEO) as accountable owner.","actor":"system","created_at":-44.0},{"id":39,"request_id":10,"type":"acknowledged","detail":"Priya Nair acknowledged the request.","actor":"Priya Nair","created_at":-42.0},{"id":40,"request_id":10,"type":"status_update","detail":"Priya Nair moved the request to In progress.","actor":"Priya Nair","created_at":-40.5},{"id":41,"request_id":11,"type":"created","detail":"Amira Haddadin raised a request under 'Valuation Sign-off'.","actor":"Amira Haddadin","created_at":-36.0},{"id":42,"request_id":11,"type":"dispatch","detail":"Dispatched to Huda Al-Najjar (Financial Controller) as accountable owner.","actor":"system","created_at":-36.0},{"id":43,"request_id":11,"type":"acknowledged","detail":"Huda Al-Najjar acknowledged the request.","actor":"Huda Al-Najjar","created_at":-32.0},{"id":44,"request_id":12,"type":"created","detail":"Yousef Darwish raised a request under 'Expense Reimbursement'.","actor":"Yousef Darwish","created_at":-30.0},{"id":45,"request_id":12,"type":"dispatch","detail":"Dispatched to Peter Lindqvist (Senior Accountant) as accountable owner.","actor":"system","created_at":-30.0},{"id":46,"request_id":12,"type":"acknowledged","detail":"Peter Lindqvist acknowledged the request.","actor":"Peter Lindqvist","created_at":-27.0},{"id":47,"request_id":13,"type":"created","detail":"Dina Al-Kaabi raised a request under 'IT Access Provisioning'.","actor":"Dina Al-Kaabi","created_at":-26.0},{"id":48,"request_id":13,"type":"dispatch","detail":"Dispatched to Bilal Rahman (IT Support Lead) as accountable owner.","actor":"system","created_at":-26.0},{"id":49,"request_id":13,"type":"acknowledged","detail":"Bilal Rahman acknowledged the request.","actor":"Bilal Rahman","created_at":-25.0},{"id":50,"request_id":14,"type":"created","detail":"Anna Sorenson raised a request under 'Invoice Approval'.","actor":"Anna Sorenson","created_at":-9.0},{"id":51,"request_id":14,"type":"dispatch","detail":"Dispatched to Rania Khoury (Accounts Payable Lead) as accountable owner.","actor":"system","created_at":-9.0},{"id":52,"request_id":15,"type":"created","detail":"Marco Bianchi raised a request under 'Travel Approval'.","actor":"Marco Bianchi","created_at":-5.0},{"id":53,"request_id":15,"type":"dispatch","detail":"Dispatched to Hamza Al-Dosari (Travel & Facilities Coordinator) as accountable owner.","actor":"system","created_at":-5.0},{"id":54,"request_id":16,"type":"created","detail":"Sarah Whitfield raised a request under 'KYC Refresh'.","actor":"Sarah Whitfield","created_at":-3.0},{"id":55,"request_id":16,"type":"dispatch","detail":"Dispatched to Tariq Benali (Compliance Officer, KYC) as accountable owner.","actor":"system","created_at":-3.0},{"id":56,"request_id":17,"type":"created","detail":"James Okonkwo raised a request under 'NDA Review'.","actor":"James Okonkwo","created_at":-1.5},{"id":57,"request_id":17,"type":"dispatch","detail":"Dispatched to Eleanor Voss (Senior Legal Counsel) as accountable owner.","actor":"system","created_at":-1.5},{"id":58,"request_id":18,"type":"created","detail":"Tomas Ferreira raised a request under 'Contract Renewal'.","actor":"Tomas Ferreira","created_at":-53.0},{"id":59,"request_id":18,"type":"dispatch","detail":"Dispatched to Robert Ashby (Deputy General Counsel) as accountable owner.","actor":"system","created_at":-53.0},{"id":60,"request_id":19,"type":"created","detail":"Claire Donovan raised a request under 'Board Pack Preparation'.","actor":"Claire Donovan","created_at":-51.0},{"id":61,"request_id":19,"type":"dispatch","detail":"Dispatched to Priya Nair (Executive Assistant to the CEO) as accountable owner.","actor":"system","created_at":-51.0},{"id":62,"request_id":20,"type":"created","detail":"Fatima Al-Zahrani raised a request under 'Valuation Sign-off'.","actor":"Fatima Al-Zahrani","created_at":-146.0},{"id":63,"request_id":20,"type":"dispatch","detail":"Dispatched to Huda Al-Najjar (Financial Controller) as accountable owner.","actor":"system","created_at":-146.0},{"id":64,"request_id":20,"type":"chase","detail":"No acknowledgement after 48h — chase 1 of 2 sent to Huda Al-Najjar.","actor":"system","created_at":-98.0},{"id":65,"request_id":20,"type":"chase","detail":"Still unacknowledged — chase 2 of 2 sent to Huda Al-Najjar.","actor":"system","created_at":-74.0},{"id":66,"request_id":20,"type":"escalation","detail":"Two chases went unanswered and no delegate is configured for 'Valuation Sign-off'. Escalated to Amira Haddadin (Chief Financial Officer).","actor":"system","created_at":-50.0},{"id":67,"request_id":null,"type":"seed","detail":"Database seeded: 40 people, 5 departments, 14 processes.","actor":"system","created_at":0.0}],"settings":{"chase_after_hours":48,"chase_interval_hours":24,"max_chases":2}};
@@ -1293,24 +1404,157 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
                 root.AtlasServices, root.AtlasAnalytics);
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
-/* Atlas preview UI. All logic lives in the engine above; this file only
-   renders it and wires the controls. State is per-viewer, in localStorage. */
+/* ========================= org tree + conversational =================== */
+(function (root) {
+  "use strict";
+  const C = root.AtlasCore;
+  const A = root.AtlasAnalytics;
+
+  /* ------------------------------ org tree ------------------------------ */
+
+  // A forest built from manager_id. Anyone whose manager is missing becomes a
+  // root, so the tree never silently drops people.
+  function orgTree(st) {
+    const nodes = new Map();
+    for (const p of st.people) {
+      nodes.set(p.id, {
+        id: p.id, name: p.name, title: p.title, email: p.email,
+        department: A.departmentName(st, p),
+        manager_id: p.manager_id, children: [],
+      });
+    }
+    const roots = [];
+    for (const n of nodes.values()) {
+      const parent = n.manager_id !== null && n.manager_id !== undefined
+        ? nodes.get(n.manager_id) : null;
+      if (parent && parent !== n) parent.children.push(n);
+      else roots.push(n);
+    }
+    const sortRec = n => {
+      n.children.sort((a, b) => a.name.localeCompare(b.name));
+      n.children.forEach(sortRec);
+    };
+    roots.sort((a, b) => a.name.localeCompare(b.name));
+    roots.forEach(sortRec);
+
+    const decorate = (n, depth) => {
+      n.depth = depth;
+      n.reports = n.children.length;
+      n.descendants = n.children.reduce((sum, c) => sum + 1 + decorate(c, depth + 1), 0);
+      return n.descendants;
+    };
+    roots.forEach(r => decorate(r, 0));
+    return roots;
+  }
+
+  function teamSummary(st) {
+    const out = new Map();
+    for (const p of st.people) {
+      const dept = A.departmentName(st, p);
+      if (!out.has(dept)) out.set(dept, { department: dept, size: 0, head: null, ooo: 0 });
+      const row = out.get(dept);
+      row.size++;
+      if (C.isOutOfOffice(p, C.now(st))) row.ooo++;
+      // The head is whoever in the department reports outside it.
+      const mgr = p.manager_id ? C.person(st, p.manager_id) : null;
+      if (!mgr || A.departmentName(st, mgr) !== dept) {
+        if (!row.head || (mgr === null)) row.head = p.name;
+      }
+    }
+    return Array.from(out.values()).sort((a, b) => a.department.localeCompare(b.department));
+  }
+
+  function pathToRoot(st, personId) {
+    const out = [];
+    let cur = C.person(st, personId);
+    const guard = new Set();
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id);
+      out.unshift(cur.id);
+      cur = cur.manager_id ? C.person(st, cur.manager_id) : null;
+    }
+    return out;
+  }
+
+  /* --------------------------- conversation ----------------------------- */
+
+  const PATTERNS = [
+    ["help",      /\b(help|how does this work|what can you do|guide|tutorial|get started)\b/i],
+    ["who_ooo",   /\b((who|anyone|anybody)('?s| is| are)? (out|away|off|on leave|on holiday)|out of office|\booo\b|who is away)\b/i],
+    ["my_inbox",  /\b(my inbox|assigned to me|what.{0,12}(waiting|with) me|my queue|my work)\b/i],
+    ["my_requests", /\b(my requests?|requests? i (raised|made|sent)|where is my|status of my|track my)\b/i],
+    ["who_owns",  /\b(who (owns?|is responsible for|handles?|approves?|looks after|runs?)|owner of|responsible for|accountable for)\b/i],
+    ["about",     /\b(who is|tell me about|what does .+ do|profile (of|for))\b/i],
+  ];
+
+  // Anything that reads as an action the firm performs for you.
+  const REQUEST_HINT = /\b(i need|i want|can (someone|somebody|you)|please|could (someone|you)|requesting|request for|raise a|get me|help me (get|with)|i'?m locked|we need|need to)\b/i;
+
+  function classify(text) {
+    const t = String(text || "").trim();
+    if (!t) return { intent: "empty" };
+    for (const [intent, re] of PATTERNS) {
+      if (re.test(t)) {
+        // "who owns X" beats the generic request hint; a real ask wins over
+        // "who is" only when it also reads like an action.
+        if (intent === "about" && REQUEST_HINT.test(t)) break;
+        return { intent };
+      }
+    }
+    return { intent: "request" };
+  }
+
+  // Pull a person out of free text by name or first name.
+  function findPerson(st, text) {
+    const t = String(text || "").toLowerCase();
+    let best = null, bestLen = 0;
+    for (const p of st.people) {
+      const full = p.name.toLowerCase();
+      const first = full.split(" ")[0];
+      const last = full.split(" ").slice(-1)[0];
+      for (const candidate of [full, first, last]) {
+        if (candidate.length < 3) continue;
+        if (t.includes(candidate) && candidate.length > bestLen) { best = p; bestLen = candidate.length; }
+      }
+    }
+    return best;
+  }
+
+  function findProcess(st, text) {
+    const matches = root.AtlasMatch.matchProcesses(st.processes, text, 1);
+    if (matches.length && matches[0].confidence >= 25) return C.process_(st, matches[0].process_id);
+    return null;
+  }
+
+  root.AtlasOrg = { orgTree, teamSummary, pathToRoot, classify, findPerson, findProcess,
+                    REQUEST_HINT };
+  if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, root.AtlasOrg);
+  Object.assign(root, root.AtlasOrg);
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+/* Atlas preview UI. All logic lives in the engine above; these files render it
+   and wire the controls. State is per-viewer, in localStorage. */
 (function () {
   "use strict";
   const E = globalThis;
   const HOUR = E.HOUR || 3600000;
-  const STORE = "atlas.preview.v1";
+  const STORE = "atlas.preview.v2";
 
   let S = null;                      // engine state
-  let UI = { actor: null, page: "intake", tab: {}, open: null, query: "", override: null,
-             sent: null, person: null, process: null, filter: "Autonomous actions",
-             search: "", dept: "All departments", flash: null };
+  let UI = {
+    actor: null, page: "chat", tab: {}, open: null,
+    chat: [], draft: null, msgSeq: 1,
+    tree: { collapsed: {}, zoom: 1, x: 0, y: 0, selected: null, search: "", dept: "All departments" },
+    person: null, process: null,
+    filter: "Autonomous actions", search: "", dept: "All departments",
+    guideSeen: false, guideStep: 0, flash: null,
+  };
 
   /* ------------------------------- storage ------------------------------ */
 
   function save() {
     try { localStorage.setItem(STORE, JSON.stringify({ s: S, ui: UI })); }
-    catch (err) { /* private mode, quota, blocked storage - run in memory */ }
+    catch (err) { /* private mode, quota, blocked storage — run in memory */ }
   }
   function load() {
     try {
@@ -1320,15 +1564,23 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
       if (!parsed || !parsed.s || !parsed.s.people) return false;
       S = parsed.s;
       UI = Object.assign(UI, parsed.ui || {});
+      UI.tree = Object.assign({ collapsed: {}, zoom: 1, x: 0, y: 0, selected: null,
+                                search: "", dept: "All departments" }, UI.tree || {});
       return true;
     } catch (err) { return false; }
   }
-  function reseed() {
+  function reseed(keepGuide) {
+    const seen = keepGuide ? UI.guideSeen : false;
     S = E.hydrate(SEED, Date.now());
     UI.actor = (S.people.find(p => p.name === "Noura Al-Sabah") || S.people[0]).id;
-    UI.open = UI.sent = UI.person = UI.process = null;
-    UI.query = ""; UI.override = null; UI.tab = {};
+    UI.open = UI.person = UI.process = null;
+    UI.chat = []; UI.draft = null; UI.msgSeq = 1;
+    UI.tab = {}; UI.guideSeen = seen; UI.guideStep = 0;
+    UI.tree = { collapsed: {}, zoom: 0.85, x: 0, y: 0, selected: null,
+                search: "", dept: "All departments", center: true };
+    collapseToTeams();
     E.runUntilSettled(S);
+    greet();
     save();
   }
 
@@ -1359,7 +1611,6 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     if (h) return `${sign}${h}h ${m}m`;
     return `${sign}${m}m`;
   }
-  const ago = ms => human(now() - ms) + " ago";
   const badge = (t, k) => `<span class="b ${k || "mute"}">${esc(t)}</span>`;
   const statusBadge = s => `<span class="b ${s}">${esc(E.STATUS_LABELS[s] || s)}</span>`;
   const tile = (l, v, s, tone) => `<div class="tile ${tone || ""}"><div class="l">${esc(l)}</div>
@@ -1406,7 +1657,6 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
   /* --------------------------------- rail ------------------------------- */
 
   function railHTML() {
-    const me = actor();
     const at = now();
     const people = S.people.slice().sort((a, b) => a.name.localeCompare(b.name));
     const opt = p => `<option value="${p.id}"${p.id === UI.actor ? " selected" : ""}>` +
@@ -1422,10 +1672,11 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
       <span><span class="name">ATLAS</span><br><span class="tag">Responsibility, routed</span></span></div>
 
     <div class="rail-sec">
-      <span class="rail-label">Acting as</span>
+      <span class="rail-label">You are</span>
       <select data-act="actor" aria-label="Acting as">${people.map(opt).join("")}</select>
       <span class="rail-note">${unread ? unread + " unread message" + (unread === 1 ? "" : "s") +
         " in your inbox." : "Inbox clear."}</span>
+      <button data-act="guide">Open the guide</button>
     </div>
 
     <div class="rail-sec">
@@ -1472,171 +1723,716 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
   /* --------------------------------- shell ------------------------------ */
 
-  const PAGES = ["Intake", "Requests", "Directory", "Agent Log", "Dashboard"];
-  const KEYS  = ["intake", "requests", "directory", "agentlog", "dashboard"];
+  const PAGES = [["chat", "Ask Atlas"], ["people", "People"], ["requests", "Requests"],
+                 ["agentlog", "Agent Log"], ["dashboard", "Dashboard"], ["guide", "Guide"]];
 
   function render() {
     const root = document.getElementById("root");
-    const idx = KEYS.indexOf(UI.page);
-    const tabs = PAGES.map((p, i) => `<button class="tab" role="tab" data-act="page"
-      data-page="${KEYS[i]}" aria-selected="${i === idx}">${esc(p)}</button>`).join("");
-    root.innerHTML = `<div class="app">
+    const tabs = PAGES.map(([k, label]) => {
+      const extra = k === "requests" && unreadFor(UI.actor)
+        ? ` <span class="pip">${unreadFor(UI.actor)}</span>` : "";
+      return `<button class="tab" role="tab" data-act="page" data-page="${k}"
+        aria-selected="${UI.page === k}">${esc(label)}${extra}</button>`;
+    }).join("");
+
+    root.innerHTML = `<div class="app${UI.page === "chat" ? " chatmode" : ""}">
       <aside class="rail">${railHTML()}</aside>
-      <main class="canvas"><div class="wrap">
+      <main class="canvas"><div class="wrap${UI.page === "people" ? " wide" : ""}">
         <div class="tabs" role="tablist">${tabs}</div>
         <div id="page">${pageHTML()}</div>
       </div></main></div>` +
-      (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "");
+      (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "") +
+      (UI.guideOpen ? guideOverlay() : "");
+
     if (UI.flash) { const f = UI.flash; setTimeout(() => {
       if (UI.flash === f) { UI.flash = null; const el = document.querySelector(".flash");
         if (el) el.remove(); } }, 4200); }
-    bindCharts();
+    afterRender();
   }
 
   function pageHTML() {
     switch (UI.page) {
+      case "people":    return pagePeople();
       case "requests":  return pageRequests();
-      case "directory": return pageDirectory();
       case "agentlog":  return pageAgentLog();
       case "dashboard": return pageDashboard();
-      default:          return pageIntake();
+      case "guide":     return pageGuide();
+      default:          return pageChat();
     }
   }
 
   function flash(msg) { UI.flash = msg; }
   function commit(msg) { if (msg) flash(msg); save(); render(); }
 
-  /* ================================ intake ============================== */
+  /* ================================= chat =============================== */
 
-  const EXAMPLES = [
+  const SUGGESTIONS = [
     "I need access to the data room for Project Falcon",
-    "Invoice 88596 from Halcyon needs approving before Friday's payment run",
-    "I am locked out of my account and cannot log in",
-    "We need to renew the Bloomberg contract before it expires",
+    "Who owns invoice approval?",
+    "Is anyone out of office?",
+    "What's in my inbox?",
   ];
 
-  function pageIntake() {
-    if (UI.sent) return intakeSent(UI.sent);
-    const head = phead("Intake", "What do you need?",
-      "Describe it in your own words. Atlas identifies the process, finds who is accountable " +
-      "right now, and drafts the request for you.");
+  function pushMsg(role, kind, data) {
+    UI.chat.push({ id: UI.msgSeq++, role, kind, data: data || {}, at: now() });
+    if (UI.chat.length > 200) UI.chat.splice(0, UI.chat.length - 200);
+  }
 
-    const chips = `<div class="chips">` + EXAMPLES.map((x, i) =>
-      `<button class="chip" data-act="example" data-i="${i}" title="${esc(x)}">${
-        esc(x.length <= 40 ? x : x.slice(0, 37).replace(/\s+\S*$/, "") + "…")}</button>`).join("") +
-      `</div>`;
+  function greet() {
+    UI.chat = [];
+    pushMsg("bot", "text", { text:
+      "I'm Atlas. Tell me what you need in plain English and I'll work out which " +
+      "process it is, who is accountable for it right now, and send it to them.\n\n" +
+      "You can also ask me who owns something, who is out of office, or where your " +
+      "requests have got to." });
+    pushMsg("bot", "suggest", { items: SUGGESTIONS });
+  }
 
-    const box = `<label class="sr" for="q">Your request</label>
-      <textarea id="q" class="field" data-act="query" rows="3"
-        placeholder="e.g. I need access to the data room for Project Falcon">${esc(UI.query)}</textarea>`;
+  /* ---------------------------- bot responses --------------------------- */
 
-    const query = (UI.query || "").trim();
-    if (!query) return head + box + chips +
-      `<div style="margin-top:20px">${empty("Nothing to route yet.",
-        "Type a request above, or pick one of the examples to see the resolution trace.")}</div>`;
-
-    const matches = E.matchProcesses(S.processes, query, 3);
+  function botRequest(text) {
+    const matches = E.matchProcesses(S.processes, text, 3);
     const top = matches[0];
-    const chosenId = UI.override !== null && UI.override !== undefined
-      ? UI.override : (top && top.confidence >= 25 ? top.process_id : S.processes[0].id);
-    const proc = E.process_(S, chosenId);
+    if (!top || top.confidence < 25) {
+      pushMsg("bot", "text", { text:
+        "I couldn't match that to a process I know about. Pick the closest one and " +
+        "I'll route it, or rephrase and I'll try again." });
+      pushMsg("bot", "pick", { query: text, options: matches.map(m => m.process_id) });
+      return;
+    }
+    openDraft(text, top.process_id, matches);
+  }
+
+  function openDraft(query, processId, matches) {
+    const proc = E.process_(S, processId);
     const res = E.resolve(S, proc);
     const me = actor();
-    const title = UI.title !== undefined && UI.title !== null
-      ? UI.title : E.suggestTitle(query, proc ? proc.name : null);
-    const body = UI.body !== undefined && UI.body !== null
-      ? UI.body : E.draftBody(me, proc, res, query);
-    const dupes = E.findSimilarOpen(S, { process_id: chosenId, requester_id: UI.actor, title });
+    UI.draft = {
+      query, processId,
+      title: E.suggestTitle(query, proc ? proc.name : null),
+      body: E.draftBody(me, proc, res, query),
+    };
+    pushMsg("bot", "match", {
+      query, processId,
+      matchIds: (matches || E.matchProcesses(S.processes, query, 3)).map(m => m.process_id),
+    });
+  }
 
-    const weak = !top || top.confidence < 25;
+  function botWhoOwns(text) {
+    const proc = E.findProcess(S, text);
+    if (!proc) {
+      pushMsg("bot", "text", { text:
+        "I'm not sure which process you mean. Name it — invoice approval, KYC refresh, " +
+        "NDA review, data room access — and I'll tell you who is accountable." });
+      return;
+    }
+    pushMsg("bot", "owners", { processId: proc.id });
+  }
+
+  function botOoo() {
+    const at = now();
+    const away = S.people.filter(p => E.isOutOfOffice(p, at))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!away.length) {
+      pushMsg("bot", "text", { text: "Nobody is marked out of office right now." });
+      return;
+    }
+    pushMsg("bot", "ooo", { ids: away.map(p => p.id) });
+  }
+
+  function botInbox() {
+    const rows = S.requests.filter(r => r.assignee_id === UI.actor &&
+      E.OPEN_STATUSES.includes(r.status)).sort((a, b) => b.last_action_at - a.last_action_at);
+    pushMsg("bot", "reqlist", { ids: rows.map(r => r.id), mine: false,
+      empty: "Nothing is sitting with you right now." });
+  }
+
+  function botMyRequests() {
+    const rows = S.requests.filter(r => r.requester_id === UI.actor)
+      .sort((a, b) => b.created_at - a.created_at);
+    pushMsg("bot", "reqlist", { ids: rows.map(r => r.id), mine: true,
+      empty: "You haven't raised anything yet. Tell me what you need and I'll route it." });
+  }
+
+  function botAbout(text) {
+    const p = E.findPerson(S, text);
+    if (!p) {
+      pushMsg("bot", "text", { text:
+        "I couldn't find that person. Try their full name, or browse the org chart " +
+        "under People." });
+      return;
+    }
+    pushMsg("bot", "person", { id: p.id });
+  }
+
+  function botHelp() {
+    pushMsg("bot", "text", { text:
+      "Here's what I can do:\n\n" +
+      "• Raise a request — just describe it. I'll find the process, work out who is " +
+      "accountable right now, show you my reasoning, and draft the message.\n" +
+      "• Answer \"who owns invoice approval?\" or \"who approves valuation sign-off?\"\n" +
+      "• Tell you who is out of office.\n" +
+      "• Show your inbox, or where your requests have got to.\n\n" +
+      "Once something is sent, the agent takes over: it chases after 48 hours, hands " +
+      "over to a cover, then escalates to a manager. Use the clock buttons on the left " +
+      "to watch that happen in seconds." });
+    pushMsg("bot", "suggest", { items: SUGGESTIONS });
+  }
+
+  function submitChat(text) {
+    text = String(text || "").trim();
+    if (!text) return;
+    pushMsg("user", "text", { text });
+    UI.draft = null;
+    const { intent } = E.classify(text);
+    switch (intent) {
+      case "help":        botHelp(); break;
+      case "who_ooo":     botOoo(); break;
+      case "who_owns":    botWhoOwns(text); break;
+      case "my_inbox":    botInbox(); break;
+      case "my_requests": botMyRequests(); break;
+      case "about":       botAbout(text); break;
+      default:            botRequest(text);
+    }
+  }
+
+  /* ------------------------------ rendering ----------------------------- */
+
+  function bubbleUser(m) {
+    return `<div class="msg user"><div class="bub">${esc(m.data.text)}</div></div>`;
+  }
+
+  function botWrap(inner, extraClass) {
+    return `<div class="msg bot ${extraClass || ""}">
+      <div class="ava" aria-hidden="true">A</div><div class="bub">${inner}</div></div>`;
+  }
+
+  function renderMatch(m) {
+    const { query, processId, matchIds } = m.data;
+    const proc = E.process_(S, processId);
+    const all = E.matchProcesses(S.processes, query, 3);
+    const top = all.find(x => x.process_id === processId) || all[0];
+    const res = E.resolve(S, proc);
+    const isCurrent = UI.draft && UI.draft.processId === processId && UI.draft.query === query;
+    const dupes = isCurrent ? E.findSimilarOpen(S, { process_id: processId,
+      requester_id: UI.actor, title: UI.draft.title }) : [];
+
     const kw = top && top.matched_keywords.length
-      ? top.matched_keywords.slice(0, 6).map(k => badge(k, "role")).join(" ")
-      : `<span class="muted">no direct keyword hits</span>`;
+      ? top.matched_keywords.slice(0, 5).map(k => badge(k, "role")).join(" ") : "";
 
-    const matchCard = top ? `<div class="card flag">
-        <div class="card-t">${esc(top.process_name)}
-          ${badge(top.confidence.toFixed(0) + "% · " + top.confidence_label,
-                  top.confidence >= 70 ? "gold" : "mute")}</div>
-        <div class="card-m">${esc(top.category)}</div>
-        <div class="card-b">${esc(E.why(top))}</div>
-        <div style="margin-top:9px" class="chips">${kw}</div>
-      </div>
-      <details class="card" style="margin-top:9px"><summary style="cursor:pointer;font-size:.88rem">
-        Why this matched — signal breakdown</summary>
-        <div style="margin-top:9px">${matches.map(m => `<div class="kv">
-          <span class="k">${esc(m.process_name)}</span>
-          <span class="mono">${m.confidence.toFixed(0)}% · ` +
-          ["keywords","name","tfidf","description"].map(k =>
-            `${k}: ${Math.round(m.signals[k] * 100)}%`).join(" · ") +
-          `</span></div>`).join("")}</div></details>` : "";
+    // Only offer runners-up that actually scored; a 0% suggestion is noise.
+    const alts = (matchIds || []).filter(id => id !== processId)
+      .map(id => all.find(x => x.process_id === id))
+      .filter(x => x && x.confidence >= 15).slice(0, 2);
+    const alternatives = alts.map(x => `<button class="chip sm" data-act="switchproc"
+        data-id="${x.process_id}" data-mid="${m.id}">${esc(x.process_name)}
+        <span class="muted">${x.confidence.toFixed(0)}%</span></button>`).join("") +
+      `<button class="chip sm" data-act="repick">Pick another process</button>`;
 
-    const options = S.processes.slice().sort((a, b) => a.name.localeCompare(b.name)).map(p =>
-      `<option value="${p.id}"${p.id === chosenId ? " selected" : ""}>${esc(p.name)} — ${esc(p.category)}</option>`
-    ).join("");
-
-    const steps = `<div class="trail">` + res.steps.map(s =>
+    const steps = `<div class="trail tight">` + res.steps.map(s =>
       `<div class="node ${s.outcome}"><div class="k">${esc(s.label)}</div>
        <div class="d">${esc(s.detail)}</div></div>`).join("") + `</div>`;
 
-    const dupBlock = dupes.length ? `<div class="sect"><h2>Possible duplicate</h2></div>
-      <div class="note warn">An open request on this process already looks like yours. Follow it
-        instead of adding another item to the same queue.</div>
-      <div class="stack" style="margin-top:9px">` + dupes.map(d => `
-        <div class="rowline"><div class="card">
-          <div class="card-t">#${d.request.id} — ${esc(d.request.title)}</div>
-          <div class="card-m">${statusBadge(d.request.status)}
-            <span>with ${esc(d.request.assignee_id ? person(d.request.assignee_id).name : "Unassigned")}</span>
-            <span class="mono">${d.similarity.toFixed(0)}% similar</span></div>
-          <div class="card-b">${esc(d.reason)}</div></div>
-        <button class="btn sm" data-act="follow" data-id="${d.request.id}">Follow</button></div>`
-      ).join("") + `</div>` : "";
+    const dupeBlock = dupes.length ? `<div class="note warn tight">
+        <strong>Possible duplicate.</strong> ${esc(dupes[0].reason)}
+        <div style="margin-top:7px;display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn sm" data-act="follow" data-id="${dupes[0].request.id}">
+            Follow #${dupes[0].request.id} instead</button></div></div>` : "";
 
-    return head + box + chips +
-      `<div class="sect"><h2>Process match</h2></div>` +
-      (weak ? `<div class="note warn" style="margin-bottom:9px">No process matched with usable
-        confidence. Pick one manually, or send it anyway and Atlas will park it for the admin.</div>` : "") +
-      matchCard +
-      `<div style="margin-top:12px"><label class="lbl" for="routeas">Route as</label>
-        <select id="routeas" class="field" data-act="override">${options}</select></div>` +
-      `<div class="sect"><h2>Resolution trace</h2></div>` + steps +
-      `<div class="note ${res.needs_admin ? "bad" : "info"}">${esc(E.resolutionSummary(res))}</div>` +
-      dupBlock +
-      `<div class="sect"><h2>Drafted request</h2></div>
-       <label class="lbl" for="rt">Title</label>
-       <input id="rt" class="field" data-act="title" value="${esc(title)}">
-       <label class="lbl" for="rb" style="margin-top:11px">Message</label>
-       <textarea id="rb" class="field" data-act="body" rows="9">${esc(body)}</textarea>
-       <div style="margin-top:13px" class="stack">
-         <div class="kv"><span class="k">Will be sent to</span><strong>${
-           esc(res.assignee_name || "the Atlas admin (no owner resolved)")}</strong></div>
-         <div class="kv"><span class="k">Raised by</span>${esc(me.name)}</div>
-         <div class="kv"><span class="k">Simulated time</span><span class="mono">${esc(fmtTime(now()))}</span></div>
-       </div>
-       <div style="margin-top:15px;display:flex;gap:9px">
-         <button class="btn primary" data-act="send">Send request</button>
-         <button class="btn" data-act="clear">Clear</button>
-       </div>`;
+    const draftBlock = isCurrent ? `
+      <div class="draft">
+        <label class="lbl" for="dt">Title</label>
+        <input id="dt" class="field" data-act="dtitle" value="${esc(UI.draft.title)}">
+        <label class="lbl" for="db" style="margin-top:9px">Message to ${esc(res.assignee_name || "the admin")}</label>
+        <textarea id="db" class="field" data-act="dbody" rows="7">${esc(UI.draft.body)}</textarea>
+        <div class="acts">
+          <button class="btn primary" data-act="chatsend">Send it</button>
+          <button class="btn" data-act="chatcancel">Cancel</button>
+          <span class="muted" style="align-self:center">Not right?</span>${alternatives}
+        </div>
+      </div>` : `<p class="muted">This draft has been dealt with.</p>`;
+
+    return botWrap(`
+      <p>That looks like <strong>${esc(proc.name)}</strong>${top ?
+        ` — ${badge(top.confidence.toFixed(0) + "% · " + top.confidence_label,
+          top.confidence >= 70 ? "gold" : "mute")}` : ""}</p>
+      ${top ? `<p class="sub small">${esc(E.why(top))}</p>` : ""}
+      ${kw ? `<div class="chips tight">${kw}</div>` : ""}
+      <div class="who-now"><span class="lbl">Who is accountable right now</span>${steps}
+        <div class="note ${res.needs_admin ? "bad" : "info"} tight">${esc(E.resolutionSummary(res))}</div>
+      </div>
+      ${dupeBlock}
+      ${draftBlock}`);
   }
 
-  function intakeSent(id) {
-    const r = E.request(S, id);
-    if (!r) { UI.sent = null; return pageIntake(); }
-    const proc = r.process_id ? E.process_(S, r.process_id) : null;
+  function renderSent(m) {
+    const r = E.request(S, m.data.id);
+    if (!r) return botWrap(`<p>That request no longer exists.</p>`);
     const a = r.assignee_id ? person(r.assignee_id) : null;
-    return phead("Intake", "Request dispatched", "") +
-      `<div class="note info">Request #${r.id} dispatched.</div>
-       <div class="card flag" style="margin-top:11px">
-         <div class="card-t">#${r.id} — ${esc(r.title)}</div>
-         <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
-           <span>assigned to ${esc(a ? a.name : "the Atlas admin")}</span></div>
-       </div>
-       <div class="sect"><h2>Timeline</h2></div>${trail(timelineOf(id))}
-       <div style="margin-top:15px"><button class="btn primary" data-act="another">Raise another request</button></div>`;
+    const proc = r.process_id ? E.process_(S, r.process_id) : null;
+    return botWrap(`
+      <p>Sent. <strong>#${r.id}</strong> is with <strong>${esc(a ? a.name : "the Atlas admin")}</strong>.</p>
+      <div class="card flag tight">
+        <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+        <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
+          <span class="mono">raised ${esc(human(now() - r.created_at))} ago</span></div>
+      </div>
+      <p class="sub small">I'll chase it automatically if it isn't acknowledged within 48 hours.</p>
+      <div class="acts">
+        <button class="btn sm" data-act="open" data-id="${r.id}">View the timeline</button>
+        <button class="btn sm" data-act="adv" data-h="48">Skip forward 48h and watch me chase it</button>
+      </div>`);
   }
 
-  /* =============================== requests ============================= */
+  function renderOwners(m) {
+    const proc = E.process_(S, m.data.processId);
+    const at = now();
+    const res = E.resolve(S, proc);
+    const roleRow = role => {
+      const list = E.holders(S, proc.id, role);
+      if (!list.length) return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() +
+        role.slice(1))}</span><span class="muted">not configured</span></div>`;
+      return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() + role.slice(1))}</span>
+        <span class="chips">${list.map(p => badge(p.name +
+          (E.isOutOfOffice(p, at) ? " · away" : ""),
+          E.isOutOfOffice(p, at) ? "ooo" : "role")).join(" ")}</span></div>`;
+    };
+    return botWrap(`
+      <p><strong>${esc(proc.name)}</strong> — ${esc(proc.category)}</p>
+      ${["owner", "approver", "delegate", "backup"].map(roleRow).join("")}
+      <div class="note ${res.needs_admin ? "bad" : "info"} tight">
+        ${esc(res.needs_admin ? res.steps[res.steps.length - 1].detail
+          : "Right now it would go to " + res.assignee_name + ".")}</div>
+      <div class="acts"><button class="btn sm" data-act="process" data-id="${proc.id}">
+        Open the process</button></div>`);
+  }
 
-  function requestRow(r, counterpartId, label, prefix) {
+  function renderOoo(m) {
+    const rows = m.data.ids.map(id => person(id)).filter(Boolean);
+    return botWrap(`<p>${rows.length} ${rows.length === 1 ? "person is" : "people are"} out of office:</p>
+      <div class="stack tight">${rows.map(p => {
+        const covers = S.responsibilities.filter(r => r.person_id === p.id && r.role === "owner")
+          .map(r => E.process_(S, r.process_id).name);
+        return `<div class="card">
+          <div class="card-t">${esc(p.name)} ${badge("back " + E.fmtDate(p.ooo_until), "ooo")}</div>
+          <div class="card-m"><span>${esc(p.title)}</span>
+            ${covers.length ? `<span>owns ${esc(covers.join(", "))}</span>` : ""}</div>
+        </div>`;
+      }).join("")}</div>
+      <p class="sub small">Requests for anything they own are routed to a delegate automatically.</p>`);
+  }
+
+  function renderReqList(m) {
+    const rows = m.data.ids.map(id => E.request(S, id)).filter(Boolean);
+    if (!rows.length) return botWrap(`<p>${esc(m.data.empty)}</p>`);
+    return botWrap(`<p>${rows.length} request${rows.length === 1 ? "" : "s"}:</p>
+      <div class="stack tight">${rows.slice(0, 8).map(r => {
+        const other = m.data.mine ? r.assignee_id : r.requester_id;
+        const op = other ? person(other) : null;
+        return `<div class="rowline"><div class="card">
+          <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+          <div class="card-m">${statusBadge(r.status)}
+            <span>${m.data.mine ? "with" : "from"} ${esc(op ? op.name : "—")}</span>
+            <span class="mono">${esc(human(now() - r.created_at))} old</span></div>
+        </div><button class="btn sm" data-act="open" data-id="${r.id}">Open</button></div>`;
+      }).join("")}</div>`);
+  }
+
+  function renderPersonMsg(m) {
+    const p = person(m.data.id);
+    if (!p) return botWrap(`<p>That person is no longer in the directory.</p>`);
+    const at = now();
+    const stats = E.personStats(S, p.id);
+    const grouped = E.responsibilitiesOf(S, p.id);
+    const mgr = p.manager_id ? person(p.manager_id) : null;
+    const owns = (grouped.owner || []).map(x => x.name);
+    return botWrap(`
+      <p><strong>${esc(p.name)}</strong> — ${esc(p.title)}, ${esc(E.departmentName(S, p))}
+        ${E.isOutOfOffice(p, at) ? badge("out of office", "ooo") : ""}</p>
+      <div class="kv"><span class="k">Reports to</span>${esc(mgr ? mgr.name : "—")}</div>
+      <div class="kv"><span class="k">Owns</span>${owns.length ?
+        `<span class="chips">${owns.map(n => badge(n, "role")).join(" ")}</span>` :
+        `<span class="muted">nothing directly</span>`}</div>
+      <div class="kv"><span class="k">Open load</span>${stats.open_load} request(s)</div>
+      <div class="acts"><button class="btn sm" data-act="treeperson" data-id="${p.id}">
+        Show in the org chart</button></div>`);
+  }
+
+  function renderPick(m) {
+    const opts = S.processes.slice().sort((a, b) => a.name.localeCompare(b.name));
+    return botWrap(`<div class="picker">
+      <label class="lbl" for="pk">Route it as</label>
+      <select id="pk" class="field" data-act="pickproc" data-mid="${m.id}">
+        <option value="">Choose a process…</option>
+        ${opts.map(p => `<option value="${p.id}">${esc(p.name)} — ${esc(p.category)}</option>`).join("")}
+      </select></div>`);
+  }
+
+  function renderMsg(m) {
+    if (m.role === "user") return bubbleUser(m);
+    switch (m.kind) {
+      case "match":   return renderMatch(m);
+      case "sent":    return renderSent(m);
+      case "owners":  return renderOwners(m);
+      case "ooo":     return renderOoo(m);
+      case "reqlist": return renderReqList(m);
+      case "person":  return renderPersonMsg(m);
+      case "pick":    return renderPick(m);
+      case "suggest":
+        return `<div class="chips suggest">${m.data.items.map(s =>
+          `<button class="chip" data-act="say" data-text="${esc(s)}">${esc(s)}</button>`).join("")}</div>`;
+      default:
+        return botWrap(m.data.text.split("\n").map(line =>
+          line.trim() ? `<p>${esc(line)}</p>` : "").join(""));
+    }
+  }
+
+  function pageChat() {
+    const me = actor();
+    return `<div class="chatpage">
+      <div class="chatlog" id="chatlog">
+        ${UI.chat.map(renderMsg).join("")}
+      </div>
+      <form class="composer" data-act="chatform">
+        <label class="sr" for="composer">Message Atlas</label>
+        <textarea id="composer" rows="1" placeholder="Tell Atlas what you need…"
+          data-act="composer"></textarea>
+        <button class="btn primary" type="submit" data-act="chatsubmit">Send</button>
+      </form>
+      <p class="muted composer-note">Acting as ${esc(me.name)} · everything runs locally,
+        nothing leaves your browser</p>
+    </div>`;
+  }
+
+  /* ============================ people & org tree ======================= */
+
+  const NODE_W = 186, NODE_H = 62, H_GAP = 18, V_GAP = 58;
+
+  const DEPT_HUE = {
+    "Executive": "var(--gold)", "Investments / Deal Team": "var(--s1)",
+    "Finance": "var(--dept-b)", "Legal & Compliance": "var(--dept-c)",
+    "IT": "var(--dept-d)", "Operations / HR": "var(--dept-e)",
+  };
+  const deptColor = d => DEPT_HUE[d] || "var(--ink-3)";
+
+  const isCollapsed = id => !!UI.tree.collapsed[id];
+
+  function matchesSearch(node, term) {
+    if (!term) return false;
+    const t = term.toLowerCase();
+    return node.name.toLowerCase().includes(t) || node.title.toLowerCase().includes(t) ||
+           node.department.toLowerCase().includes(t);
+  }
+
+  // Tidy-tree layout: leaves take the next slot, parents centre over children.
+  function layoutTree(roots, term) {
+    const cursor = { x: 0 };
+    const placed = [];
+    const walk = (node, depth) => {
+      const hits = matchesSearch(node, term);
+      const kids = isCollapsed(node.id) ? [] : node.children;
+      let x;
+      if (!kids.length) {
+        x = cursor.x;
+        cursor.x += NODE_W + H_GAP;
+      } else {
+        const childXs = kids.map(k => walk(k, depth + 1));
+        x = (childXs[0] + childXs[childXs.length - 1]) / 2;
+      }
+      placed.push({ node, x, y: depth * (NODE_H + V_GAP), depth, hits });
+      return x;
+    };
+    roots.forEach(r => walk(r, 0));
+    const width = Math.max(cursor.x, NODE_W + H_GAP);
+    const depth = Math.max(...placed.map(p => p.y)) + NODE_H + 14;
+    return { placed, width, height: depth };
+  }
+
+  function treeSVG() {
+    const term = (UI.tree.search || "").trim();
+    const dept = UI.tree.dept;
+    const roots = E.orgTree(S);
+    const { placed, width, height } = layoutTree(roots, term);
+    const byId = new Map(placed.map(p => [p.node.id, p]));
+    const at = now();
+    const anyHit = term && placed.some(p => p.hits);
+
+    const edges = placed.filter(p => p.node.manager_id && byId.has(p.node.manager_id))
+      .map(p => {
+        const parent = byId.get(p.node.manager_id);
+        const x1 = parent.x + NODE_W / 2, y1 = parent.y + NODE_H;
+        const x2 = p.x + NODE_W / 2, y2 = p.y;
+        const mid = y1 + V_GAP / 2;
+        return `<path d="M${x1} ${y1} V${mid} H${x2} V${y2}" fill="none"
+          stroke="var(--line)" stroke-width="1.5"/>`;
+      }).join("");
+
+    const nodes = placed.map(p => {
+      const n = p.node;
+      const pers = person(n.id);
+      const ooo = pers && E.isOutOfOffice(pers, at);
+      const load = S.requests.filter(r => r.assignee_id === n.id &&
+        E.OPEN_STATUSES.includes(r.status)).length;
+      const hidden = n.children.length && isCollapsed(n.id);
+      const dim = (anyHit && !p.hits) || (dept !== "All departments" && n.department !== dept);
+      const selected = UI.tree.selected === n.id;
+      const toggle = n.children.length ? `
+        <g class="tgl" data-act="treetoggle" data-id="${n.id}" tabindex="0"
+           role="button" aria-label="${hidden ? "Expand" : "Collapse"} ${esc(n.name)}'s team">
+          <circle cx="${NODE_W / 2}" cy="${NODE_H + 1}" r="10"
+            fill="var(--surface)" stroke="var(--line)"/>
+          <text x="${NODE_W / 2}" y="${NODE_H + 5}" text-anchor="middle"
+            class="tglt">${hidden ? "+" + n.descendants : "–"}</text>
+        </g>` : "";
+      return `<g class="onode${dim ? " dim" : ""}${p.hits ? " hit" : ""}${selected ? " sel" : ""}"
+          transform="translate(${p.x},${p.y})">
+        <g data-act="treeselect" data-id="${n.id}" tabindex="0" role="button"
+           aria-label="${esc(n.name)}, ${esc(n.title)}">
+          <rect class="obox" width="${NODE_W}" height="${NODE_H}" rx="9"/>
+          <rect class="ostripe" width="4" height="${NODE_H}" rx="2" fill="${deptColor(n.department)}"/>
+          <text class="oname" x="14" y="24">${esc(n.name)}</text>
+          <text class="otitle" x="14" y="41">${esc(n.title.length > 30 ?
+            n.title.slice(0, 28) + "…" : n.title)}</text>
+          <text class="ometa" x="14" y="55">${esc(n.department)}${
+            n.reports ? " · " + n.reports + " report" + (n.reports === 1 ? "" : "s") : ""}</text>
+          ${ooo ? `<circle cx="${NODE_W - 14}" cy="20" r="5" fill="var(--warn)"/>
+                   <title>Out of office</title>` : ""}
+          ${load ? `<text class="oload" x="${NODE_W - 12}" y="55" text-anchor="end">${load} open</text>` : ""}
+        </g>${toggle}</g>`;
+    }).join("");
+
+    const t = UI.tree;
+    return `<svg id="treesvg" viewBox="0 0 ${width} ${height + 24}"
+      style="width:${Math.round(width * t.zoom)}px;height:${Math.round((height + 24) * t.zoom)}px"
+      role="img" aria-label="Organisation chart of ${S.people.length} people">
+      <g>${edges}${nodes}</g></svg>`;
+  }
+
+  function treeDetail() {
+    const id = UI.tree.selected;
+    if (!id) return `<div class="empty side"><div class="big">Nobody selected</div>
+      <div>Click anyone in the chart to see what they own and who they cover for.</div></div>`;
+    const p = person(id);
+    if (!p) return "";
+    const at = now();
+    const stats = E.personStats(S, id);
+    const grouped = E.responsibilitiesOf(S, id);
+    const mgr = p.manager_id ? person(p.manager_id) : null;
+    const reports = S.people.filter(x => x.manager_id === id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const chain = E.pathToRoot(S, id).slice(0, -1).map(x => person(x).name);
+    const roleRows = ["owner", "approver", "delegate", "backup"].map(role => {
+      const list = grouped[role] || [];
+      if (!list.length) return "";
+      return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() + role.slice(1))}</span>
+        <span class="chips">${list.map(x => badge(x.name, "role")).join(" ")}</span></div>`;
+    }).join("");
+
+    return `<div class="side-card">
+      <div class="side-head">
+        <div><h3>${esc(p.name)}</h3><p class="sub">${esc(p.title)}</p></div>
+        <button class="btn sm" data-act="treeclose" aria-label="Close">✕</button>
+      </div>
+      <div class="chips tight">${badge(E.departmentName(S, p), "role")}
+        ${E.isOutOfOffice(p, at) ? badge("Out of office until " + E.fmtDate(p.ooo_until), "ooo") : ""}
+        ${stats.open_load ? badge(stats.open_load + " open", "gold") : badge("No open work", "mute")}</div>
+      <div class="kv"><span class="k">Reporting line</span>${
+        esc(chain.length ? chain.join(" → ") : "Top of the tree")}</div>
+      <div class="kv"><span class="k">Direct reports</span>${
+        reports.length ? esc(reports.map(r => r.name).join(", ")) : `<span class="muted">none</span>`}</div>
+      ${roleRows || `<div class="kv"><span class="k">Responsibilities</span>
+        <span class="muted">no edges in the graph</span></div>`}
+      <div class="kv"><span class="k">Avg turnaround</span>${
+        stats.avg_turnaround_hours !== null ? Math.round(stats.avg_turnaround_hours) + "h" : "—"}</div>
+      <div class="acts">
+        <button class="btn sm" data-act="say" data-text="Who is ${esc(p.name)}?">Ask Atlas about them</button>
+      </div>
+    </div>`;
+  }
+
+  function pagePeople() {
+    if (UI.process) return processProfile(UI.process);
+    const which = UI.tab.people || "org";
+    const tabs = [["org", "Org chart"], ["list", "Directory"], ["teams", "Teams"],
+                  ["processes", "Processes"]]
+      .map(([k, t]) => `<button class="tab" role="tab" data-act="subtab" data-group="people"
+        data-k="${k}" aria-selected="${which === k}">${esc(t)}</button>`).join("");
+    const head = phead("People", "Who works here, and who they answer to",
+      "Search anyone, expand a team, and see what each person is actually accountable for.") +
+      `<div class="tabs" role="tablist">${tabs}</div>`;
+    if (which === "list") return head + peopleList();
+    if (which === "teams") return head + teamsPanel();
+    if (which === "processes") return head + processList();
+    return head + orgPanel();
+  }
+
+  function orgPanel() {
+    const t = UI.tree;
+    const legend = Object.keys(DEPT_HUE).map(d =>
+      `<span><i style="background:${deptColor(d)}"></i>${esc(d)}</span>`).join("");
+    return `<div class="toolbar">
+        <div class="grow"><label class="lbl" for="ts">Find someone</label>
+          <input id="ts" class="field" data-act="treesearch" placeholder="name, title or team"
+            value="${esc(t.search)}"></div>
+        <div class="grow"><label class="lbl" for="td">Highlight team</label>
+          <select id="td" class="field" data-act="treedept">${deptOptions(t.dept)}</select></div>
+        <div class="zoomer" role="group" aria-label="Zoom">
+          <button class="btn sm" data-act="zoom" data-d="-1" aria-label="Zoom out">−</button>
+          <span class="mono zoomv">${Math.round(t.zoom * 100)}%</span>
+          <button class="btn sm" data-act="zoom" data-d="1" aria-label="Zoom in">+</button>
+          <button class="btn sm" data-act="zoomfit">Fit</button>
+        </div>
+        <div class="btn-pair">
+          <button class="btn sm" data-act="expandall">Expand all</button>
+          <button class="btn sm" data-act="collapseall">Collapse to teams</button>
+        </div>
+      </div>
+      <div class="legend dept">${legend}<span><i class="ooo-dot"></i>Out of office</span></div>
+      <div class="orgwrap">
+        <div class="orgscroll" id="orgscroll" data-act="orgpan">${treeSVG()}</div>
+        <aside class="orgside">${treeDetail()}</aside>
+      </div>
+      <p class="muted">Drag the chart to pan. Click the − / + circle under anyone to fold their
+        team away. Click a card to see what they own.</p>`;
+  }
+
+  function teamsPanel() {
+    const teams = E.teamSummary(S);
+    const at = now();
+    return `<div class="stack">${teams.map(t => {
+      const members = S.people.filter(p => E.departmentName(S, p) === t.department)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const owned = S.responsibilities.filter(r => r.role === "owner" &&
+        members.some(m => m.id === r.person_id)).length;
+      const load = S.requests.filter(r => E.OPEN_STATUSES.includes(r.status) &&
+        members.some(m => m.id === r.assignee_id)).length;
+      return `<div class="card">
+        <div class="card-t"><span class="swatch" style="background:${deptColor(t.department)}"></span>
+          ${esc(t.department)}</div>
+        <div class="card-m"><span>Led by ${esc(t.head || "—")}</span>
+          <span>${t.size} people</span>
+          ${badge(owned + " processes owned", "role")}
+          ${badge(load + " open requests", load ? "gold" : "mute")}
+          ${t.ooo ? badge(t.ooo + " away", "ooo") : ""}</div>
+        <div class="chips tight">${members.map(m =>
+          `<button class="chip sm" data-act="treeperson" data-id="${m.id}">${esc(m.name)}</button>`
+        ).join("")}</div>
+      </div>`;
+    }).join("")}</div>`;
+  }
+
+  function deptOptions(selected) {
+    const names = ["All departments"].concat(S.departments.map(d => d.name).sort());
+    return names.map(n => `<option${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
+  }
+
+  function peopleList() {
+    const at = now();
+    const term = (UI.search || "").trim().toLowerCase();
+    const rows = S.people.slice().sort((a, b) => a.name.localeCompare(b.name)).filter(p => {
+      const dept = E.departmentName(S, p);
+      if (UI.dept !== "All departments" && dept !== UI.dept) return false;
+      if (term && !(p.name.toLowerCase().includes(term) || p.title.toLowerCase().includes(term)))
+        return false;
+      return true;
+    });
+    const cards = rows.map(p => {
+      const owned = S.responsibilities.filter(r => r.person_id === p.id &&
+        (r.role === "owner" || r.role === "approver")).length;
+      const load = S.requests.filter(r => r.assignee_id === p.id &&
+        E.OPEN_STATUSES.includes(r.status)).length;
+      const ooo = E.isOutOfOffice(p, at);
+      return `<div class="rowline"><div class="card">
+        <div class="card-t">${esc(p.name)}</div>
+        <div class="card-m"><span>${esc(p.title)}</span><span>${esc(E.departmentName(S, p))}</span></div>
+        <div class="card-m" style="margin-top:7px">${badge(owned + " owned/approved", "role")}
+          ${badge(load + " open", load ? "gold" : "mute")}
+          ${ooo ? badge("OOO until " + E.fmtDate(p.ooo_until), "ooo") : ""}</div>
+      </div><button class="btn sm" data-act="treeperson" data-id="${p.id}">Org chart</button></div>`;
+    }).join("");
+    return `<div class="toolbar">
+        <div class="grow"><label class="lbl" for="ps">Search people</label>
+          <input id="ps" class="field" data-act="search" placeholder="name or title"
+            value="${esc(UI.search || "")}"></div>
+        <div class="grow"><label class="lbl" for="pd">Department</label>
+          <select id="pd" class="field" data-act="dept">${deptOptions(UI.dept)}</select></div>
+      </div>
+      <p class="muted" style="margin-bottom:9px">${rows.length} people</p>` +
+      (rows.length ? `<div class="stack">${cards}</div>` : empty("Nobody matches that search."));
+  }
+
+  function processList() {
+    const at = now();
+    const cards = S.processes.slice().sort((a, b) => a.name.localeCompare(b.name)).map(p => {
+      const owners = E.holders(S, p.id, "owner");
+      const dels = E.holders(S, p.id, "delegate");
+      const open = S.requests.filter(r => r.process_id === p.id &&
+        E.OPEN_STATUSES.includes(r.status)).length;
+      const ownerBadge = owners.length
+        ? badge("Owner: " + owners[0].name, E.isOutOfOffice(owners[0], at) ? "ooo" : "role")
+        : badge("Orphan — no owner", "escalated");
+      return `<div class="rowline"><div class="card${owners.length ? "" : " alarm"}">
+        <div class="card-t">${esc(p.name)}</div>
+        <div class="card-m"><span>${esc(p.category)}</span></div>
+        <div class="card-m" style="margin-top:7px">${ownerBadge}
+          ${dels.length ? badge("Delegate: " + dels[0].name, "mute") : ""}
+          ${badge(open + " open", open ? "gold" : "mute")}</div>
+      </div><button class="btn sm" data-act="process" data-id="${p.id}">View</button></div>`;
+    }).join("");
+    return `<div class="stack">${cards}</div>`;
+  }
+
+  function processProfile(id) {
+    const p = E.process_(S, id);
+    if (!p) { UI.process = null; return pagePeople(); }
+    const at = now();
+    const stats = E.processStats(S, id);
+    const orphan = !E.holders(S, id, "owner").length;
+    const recent = S.requests.filter(r => r.process_id === id)
+      .sort((a, b) => b.created_at - a.created_at).slice(0, 8);
+    const roleRows = ["owner", "approver", "delegate", "backup"].map(role => {
+      const list = E.holders(S, id, role);
+      if (!list.length) return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() +
+        role.slice(1))}</span><span class="muted">not configured</span></div>`;
+      return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() + role.slice(1))}</span>
+        <span class="chips">${list.map(x => badge(x.name + (E.isOutOfOffice(x, at) ? " · OOO" : ""),
+          E.isOutOfOffice(x, at) ? "ooo" : "role")).join(" ")}</span></div>`;
+    }).join("");
+    return `<button class="btn sm" data-act="backdir">← Back to processes</button>
+      <div class="card ${orphan ? "alarm" : "flag"}" style="margin-top:13px">
+        <div class="card-t">${esc(p.name)} ${orphan ? badge("Orphan — no owner", "escalated") : ""}</div>
+        <div class="card-m"><span>${esc(p.category)}</span></div>
+        <div class="card-b">${esc(p.description)}</div>
+      </div>
+      <div class="tiles" style="margin-top:16px">
+        ${tile("Requests", String(stats.total), "all time")}
+        ${tile("Open now", String(stats.open), "in the queue", stats.open ? "warn" : "")}
+        ${tile("Completed", String(stats.completed), "all time")}
+        ${tile("Avg turnaround", stats.avg_turnaround_hours !== null ?
+               Math.round(stats.avg_turnaround_hours) + "h" : "—", "raised to completed")}
+      </div>
+      <div class="grid2">
+        <div><h2>Who is accountable</h2>
+          ${orphan ? `<div class="note bad" style="margin:9px 0">Nobody owns this process.
+            Requests matched to it are parked for the Atlas admin.</div>` : ""}
+          <div style="margin-top:9px">${roleRows}</div>
+          <h2 style="margin-top:20px">Matching keywords</h2>
+          <div class="chips" style="margin-top:9px">${
+            E.keywordList(p).map(k => badge(k, "mute")).join(" ") || `<span class="muted">none</span>`}</div>
+        </div>
+        <div><h2>Recent requests</h2><div class="stack" style="margin-top:9px">${
+          recent.length ? recent.map(r => `<div class="card">
+            <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+            <div class="card-m">${statusBadge(r.status)}
+              <span>with ${esc(r.assignee_id ? person(r.assignee_id).name : "Unassigned")}</span>
+              <span class="mono">${esc(human(now() - r.created_at))} old</span></div></div>`).join("")
+            : empty("No requests have used this process yet.")}</div></div>
+      </div>`;
+  }
+
+  /* ============================== requests ============================== */
+
+  function requestRow(r, counterpartId, label) {
     const proc = r.process_id ? E.process_(S, r.process_id) : null;
     const cp = counterpartId ? person(counterpartId) : null;
     const unread = S.messages.filter(m => m.request_id === r.id && !m.read &&
@@ -1682,9 +2478,8 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
       `${open.length} open with you · ${mine.length} raised by you · ${unreadFor(UI.actor)} unread`) +
       `<div class="tabs" role="tablist">${tabs}</div>
        <p class="sub" style="margin-bottom:11px">${esc(caption)}</p>` +
-      (rows.length ? `<div class="stack">${rows.map(r =>
-        requestRow(r, cp(r), label, which)).join("")}</div>`
-        : empty("Nothing here.", "Requests will appear as they are raised or routed to you."));
+      (rows.length ? `<div class="stack">${rows.map(r => requestRow(r, cp(r), label)).join("")}</div>`
+        : empty("Nothing here.", "Ask Atlas for something and it will show up on the other side."));
   }
 
   function requestDetail(id) {
@@ -1716,7 +2511,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
           <button class="btn" data-act="sendnote" data-id="${id}">Send note</button>
         </div>`
       : `<p class="sub">You are watching this request. Switch to
-         <strong>${esc(a ? a.name : "the assignee")}</strong> in the sidebar to act on it.</p>`;
+         <strong>${esc(a ? a.name : "the assignee")}</strong> on the left to act on it.</p>`;
 
     return `<button class="btn sm" data-act="back">← Back to the list</button>
       <div class="card flag" style="margin-top:13px">
@@ -1749,201 +2544,6 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
         </div>
       </div>
       <div class="sect"><h2>Actions</h2></div>${actions}`;
-  }
-
-  /* =============================== directory ============================ */
-
-  function pageDirectory() {
-    if (UI.person) return personProfile(UI.person);
-    if (UI.process) return processProfile(UI.process);
-    const which = UI.tab.directory || "people";
-    const tabs = [["people", "People"], ["processes", "Processes"], ["graph", "Responsibility graph"]]
-      .map(([k, t]) => `<button class="tab" role="tab" data-act="subtab" data-group="directory"
-        data-k="${k}" aria-selected="${which === k}">${esc(t)}</button>`).join("");
-    const head = phead("Directory & Graph", "Who is responsible for what",
-      "The org chart says who reports to whom. This says who owns the work.") +
-      `<div class="tabs" role="tablist">${tabs}</div>`;
-    if (which === "processes") return head + processList();
-    if (which === "graph") return head + graphPanel();
-    return head + peopleList();
-  }
-
-  function deptOptions(selected) {
-    const names = ["All departments"].concat(S.departments.map(d => d.name).sort());
-    return names.map(n => `<option${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
-  }
-
-  function peopleList() {
-    const at = now();
-    const term = (UI.search || "").trim().toLowerCase();
-    const rows = S.people.slice().sort((a, b) => a.name.localeCompare(b.name)).filter(p => {
-      const dept = E.departmentName(S, p);
-      if (UI.dept !== "All departments" && dept !== UI.dept) return false;
-      if (term && !(p.name.toLowerCase().includes(term) || p.title.toLowerCase().includes(term)))
-        return false;
-      return true;
-    });
-    const cards = rows.map(p => {
-      const owned = S.responsibilities.filter(r => r.person_id === p.id &&
-        (r.role === "owner" || r.role === "approver")).length;
-      const load = S.requests.filter(r => r.assignee_id === p.id &&
-        E.OPEN_STATUSES.includes(r.status)).length;
-      const ooo = E.isOutOfOffice(p, at);
-      return `<div class="rowline"><div class="card">
-        <div class="card-t">${esc(p.name)}</div>
-        <div class="card-m"><span>${esc(p.title)}</span><span>${esc(E.departmentName(S, p))}</span></div>
-        <div class="card-m" style="margin-top:7px">${badge(owned + " owned/approved", "role")}
-          ${badge(load + " open", load ? "gold" : "mute")}
-          ${ooo ? badge("OOO until " + E.fmtDate(p.ooo_until), "ooo") : ""}</div>
-      </div><button class="btn sm" data-act="person" data-id="${p.id}">View</button></div>`;
-    }).join("");
-    return `<div class="toolbar">
-        <div class="grow"><label class="lbl" for="ps">Search people</label>
-          <input id="ps" class="field" data-act="search" placeholder="name or title"
-            value="${esc(UI.search || "")}"></div>
-        <div class="grow"><label class="lbl" for="pd">Department</label>
-          <select id="pd" class="field" data-act="dept">${deptOptions(UI.dept)}</select></div>
-      </div>
-      <p class="muted" style="margin-bottom:9px">${rows.length} people</p>` +
-      (rows.length ? `<div class="stack">${cards}</div>` : empty("Nobody matches that search."));
-  }
-
-  function processList() {
-    const at = now();
-    const cards = S.processes.slice().sort((a, b) => a.name.localeCompare(b.name)).map(p => {
-      const owners = E.holders(S, p.id, "owner");
-      const dels = E.holders(S, p.id, "delegate");
-      const open = S.requests.filter(r => r.process_id === p.id &&
-        E.OPEN_STATUSES.includes(r.status)).length;
-      const ownerBadge = owners.length
-        ? badge("Owner: " + owners[0].name, E.isOutOfOffice(owners[0], at) ? "ooo" : "role")
-        : badge("Orphan — no owner", "escalated");
-      return `<div class="rowline"><div class="card${owners.length ? "" : " alarm"}">
-        <div class="card-t">${esc(p.name)}</div>
-        <div class="card-m"><span>${esc(p.category)}</span></div>
-        <div class="card-m" style="margin-top:7px">${ownerBadge}
-          ${dels.length ? badge("Delegate: " + dels[0].name, "mute") : ""}
-          ${badge(open + " open", open ? "gold" : "mute")}</div>
-      </div><button class="btn sm" data-act="process" data-id="${p.id}">View</button></div>`;
-    }).join("");
-    return `<div class="stack">${cards}</div>`;
-  }
-
-  function personProfile(id) {
-    const p = person(id);
-    if (!p) { UI.person = null; return pageDirectory(); }
-    const at = now();
-    const stats = E.personStats(S, id);
-    const grouped = E.responsibilitiesOf(S, id);
-    const mgr = p.manager_id ? person(p.manager_id) : null;
-    const reports = S.people.filter(x => x.manager_id === id).sort((a, b) => a.name.localeCompare(b.name));
-    const recent = S.requests.filter(r => r.assignee_id === id)
-      .sort((a, b) => b.last_action_at - a.last_action_at).slice(0, 6);
-    const ooo = E.isOutOfOffice(p, at);
-    const roleRows = ["owner", "approver", "delegate", "backup"].map(role => {
-      const list = grouped[role] || [];
-      if (!list.length) return "";
-      return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() + role.slice(1))}</span>
-        <span class="chips">${list.map(x => badge(x.name, "role")).join(" ")}</span></div>`;
-    }).join("");
-
-    return `<button class="btn sm" data-act="backdir">← Back to the directory</button>
-      <div class="card flag" style="margin-top:13px">
-        <div class="card-t">${esc(p.name)} ${ooo ? badge("Out of office until " +
-          E.fmtDate(p.ooo_until), "ooo") : ""}</div>
-        <div class="card-m"><span>${esc(p.title)}</span><span>${esc(E.departmentName(S, p))}</span>
-          <span class="mono">${esc(p.email)}</span></div>
-      </div>
-      <div class="tiles" style="margin-top:16px">
-        ${tile("Open load", String(stats.open_load), "requests with them now",
-               stats.open_load >= 3 ? "warn" : "")}
-        ${tile("Completed", String(stats.completed), "all time")}
-        ${tile("Avg turnaround", stats.avg_turnaround_hours !== null ?
-               Math.round(stats.avg_turnaround_hours) + "h" : "—", "raised to completed")}
-        ${tile("Avg to acknowledge", stats.avg_ack_hours !== null ?
-               Math.round(stats.avg_ack_hours) + "h" : "—", "first response")}
-      </div>
-      <div class="grid2">
-        <div>
-          <h2>Reporting line</h2>
-          <div style="margin-top:9px">
-            <div class="kv"><span class="k">Manager</span>${esc(mgr ? mgr.name : "—")}</div>
-            <div class="kv"><span class="k">Direct reports</span>${
-              esc(reports.length ? reports.map(r => r.name).join(", ") : "—")}</div>
-          </div>
-          <h2 style="margin-top:20px">Responsibilities</h2>
-          <div style="margin-top:9px">${roleRows ||
-            `<p class="muted">No edges in the responsibility graph.</p>`}</div>
-        </div>
-        <div><h2>Recent requests</h2><div class="stack" style="margin-top:9px">${
-          recent.length ? recent.map(r => `<div class="card">
-            <div class="card-t">#${r.id} — ${esc(r.title)}</div>
-            <div class="card-m">${statusBadge(r.status)}
-              <span>${esc(r.process_id ? E.process_(S, r.process_id).name : "Unmatched")}</span>
-              <span class="mono">${esc(human(now() - r.created_at))} old</span></div></div>`).join("")
-            : empty("No requests routed here yet.")}</div></div>
-      </div>`;
-  }
-
-  function processProfile(id) {
-    const p = E.process_(S, id);
-    if (!p) { UI.process = null; return pageDirectory(); }
-    const at = now();
-    const stats = E.processStats(S, id);
-    const orphan = !E.holders(S, id, "owner").length;
-    const recent = S.requests.filter(r => r.process_id === id)
-      .sort((a, b) => b.created_at - a.created_at).slice(0, 8);
-    const roleRows = ["owner", "approver", "delegate", "backup"].map(role => {
-      const list = E.holders(S, id, role);
-      if (!list.length) return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() +
-        role.slice(1))}</span><span class="muted">not configured</span></div>`;
-      return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() + role.slice(1))}</span>
-        <span class="chips">${list.map(x => badge(x.name + (E.isOutOfOffice(x, at) ? " · OOO" : ""),
-          E.isOutOfOffice(x, at) ? "ooo" : "role")).join(" ")}</span></div>`;
-    }).join("");
-
-    return `<button class="btn sm" data-act="backdir">← Back to processes</button>
-      <div class="card ${orphan ? "alarm" : "flag"}" style="margin-top:13px">
-        <div class="card-t">${esc(p.name)} ${orphan ? badge("Orphan — no owner", "escalated") : ""}</div>
-        <div class="card-m"><span>${esc(p.category)}</span></div>
-        <div class="card-b">${esc(p.description)}</div>
-      </div>
-      <div class="tiles" style="margin-top:16px">
-        ${tile("Requests", String(stats.total), "all time")}
-        ${tile("Open now", String(stats.open), "in the queue", stats.open ? "warn" : "")}
-        ${tile("Completed", String(stats.completed), "all time")}
-        ${tile("Avg turnaround", stats.avg_turnaround_hours !== null ?
-               Math.round(stats.avg_turnaround_hours) + "h" : "—", "raised to completed")}
-      </div>
-      <div class="grid2">
-        <div><h2>Who is accountable</h2>
-          ${orphan ? `<div class="note bad" style="margin:9px 0">Nobody owns this process.
-            Requests matched to it are parked for the Atlas admin.</div>` : ""}
-          <div style="margin-top:9px">${roleRows}</div>
-          <h2 style="margin-top:20px">Matching keywords</h2>
-          <div class="chips" style="margin-top:9px">${
-            E.keywordList(p).map(k => badge(k, "mute")).join(" ") || `<span class="muted">none</span>`}</div>
-        </div>
-        <div><h2>Recent requests</h2><div class="stack" style="margin-top:9px">${
-          recent.length ? recent.map(r => `<div class="card">
-            <div class="card-t">#${r.id} — ${esc(r.title)}</div>
-            <div class="card-m">${statusBadge(r.status)}
-              <span>with ${esc(r.assignee_id ? person(r.assignee_id).name : "Unassigned")}</span>
-              <span class="mono">${esc(human(now() - r.created_at))} old</span></div></div>`).join("")
-            : empty("No requests have used this process yet.")}</div></div>
-      </div>`;
-  }
-
-  function graphPanel() {
-    const dept = UI.graphDept || "All departments";
-    const g = E.responsibilityGraph(S, dept === "All departments" ? null : dept);
-    return `<p class="sub">Gold nodes are processes, green nodes are people. Line colour is the
-        role: owner, approver, delegate or backup. Hover a node for its name.</p>
-      <div class="toolbar" style="margin-top:11px"><div class="grow">
-        <label class="lbl" for="gd">Filter people by department</label>
-        <select id="gd" class="field" data-act="graphdept">${deptOptions(dept)}</select></div></div>` +
-      (g.edges.length ? `<div class="chart">${graphSVG(g)}</div>`
-        : empty("No responsibility edges to draw for that filter."));
   }
 
   /* =============================== agent log ============================ */
@@ -2003,7 +2603,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
         <span class="mono">${esc(fmtTime(at))}</span></p>` +
       (rows.length ? `<div class="stack">${cards}</div>`
         : empty("The agent has not needed to act yet.",
-                "Advance the simulated clock in the sidebar to make chases and escalations fire."));
+                "Advance the simulated clock on the left to make chases and escalations fire."));
   }
 
   /* ================================ charts ============================== */
@@ -2126,58 +2726,6 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
   // Backup is distinguished by a dash pattern, not by a paler colour: a fourth
   // hue would not clear the CVD gate, and a near-surface grey is invisible.
-  const ROLE_STROKE = { owner: "var(--s1)", approver: "var(--s2)",
-                        delegate: "var(--ink-3)", backup: "var(--ink-3)" };
-  const ROLE_DASH = { backup: "4 4" };
-
-  function graphSVG(g) {
-    const procs = g.nodes.filter(n => n.kind === "process");
-    const people = g.nodes.filter(n => n.kind === "person");
-    const W = 1180, H = 560, cx = W / 2, cy = H / 2;   // wide enough for edge labels
-    const rp = 130, rq = 232;
-    const pos = {};
-    people.forEach((n, i) => {
-      const a = (2 * Math.PI * i) / Math.max(people.length, 1) - Math.PI / 2;
-      pos[n.id] = [cx + rp * Math.cos(a) * 1.42, cy + rp * Math.sin(a)];
-    });
-    procs.forEach((n, i) => {
-      const a = (2 * Math.PI * i) / Math.max(procs.length, 1) - Math.PI / 2;
-      pos[n.id] = [cx + rq * Math.cos(a) * 1.42, cy + rq * Math.sin(a), a];
-    });
-    const lines = ["backup", "delegate", "approver", "owner"].map(role =>
-      g.edges.filter(e => e.role === role).map(e => {
-        const s = pos[e.source], t = pos[e.target];
-        if (!s || !t) return "";
-        return `<line x1="${s[0].toFixed(1)}" y1="${s[1].toFixed(1)}" x2="${t[0].toFixed(1)}"
-          y2="${t[1].toFixed(1)}" stroke="${ROLE_STROKE[role]}"
-          stroke-width="${role === "owner" ? 1.5 : 1}"
-          ${ROLE_DASH[role] ? `stroke-dasharray="${ROLE_DASH[role]}"` : ""}
-          opacity="${role === "owner" ? .82 : (role === "backup" ? .5 : .38)}"/>`;
-      }).join("")).join("");
-    const dots = people.map(n => `<circle class="gnode" cx="${pos[n.id][0].toFixed(1)}"
-      cy="${pos[n.id][1].toFixed(1)}" r="5" fill="var(--s1)" stroke="var(--surface)"
-      stroke-width="1.5" ${tipAttr(n.label, n.group)}/>`).join("");
-    const pnodes = procs.map(n => {
-      const [x, y, a] = pos[n.id];
-      const right = Math.cos(a) >= 0;
-      return `<circle class="gnode" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.5"
-          fill="var(--s2)" stroke="var(--surface)" stroke-width="1.5" ${tipAttr(n.label, n.group)}/>
-        <text x="${(x + (right ? 11 : -11)).toFixed(1)}" y="${(y + 4).toFixed(1)}"
-          text-anchor="${right ? "start" : "end"}" class="cat"
-          style="font-size:11px">${esc(n.label)}</text>`;
-    }).join("");
-    const legend = `<div class="legend">
-      <span><i style="background:var(--s1)"></i>Owner</span>
-      <span><i style="background:var(--s2)"></i>Approver</span>
-      <span><i style="background:var(--ink-3)"></i>Delegate</span>
-      <span><i style="background:repeating-linear-gradient(90deg,var(--ink-3) 0 4px,transparent 4px 8px)"></i>Backup (dashed)</span>
-      <span><i style="background:var(--s2);border-radius:50%"></i>Processes</span>
-      <span><i style="background:var(--s1);border-radius:50%"></i>People</span></div>`;
-    return legend + `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" role="img"
-      aria-label="Responsibility graph: ${people.length} people, ${procs.length} processes,
-      ${g.edges.length} edges" style="min-width:640px">${lines}${dots}${pnodes}</svg></div>`;
-  }
-
   /* =============================== dashboard ============================ */
 
   function pageDashboard() {
@@ -2281,16 +2829,141 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
       <div class="stack">${spofCards}</div>`;
   }
 
+  /* ================================ guide =============================== */
+
+  // A real sequence, so numbering it is honest.
+  const TOUR = [
+    { t: "Ask for something in plain English",
+      d: "Type what you need into the chat — “I need access to the data room for Project " +
+         "Falcon”. Atlas works out which of the firm's 14 processes that is, and shows you " +
+         "how confident it is and which words it matched on." },
+    { t: "Watch it find the accountable person",
+      d: "The org chart says who reports to whom. Atlas answers a harder question: who can " +
+         "action this today. It checks the owner, notices they're out of office, and falls " +
+         "through to their delegate — showing every step of the reasoning." },
+    { t: "Let the agent chase it for you",
+      d: "Once sent, nobody has to remember it. The agent chases after 48 hours, hands over " +
+         "to a cover, then escalates to a manager. Use the clock buttons on the left to skip " +
+         "forward and watch it happen in seconds instead of days." },
+    { t: "Explore who does what",
+      d: "The People tab has the whole firm as an interactive org chart — search anyone, fold " +
+         "teams away, click a card to see what they own and who covers for them." },
+  ];
+
+  function guideOverlay() {
+    const step = Math.max(0, Math.min(TOUR.length - 1, UI.guideStep));
+    const s = TOUR[step];
+    const dots = TOUR.map((_, i) => `<span class="dot${i === step ? " on" : ""}"></span>`).join("");
+    const last = step === TOUR.length - 1;
+    return `<div class="scrim" data-act="guideclose-bg">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gt">
+        <div class="modal-head">
+          <span class="eyebrow">Getting started · ${step + 1} of ${TOUR.length}</span>
+          <button class="btn sm" data-act="guideclose" aria-label="Close the guide">✕</button>
+        </div>
+        <h2 id="gt">${esc(s.t)}</h2>
+        <p>${esc(s.d)}</p>
+        <div class="modal-foot">
+          <div class="dots">${dots}</div>
+          <div class="acts">
+            ${step > 0 ? `<button class="btn" data-act="guideprev">Back</button>` : ""}
+            ${last ? `<button class="btn primary" data-act="guidetry">Try the example</button>`
+                   : `<button class="btn primary" data-act="guidenext">Next</button>`}
+          </div>
+        </div>
+      </div></div>`;
+  }
+
+  function pageGuide() {
+    const rows = TOUR.map((s, i) => `<div class="node ok">
+      <div class="k">${i + 1}. ${esc(s.t)}</div><div class="d">${esc(s.d)}</div></div>`).join("");
+    return phead("Guide", "How to drive Atlas",
+      "Atlas turns a sentence into a routed, chased, escalated piece of work. Here is the " +
+      "whole loop, and what every control on the left does.") +
+      `<div class="grid2">
+        <div>
+          <h2>The loop</h2>
+          <div class="trail" style="margin-top:11px">${rows}</div>
+          <div class="acts" style="margin-top:13px">
+            <button class="btn primary" data-act="guidetry">Run the example for me</button>
+            <button class="btn" data-act="guide">Replay the tour</button>
+          </div>
+        </div>
+        <div>
+          <h2>The controls on the left</h2>
+          <div style="margin-top:11px">
+            <div class="kv"><span class="k">You are</span>Switches whose eyes you are seeing
+              through. There is no login in a prototype — this replaces it, and lets you look at
+              both sides of the same request.</div>
+            <div class="kv"><span class="k">Simulated clock</span>Every timestamp in Atlas is read
+              through one clock that you control. Advancing it makes the agent's 48-hour rules
+              fire immediately, which is the only way to demo them.</div>
+            <div class="kv"><span class="k">Out of office</span>Mark anyone away and the agent
+              reroutes their live work to a delegate within a couple of seconds.</div>
+            <div class="kv"><span class="k">Run agent now</span>Forces an evaluation instead of
+              waiting for the next two-second tick.</div>
+            <div class="kv"><span class="k">Reset &amp; reseed</span>Puts the firm back to its
+              starting state. Yours only — nobody else sees your copy.</div>
+          </div>
+
+          <h2 style="margin-top:22px">What's real and what isn't</h2>
+          <p class="sub" style="margin-top:9px">The routing, the agent, the matching and the
+            analytics are real code. The firm is invented: 40 people, 5 departments and 14
+            processes of seeded data. Nothing leaves your browser, and your changes are private
+            to you.</p>
+
+          <h2 style="margin-top:22px">Things worth trying</h2>
+          <div class="chips tight" style="margin-top:9px">
+            ${["I need access to the data room for Project Falcon",
+               "Who owns invoice approval?",
+               "Is anyone out of office?",
+               "I need the quarterly NAV marks signed off",
+               "Raise a purchase order for new laptops"].map(q =>
+              `<button class="chip" data-act="say" data-text="${esc(q)}">${esc(q)}</button>`).join("")}
+          </div>
+          <p class="muted" style="margin-top:9px">The last two are deliberately awkward: one has
+            no delegate behind an absent owner, the other is a process nobody owns.</p>
+        </div>
+      </div>`;
+  }
+
   /* ============================ event wiring ============================ */
 
-  function val(sel) { const el = document.querySelector(sel); return el ? el.value : ""; }
   function captureDraft() {
-    const t = document.querySelector('[data-act="title"]');
-    const b = document.querySelector('[data-act="body"]');
-    if (t) UI.title = t.value;
-    if (b) UI.body = b.value;
+    const t = document.querySelector('[data-act="dtitle"]');
+    const b = document.querySelector('[data-act="dbody"]');
+    if (UI.draft && t) UI.draft.title = t.value;
+    if (UI.draft && b) UI.draft.body = b.value;
   }
-  function clearDraft() { UI.title = UI.body = null; }
+
+  function sendDraft() {
+    captureDraft();
+    if (!UI.draft) return;
+    const { query, processId, title, body } = UI.draft;
+    const proc = E.process_(S, processId);
+    const res = E.resolve(S, proc);
+    const r = E.createRequest(S, {
+      requester_id: UI.actor, process_id: processId, assignee_id: res.assignee_id,
+      title, body, resolution: res,
+    });
+    UI.draft = null;
+    pushMsg("bot", "sent", { id: r.id });
+  }
+
+  function expandTo(personId) {
+    for (const id of E.pathToRoot(S, personId)) delete UI.tree.collapsed[id];
+    UI.tree.selected = personId;
+  }
+
+  function collapseToTeams() {
+    UI.tree.collapsed = {};
+    const roots = E.orgTree(S);
+    const walk = (n, depth) => {
+      if (depth >= 1 && n.children.length) UI.tree.collapsed[n.id] = true;
+      n.children.forEach(c => walk(c, depth + 1));
+    };
+    roots.forEach(r => walk(r, 0));
+  }
 
   document.addEventListener("click", ev => {
     const el = ev.target.closest("[data-act]");
@@ -2331,40 +3004,46 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
         const n = E.runUntilSettled(S);
         return commit(`Agent evaluated its rules and took ${n} action${n === 1 ? "" : "s"}.`);
       }
-      case "reseed": reseed(); return commit("Database reset and reseeded.");
+      case "reseed": reseed(true); return commit("Database reset and reseeded.");
 
-      /* intake */
-      case "example": UI.query = EXAMPLES[Number(el.dataset.i)]; UI.override = null;
-        clearDraft(); return commit();
-      case "clear": UI.query = ""; UI.override = null; clearDraft(); return commit();
-      case "send": {
-        captureDraft();
-        const query = (UI.query || "").trim();
-        const matches = E.matchProcesses(S.processes, query, 3);
-        const top = matches[0];
-        const chosen = UI.override !== null && UI.override !== undefined ? UI.override
-          : (top && top.confidence >= 25 ? top.process_id : S.processes[0].id);
-        const proc = E.process_(S, chosen);
-        const res = E.resolve(S, proc);
-        const me = actor();
-        const r = E.createRequest(S, {
-          requester_id: UI.actor, process_id: chosen, assignee_id: res.assignee_id,
-          title: UI.title !== null && UI.title !== undefined ? UI.title
-                 : E.suggestTitle(query, proc ? proc.name : null),
-          body: UI.body !== null && UI.body !== undefined ? UI.body
-                : E.draftBody(me, proc, res, query),
-          resolution: res,
-        });
-        UI.sent = r.id; clearDraft();
+      /* guide */
+      case "guide": UI.guideOpen = true; UI.guideStep = 0; return commit();
+      case "guidenext": UI.guideStep = Math.min(TOUR.length - 1, UI.guideStep + 1); return commit();
+      case "guideprev": UI.guideStep = Math.max(0, UI.guideStep - 1); return commit();
+      case "guideclose": case "guideclose-bg":
+        if (act === "guideclose-bg" && ev.target !== el) return;
+        UI.guideOpen = false; UI.guideSeen = true; return commit();
+      case "guidetry":
+        UI.guideOpen = false; UI.guideSeen = true; UI.page = "chat";
+        submitChat("I need access to the data room for Project Falcon");
+        return commit();
+
+      /* chat */
+      case "say": UI.page = "chat"; submitChat(el.dataset.text); return commit();
+      case "chatsend": sendDraft(); return commit();
+      case "chatcancel": UI.draft = null;
+        pushMsg("bot", "text", { text: "Dropped it. Tell me what you need instead." });
+        return commit();
+      case "repick": {
+        if (!UI.draft) return;
+        pushMsg("bot", "pick", { query: UI.draft.query, options: [] });
         return commit();
       }
-      case "another": UI.sent = null; UI.query = ""; UI.override = null; clearDraft();
+      case "switchproc": {
+        if (!UI.draft) return;
+        openDraft(UI.draft.query, id);
         return commit();
-      case "follow": E.followExisting(S, id, UI.actor); UI.sent = id; clearDraft();
-        return commit("Joined the existing request instead of raising a duplicate.");
+      }
+      case "follow": {
+        E.followExisting(S, id, UI.actor);
+        UI.draft = null;
+        pushMsg("bot", "text", { text: `Done — you're following #${id} instead of raising a duplicate.` });
+        pushMsg("bot", "sent", { id });
+        return commit();
+      }
 
       /* requests */
-      case "open": UI.open = id; return commit();
+      case "open": UI.page = "requests"; UI.open = id; return commit();
       case "back": UI.open = null; return commit();
       case "ack": E.acknowledge(S, id, UI.actor); return commit("Acknowledged.");
       case "prog": E.startProgress(S, id, UI.actor); return commit("Moved to In progress.");
@@ -2377,10 +3056,38 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
         return commit("Note sent.");
       }
 
-      /* directory */
-      case "person": UI.person = id; UI.process = null; return commit();
-      case "process": UI.process = id; UI.person = null; return commit();
-      case "backdir": UI.person = UI.process = null; return commit();
+      /* people & tree */
+      case "process": UI.page = "people"; UI.tab.people = "processes"; UI.process = id;
+        return commit();
+      case "backdir": UI.process = null; return commit();
+      case "treetoggle":
+        if (UI.tree.collapsed[id]) delete UI.tree.collapsed[id];
+        else UI.tree.collapsed[id] = true;
+        return commit();
+      case "treeselect": UI.tree.selected = id; return commit();
+      case "treeclose": UI.tree.selected = null; return commit();
+      case "treeperson":
+        UI.page = "people"; UI.tab.people = "org"; UI.process = null;
+        expandTo(id); UI.tree.focus = id;
+        return commit();
+      case "zoom": {
+        const d = Number(el.dataset.d);
+        UI.tree.zoom = Math.max(0.4, Math.min(1.6,
+          Math.round((UI.tree.zoom + d * 0.15) * 100) / 100));
+        return commit();
+      }
+      case "zoomfit": {
+        const box = document.getElementById("orgscroll");
+        const svg = document.getElementById("treesvg");
+        if (box && svg) {
+          const natural = svg.viewBox.baseVal.width || 1;
+          UI.tree.zoom = Math.max(0.4, Math.min(1.2,
+            Math.round(((box.clientWidth - 24) / natural) * 100) / 100));
+        }
+        return commit();
+      }
+      case "expandall": UI.tree.collapsed = {}; UI.tree.center = true; return commit();
+      case "collapseall": collapseToTeams(); UI.tree.center = true; return commit();
       default: return;
     }
   });
@@ -2391,45 +3098,100 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     switch (el.dataset.act) {
       case "actor": UI.actor = Number(el.value); UI.open = null; return commit();
       case "oooperson": UI.oooPerson = Number(el.value); return commit();
-      case "override": UI.override = Number(el.value); clearDraft(); return commit();
       case "logfilter": UI.filter = el.value; return commit();
       case "dept": UI.dept = el.value; return commit();
-      case "graphdept": UI.graphDept = el.value; return commit();
+      case "treedept": UI.tree.dept = el.value; return commit();
+      case "pickproc": {
+        if (!el.value) return;
+        const mid = Number(el.dataset.mid);
+        const msg = UI.chat.find(m => m.id === mid);
+        const query = (msg && msg.data.query) || "";
+        openDraft(query, Number(el.value));
+        return commit();
+      }
       default: return;
     }
   });
 
-  // Text fields keep their value in UI state without a re-render per keystroke.
   document.addEventListener("input", ev => {
     const el = ev.target.closest("[data-act]");
     if (!el) return;
     switch (el.dataset.act) {
-      case "query": UI.query = el.value; clearDraft(); break;
-      case "title": UI.title = el.value; break;
-      case "body": UI.body = el.value; break;
+      case "dtitle": if (UI.draft) UI.draft.title = el.value; break;
+      case "dbody": if (UI.draft) UI.draft.body = el.value; break;
       case "note": UI.note = el.value; break;
       case "advh": UI.advH = el.value; break;
       case "oood": UI.oooDays = el.value; break;
-      case "search": UI.search = el.value; break;
+      case "composer": autoGrow(el); return;
+      case "search": UI.search = el.value; debounceRender(el, 220); break;
+      case "treesearch": UI.tree.search = el.value; debounceRender(el, 240); break;
       default: return;
     }
     save();
   });
 
-  // The intake query needs a render once the user pauses, so the trace updates.
-  let queryTimer = null;
-  document.addEventListener("input", ev => {
-    const el = ev.target.closest('[data-act="query"], [data-act="search"]');
-    if (!el) return;
-    clearTimeout(queryTimer);
-    const isSearch = el.dataset.act === "search";
-    queryTimer = setTimeout(() => {
-      const pos = el.selectionStart;
-      render();
-      const again = document.querySelector(`[data-act="${el.dataset.act}"]`);
+  let debTimer = null;
+  function debounceRender(el, ms) {
+    clearTimeout(debTimer);
+    const act = el.dataset.act, pos = el.selectionStart;
+    debTimer = setTimeout(() => {
+      save(); render();
+      const again = document.querySelector(`[data-act="${act}"]`);
       if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch (e) {} }
-    }, isSearch ? 220 : 420);
+    }, ms);
+  }
+
+  function autoGrow(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+  }
+
+  document.addEventListener("submit", ev => {
+    const form = ev.target.closest('[data-act="chatform"]');
+    if (!form) return;
+    ev.preventDefault();
+    const box = form.querySelector('[data-act="composer"]');
+    const text = box ? box.value : "";
+    if (!String(text).trim()) return;
+    if (box) box.value = "";
+    submitChat(text);
+    commit();
   });
+
+  // Enter sends, Shift+Enter makes a new line.
+  document.addEventListener("keydown", ev => {
+    const box = ev.target.closest('[data-act="composer"]');
+    if (box && ev.key === "Enter" && !ev.shiftKey) {
+      ev.preventDefault();
+      const form = box.closest("form");
+      if (form) form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event("submit"));
+      return;
+    }
+    if (ev.key === "Escape" && UI.guideOpen) { UI.guideOpen = false; UI.guideSeen = true; commit(); }
+    const node = ev.target.closest('[data-act="treeselect"], [data-act="treetoggle"]');
+    if (node && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); node.click(); }
+  });
+
+  /* ------------------------------ pan & zoom ---------------------------- */
+
+  function bindPan() {
+    const box = document.getElementById("orgscroll");
+    if (!box) return;
+    let down = false, sx = 0, sy = 0, sl = 0, st2 = 0;
+    box.addEventListener("pointerdown", ev => {
+      if (ev.target.closest("[data-act]") !== box && ev.target.closest("g[data-act]")) return;
+      down = true; sx = ev.clientX; sy = ev.clientY; sl = box.scrollLeft; st2 = box.scrollTop;
+      box.classList.add("grabbing");
+    });
+    const stop = () => { down = false; box.classList.remove("grabbing"); };
+    box.addEventListener("pointermove", ev => {
+      if (!down) return;
+      box.scrollLeft = sl - (ev.clientX - sx);
+      box.scrollTop = st2 - (ev.clientY - sy);
+    });
+    box.addEventListener("pointerup", stop);
+    box.addEventListener("pointerleave", stop);
+  }
 
   /* ------------------------------ tooltips ------------------------------ */
 
@@ -2456,18 +3218,53 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     });
   }
 
+  function afterRender() {
+    bindCharts();
+    bindPan();
+    if (UI.page === "chat") {
+      const log = document.getElementById("chatlog");
+      if (log) log.scrollTop = log.scrollHeight;
+      const box = document.querySelector('[data-act="composer"]');
+      if (box && !UI.guideOpen && !document.querySelector('[data-act="dbody"]:focus')) {
+        box.focus(); autoGrow(box);
+      }
+    }
+    if (UI.tree.center && UI.page === "people") {
+      const box = document.getElementById("orgscroll");
+      const svg = document.getElementById("treesvg");
+      if (box && svg) {
+        const natural = svg.viewBox.baseVal.width || 1;
+        const fit = Math.max(0.4, Math.min(1, Math.round(((box.clientWidth - 30) / natural) * 100) / 100));
+        UI.tree.center = false;
+        if (Math.abs(fit - UI.tree.zoom) > 0.02) { UI.tree.zoom = fit; save(); render(); return; }
+        box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2;
+        box.scrollTop = 0;
+      }
+    }
+    if (UI.tree.focus) {
+      const node = document.querySelector(`g[data-act="treeselect"][data-id="${UI.tree.focus}"]`);
+      const box = document.getElementById("orgscroll");
+      if (node && box) {
+        const nb = node.getBoundingClientRect(), bb = box.getBoundingClientRect();
+        box.scrollLeft += (nb.left - bb.left) - box.clientWidth / 2 + nb.width / 2;
+        box.scrollTop += (nb.top - bb.top) - box.clientHeight / 2;
+      }
+      UI.tree.focus = null;
+    }
+  }
+
   /* -------------------------------- boot -------------------------------- */
 
-  if (!load()) reseed();
+  if (!load()) reseed(false);
   if (!E.person(S, UI.actor)) UI.actor = S.people[0].id;
+  if (!UI.chat.length) greet();
+  if (!UI.guideSeen) UI.guideOpen = true;
   render();
 
-  // The agent runs on its own, exactly as it does in the Python app.
   setInterval(() => {
     const before = S.events.length;
     E.tick(S);
-    if (S.events.length !== before) { save(); render(); }
-    else { save(); }
+    if (S.events.length !== before) { save(); render(); } else { save(); }
   }, 2000);
 })();
 

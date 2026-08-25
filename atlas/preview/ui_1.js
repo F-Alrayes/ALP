@@ -1,21 +1,26 @@
-/* Atlas preview UI. All logic lives in the engine above; this file only
-   renders it and wires the controls. State is per-viewer, in localStorage. */
+/* Atlas preview UI. All logic lives in the engine above; these files render it
+   and wire the controls. State is per-viewer, in localStorage. */
 (function () {
   "use strict";
   const E = globalThis;
   const HOUR = E.HOUR || 3600000;
-  const STORE = "atlas.preview.v1";
+  const STORE = "atlas.preview.v2";
 
   let S = null;                      // engine state
-  let UI = { actor: null, page: "intake", tab: {}, open: null, query: "", override: null,
-             sent: null, person: null, process: null, filter: "Autonomous actions",
-             search: "", dept: "All departments", flash: null };
+  let UI = {
+    actor: null, page: "chat", tab: {}, open: null,
+    chat: [], draft: null, msgSeq: 1,
+    tree: { collapsed: {}, zoom: 1, x: 0, y: 0, selected: null, search: "", dept: "All departments" },
+    person: null, process: null,
+    filter: "Autonomous actions", search: "", dept: "All departments",
+    guideSeen: false, guideStep: 0, flash: null,
+  };
 
   /* ------------------------------- storage ------------------------------ */
 
   function save() {
     try { localStorage.setItem(STORE, JSON.stringify({ s: S, ui: UI })); }
-    catch (err) { /* private mode, quota, blocked storage - run in memory */ }
+    catch (err) { /* private mode, quota, blocked storage — run in memory */ }
   }
   function load() {
     try {
@@ -25,15 +30,23 @@
       if (!parsed || !parsed.s || !parsed.s.people) return false;
       S = parsed.s;
       UI = Object.assign(UI, parsed.ui || {});
+      UI.tree = Object.assign({ collapsed: {}, zoom: 1, x: 0, y: 0, selected: null,
+                                search: "", dept: "All departments" }, UI.tree || {});
       return true;
     } catch (err) { return false; }
   }
-  function reseed() {
+  function reseed(keepGuide) {
+    const seen = keepGuide ? UI.guideSeen : false;
     S = E.hydrate(SEED, Date.now());
     UI.actor = (S.people.find(p => p.name === "Noura Al-Sabah") || S.people[0]).id;
-    UI.open = UI.sent = UI.person = UI.process = null;
-    UI.query = ""; UI.override = null; UI.tab = {};
+    UI.open = UI.person = UI.process = null;
+    UI.chat = []; UI.draft = null; UI.msgSeq = 1;
+    UI.tab = {}; UI.guideSeen = seen; UI.guideStep = 0;
+    UI.tree = { collapsed: {}, zoom: 0.85, x: 0, y: 0, selected: null,
+                search: "", dept: "All departments", center: true };
+    collapseToTeams();
     E.runUntilSettled(S);
+    greet();
     save();
   }
 
@@ -64,7 +77,6 @@
     if (h) return `${sign}${h}h ${m}m`;
     return `${sign}${m}m`;
   }
-  const ago = ms => human(now() - ms) + " ago";
   const badge = (t, k) => `<span class="b ${k || "mute"}">${esc(t)}</span>`;
   const statusBadge = s => `<span class="b ${s}">${esc(E.STATUS_LABELS[s] || s)}</span>`;
   const tile = (l, v, s, tone) => `<div class="tile ${tone || ""}"><div class="l">${esc(l)}</div>
@@ -111,7 +123,6 @@
   /* --------------------------------- rail ------------------------------- */
 
   function railHTML() {
-    const me = actor();
     const at = now();
     const people = S.people.slice().sort((a, b) => a.name.localeCompare(b.name));
     const opt = p => `<option value="${p.id}"${p.id === UI.actor ? " selected" : ""}>` +
@@ -127,10 +138,11 @@
       <span><span class="name">ATLAS</span><br><span class="tag">Responsibility, routed</span></span></div>
 
     <div class="rail-sec">
-      <span class="rail-label">Acting as</span>
+      <span class="rail-label">You are</span>
       <select data-act="actor" aria-label="Acting as">${people.map(opt).join("")}</select>
       <span class="rail-note">${unread ? unread + " unread message" + (unread === 1 ? "" : "s") +
         " in your inbox." : "Inbox clear."}</span>
+      <button data-act="guide">Open the guide</button>
     </div>
 
     <div class="rail-sec">
@@ -177,34 +189,41 @@
 
   /* --------------------------------- shell ------------------------------ */
 
-  const PAGES = ["Intake", "Requests", "Directory", "Agent Log", "Dashboard"];
-  const KEYS  = ["intake", "requests", "directory", "agentlog", "dashboard"];
+  const PAGES = [["chat", "Ask Atlas"], ["people", "People"], ["requests", "Requests"],
+                 ["agentlog", "Agent Log"], ["dashboard", "Dashboard"], ["guide", "Guide"]];
 
   function render() {
     const root = document.getElementById("root");
-    const idx = KEYS.indexOf(UI.page);
-    const tabs = PAGES.map((p, i) => `<button class="tab" role="tab" data-act="page"
-      data-page="${KEYS[i]}" aria-selected="${i === idx}">${esc(p)}</button>`).join("");
-    root.innerHTML = `<div class="app">
+    const tabs = PAGES.map(([k, label]) => {
+      const extra = k === "requests" && unreadFor(UI.actor)
+        ? ` <span class="pip">${unreadFor(UI.actor)}</span>` : "";
+      return `<button class="tab" role="tab" data-act="page" data-page="${k}"
+        aria-selected="${UI.page === k}">${esc(label)}${extra}</button>`;
+    }).join("");
+
+    root.innerHTML = `<div class="app${UI.page === "chat" ? " chatmode" : ""}">
       <aside class="rail">${railHTML()}</aside>
-      <main class="canvas"><div class="wrap">
+      <main class="canvas"><div class="wrap${UI.page === "people" ? " wide" : ""}">
         <div class="tabs" role="tablist">${tabs}</div>
         <div id="page">${pageHTML()}</div>
       </div></main></div>` +
-      (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "");
+      (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "") +
+      (UI.guideOpen ? guideOverlay() : "");
+
     if (UI.flash) { const f = UI.flash; setTimeout(() => {
       if (UI.flash === f) { UI.flash = null; const el = document.querySelector(".flash");
         if (el) el.remove(); } }, 4200); }
-    bindCharts();
+    afterRender();
   }
 
   function pageHTML() {
     switch (UI.page) {
+      case "people":    return pagePeople();
       case "requests":  return pageRequests();
-      case "directory": return pageDirectory();
       case "agentlog":  return pageAgentLog();
       case "dashboard": return pageDashboard();
-      default:          return pageIntake();
+      case "guide":     return pageGuide();
+      default:          return pageChat();
     }
   }
 

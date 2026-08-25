@@ -1004,3 +1004,131 @@
   Object.assign(root, root.AtlasFuzz, root.AtlasMatch, root.AtlasCore,
                 root.AtlasServices, root.AtlasAnalytics);
 })(typeof globalThis !== "undefined" ? globalThis : this);
+
+/* ========================= org tree + conversational =================== */
+(function (root) {
+  "use strict";
+  const C = root.AtlasCore;
+  const A = root.AtlasAnalytics;
+
+  /* ------------------------------ org tree ------------------------------ */
+
+  // A forest built from manager_id. Anyone whose manager is missing becomes a
+  // root, so the tree never silently drops people.
+  function orgTree(st) {
+    const nodes = new Map();
+    for (const p of st.people) {
+      nodes.set(p.id, {
+        id: p.id, name: p.name, title: p.title, email: p.email,
+        department: A.departmentName(st, p),
+        manager_id: p.manager_id, children: [],
+      });
+    }
+    const roots = [];
+    for (const n of nodes.values()) {
+      const parent = n.manager_id !== null && n.manager_id !== undefined
+        ? nodes.get(n.manager_id) : null;
+      if (parent && parent !== n) parent.children.push(n);
+      else roots.push(n);
+    }
+    const sortRec = n => {
+      n.children.sort((a, b) => a.name.localeCompare(b.name));
+      n.children.forEach(sortRec);
+    };
+    roots.sort((a, b) => a.name.localeCompare(b.name));
+    roots.forEach(sortRec);
+
+    const decorate = (n, depth) => {
+      n.depth = depth;
+      n.reports = n.children.length;
+      n.descendants = n.children.reduce((sum, c) => sum + 1 + decorate(c, depth + 1), 0);
+      return n.descendants;
+    };
+    roots.forEach(r => decorate(r, 0));
+    return roots;
+  }
+
+  function teamSummary(st) {
+    const out = new Map();
+    for (const p of st.people) {
+      const dept = A.departmentName(st, p);
+      if (!out.has(dept)) out.set(dept, { department: dept, size: 0, head: null, ooo: 0 });
+      const row = out.get(dept);
+      row.size++;
+      if (C.isOutOfOffice(p, C.now(st))) row.ooo++;
+      // The head is whoever in the department reports outside it.
+      const mgr = p.manager_id ? C.person(st, p.manager_id) : null;
+      if (!mgr || A.departmentName(st, mgr) !== dept) {
+        if (!row.head || (mgr === null)) row.head = p.name;
+      }
+    }
+    return Array.from(out.values()).sort((a, b) => a.department.localeCompare(b.department));
+  }
+
+  function pathToRoot(st, personId) {
+    const out = [];
+    let cur = C.person(st, personId);
+    const guard = new Set();
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id);
+      out.unshift(cur.id);
+      cur = cur.manager_id ? C.person(st, cur.manager_id) : null;
+    }
+    return out;
+  }
+
+  /* --------------------------- conversation ----------------------------- */
+
+  const PATTERNS = [
+    ["help",      /\b(help|how does this work|what can you do|guide|tutorial|get started)\b/i],
+    ["who_ooo",   /\b((who|anyone|anybody)('?s| is| are)? (out|away|off|on leave|on holiday)|out of office|\booo\b|who is away)\b/i],
+    ["my_inbox",  /\b(my inbox|assigned to me|what.{0,12}(waiting|with) me|my queue|my work)\b/i],
+    ["my_requests", /\b(my requests?|requests? i (raised|made|sent)|where is my|status of my|track my)\b/i],
+    ["who_owns",  /\b(who (owns?|is responsible for|handles?|approves?|looks after|runs?)|owner of|responsible for|accountable for)\b/i],
+    ["about",     /\b(who is|tell me about|what does .+ do|profile (of|for))\b/i],
+  ];
+
+  // Anything that reads as an action the firm performs for you.
+  const REQUEST_HINT = /\b(i need|i want|can (someone|somebody|you)|please|could (someone|you)|requesting|request for|raise a|get me|help me (get|with)|i'?m locked|we need|need to)\b/i;
+
+  function classify(text) {
+    const t = String(text || "").trim();
+    if (!t) return { intent: "empty" };
+    for (const [intent, re] of PATTERNS) {
+      if (re.test(t)) {
+        // "who owns X" beats the generic request hint; a real ask wins over
+        // "who is" only when it also reads like an action.
+        if (intent === "about" && REQUEST_HINT.test(t)) break;
+        return { intent };
+      }
+    }
+    return { intent: "request" };
+  }
+
+  // Pull a person out of free text by name or first name.
+  function findPerson(st, text) {
+    const t = String(text || "").toLowerCase();
+    let best = null, bestLen = 0;
+    for (const p of st.people) {
+      const full = p.name.toLowerCase();
+      const first = full.split(" ")[0];
+      const last = full.split(" ").slice(-1)[0];
+      for (const candidate of [full, first, last]) {
+        if (candidate.length < 3) continue;
+        if (t.includes(candidate) && candidate.length > bestLen) { best = p; bestLen = candidate.length; }
+      }
+    }
+    return best;
+  }
+
+  function findProcess(st, text) {
+    const matches = root.AtlasMatch.matchProcesses(st.processes, text, 1);
+    if (matches.length && matches[0].confidence >= 25) return C.process_(st, matches[0].process_id);
+    return null;
+  }
+
+  root.AtlasOrg = { orgTree, teamSummary, pathToRoot, classify, findPerson, findProcess,
+                    REQUEST_HINT };
+  if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, root.AtlasOrg);
+  Object.assign(root, root.AtlasOrg);
+})(typeof globalThis !== "undefined" ? globalThis : this);

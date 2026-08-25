@@ -3,6 +3,11 @@
 A single self-contained HTML file that runs Atlas entirely in the browser, so
 the prototype can be clicked without installing Python or deploying anything.
 
+The browser build is **chat-first**: you ask Atlas for things in plain English
+rather than filling in a form, and the rest of the platform (org chart,
+requests, agent log, dashboard) hangs off that conversation. The Python app in
+`atlas/` still has the original form-based intake and no org chart.
+
 **This is a mirror, not the product.** `atlas/` (the Python app) is the source of
 truth. This directory is a second implementation of the same logic in
 JavaScript, kept honest by the parity suite below. If you change routing, the
@@ -37,11 +42,17 @@ through `ui_5.js` (the interface). Editing any of those and re-running
 | `shell.html` | Page shell, design tokens, light and dark themes |
 | `seed.json` | The seeded database, timestamps stored as hours relative to seed time |
 | `atlas_engine.js` | Fuzzy matching, TF-IDF, routing, the agent rules, analytics |
-| `ui_1.js` | State, persistence, helpers, the sidebar |
-| `ui_2.js` | Intake and the request pages |
-| `ui_3.js` | Directory, profiles, agent log |
-| `ui_4.js` | Charts (hand-built SVG) and the dashboard |
-| `ui_5.js` | Event wiring, tooltips, the agent loop, boot |
+| `ui_1.js` | State, persistence, helpers, the sidebar, navigation |
+| `ui_2.js` | The chat surface — intents, bot replies, the draft flow |
+| `ui_3.js` | People: interactive org chart, directory, teams, processes |
+| `ui_4.js` | Requests and the agent log |
+| `ui_5.js` | Charts (hand-built SVG) and the dashboard |
+| `ui_6.js` | Guide and tour, event wiring, pan/zoom, the agent loop, boot |
+
+`build.py` discovers `ui_*.js` in numeric order, so adding a part needs no edit
+to the builder. It also fails the build if the assembled page contains more than
+one `</script>` — a script that does not close its own braces truncates silently
+in the browser rather than erroring.
 
 `export_seed.py` imports the real `atlas.seed` module, so the preview's data is
 generated from the Python seed rather than transcribed by hand.
@@ -73,8 +84,32 @@ What it currently confirms:
   `oldest_wait_hours`) are compared to the nearest hour because they depend on
   the wall clock between the two runs.
 
+## The chat
+
+`classify()` in the engine routes a message to one of a handful of intents —
+raise a request, who owns X, who is out of office, my inbox, my requests, who is
+this person, help — falling back to treating anything else as a request. It is
+keyword and fuzzy matching over the seeded data, not a language model: there is
+no network call, and the same input always produces the same answer.
+
+A request turns into a draft the user can edit before sending, with the process
+match, the confidence, the matched keywords and the full resolution trace shown
+inline so the routing is never a black box.
+
+## The org chart
+
+`orgTree()` builds a forest from `manager_id`; anyone whose manager is missing
+becomes a root, so nobody is silently dropped. Layout is a tidy tree — leaves
+take the next slot, parents centre over their children — drawn as inline SVG
+with pan, zoom, per-node collapse, search-to-highlight and a detail panel.
+
+It opens folded to the five department heads rather than dropping the viewer
+into a 7,000-pixel canvas, and auto-fits to the container on first paint.
+
 ## Known differences from the Python app
 
+- **Chat and the org chart are browser-only.** The Python app still has the
+  form-based intake page and no org chart.
 - **No shared state.** Every visitor has their own database in `localStorage`;
   the Python app has one SQLite file shared by everyone hitting the server.
 - **The agent stops when the tab is closed.** It ticks every 2 seconds while the

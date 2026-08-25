@@ -1,275 +1,176 @@
 
-  /* ================================ charts ============================== */
-  /* Hand-built inline SVG: thin marks, rounded data-ends on the baseline,
-     recessive grid, selective direct labels, hover tooltip on every mark. */
+  /* ============================== requests ============================== */
 
-  const CH = { w: 560, rowH: 30, gap: 9, pad: { l: 124, r: 54, t: 8, b: 26 } };
-
-  // Department names are long; the axis has a fixed gutter, so trim to fit.
-  const SHORT = { "Investments / Deal Team": "Investments", "Legal & Compliance": "Legal & Comp.",
-                  "Operations / HR": "Operations" };
-  const shortLabel = s => SHORT[s] || s;
-  const tipAttr = (title, body) =>
-    `data-tip="${esc(title)}" data-tipb="${esc(body)}" tabindex="0"`;
-
-  function barTrack(x, y, w, h) {
-    return `<rect x="${x}" y="${y}" width="${Math.max(w, 0)}" height="${h}" rx="4" ry="4"
-      class="bar" />`;
-  }
-
-  // Horizontal category bars, one series. Identity comes from the axis label,
-  // so colour is not carrying meaning; escalated is tinted as a status.
-  function hbar(rows, opts) {
-    opts = opts || {};
-    const max = Math.max(1, ...rows.map(r => r.value));
-    const h = CH.pad.t + rows.length * (CH.rowH + CH.gap) + CH.pad.b;
-    const plotW = CH.w - CH.pad.l - CH.pad.r;
-    const ticks = niceTicks(max, 4);
-    const grid = ticks.map(t => {
-      const x = CH.pad.l + (t / max) * plotW;
-      return `<line class="gl" x1="${x}" y1="${CH.pad.t}" x2="${x}" y2="${h - CH.pad.b}"/>
-        <text class="axl" x="${x}" y="${h - CH.pad.b + 15}" text-anchor="middle">${t}</text>`;
-    }).join("");
-    const bars = rows.map((r, i) => {
-      const y = CH.pad.t + i * (CH.rowH + CH.gap);
-      const w = (r.value / max) * plotW;
-      const fill = r.color || "var(--s1)";
-      return `<g ${tipAttr(r.label, r.tip || (r.value + " requests"))}>
-        <text class="cat" x="${CH.pad.l - 10}" y="${y + CH.rowH / 2 + 4}" text-anchor="end">${esc(shortLabel(r.label))}</text>
-        <g fill="${fill}">${barTrack(CH.pad.l, y, w, CH.rowH)}</g>
-        <text class="vl" x="${CH.pad.l + w + 7}" y="${y + CH.rowH / 2 + 4}">${r.value}</text>
-      </g>`;
-    }).join("");
-    return `<svg viewBox="0 0 ${CH.w} ${h}" role="img" aria-label="${esc(opts.aria || "bar chart")}">
-      ${grid}${bars}</svg>`;
-  }
-
-  // Two series, grouped. Legend + direct labels; validated colour pair.
-  function groupedBar(rows, opts) {
-    const pad = { l: 124, r: 66, t: 8, b: 26 };
-    const barH = 13, inner = 5, groupH = barH * 2 + inner, gap = 14;
-    const max = Math.max(1, ...rows.map(r => Math.max(r.a, r.b)));
-    const h = pad.t + rows.length * (groupH + gap) + pad.b;
-    const plotW = CH.w - pad.l - pad.r;
-    const ticks = niceTicks(max, 4);
-    const grid = ticks.map(t => {
-      const x = pad.l + (t / max) * plotW;
-      return `<line class="gl" x1="${x}" y1="${pad.t}" x2="${x}" y2="${h - pad.b}"/>
-        <text class="axl" x="${x}" y="${h - pad.b + 15}" text-anchor="middle">${t}</text>`;
-    }).join("");
-    const bars = rows.map((r, i) => {
-      const y = pad.t + i * (groupH + gap);
-      const wa = (r.a / max) * plotW, wb = (r.b / max) * plotW;
-      return `<g>
-        <text class="cat" x="${pad.l - 10}" y="${y + groupH / 2 + 4}" text-anchor="end">${esc(shortLabel(r.label))}</text>
-        <g fill="var(--s2)" ${tipAttr(r.label, opts.aLabel + ": " + r.a + "h")}>
-          ${barTrack(pad.l, y, wa, barH)}</g>
-        <text class="vl" x="${pad.l + wa + 6}" y="${y + barH - 2}">${r.a}h</text>
-        <g fill="var(--s1)" ${tipAttr(r.label, opts.bLabel + ": " + r.b + "h")}>
-          ${barTrack(pad.l, y + barH + inner, wb, barH)}</g>
-        <text class="vl" x="${pad.l + wb + 6}" y="${y + barH + inner + barH - 2}">${r.b}h</text>
-      </g>`;
-    }).join("");
-    return `<svg viewBox="0 0 ${CH.w} ${h}" role="img" aria-label="${esc(opts.aria || "grouped bar chart")}">
-      ${grid}${bars}</svg>`;
-  }
-
-  function histogram(values, opts) {
-    const pad = { l: 40, r: 14, t: 10, b: 34 };
-    const w = CH.w, h = 210;
-    if (!values.length) return "";
-    const max = Math.max(...values), bins = 10;
-    const size = Math.max(1, Math.ceil(max / bins));
-    const counts = new Array(bins).fill(0);
-    for (const v of values) counts[Math.min(bins - 1, Math.floor(v / size))]++;
-    const top = Math.max(1, ...counts);
-    const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
-    const bw = plotW / bins;
-    const ticks = niceTicks(top, 3);
-    const grid = ticks.map(t => {
-      const y = pad.t + plotH - (t / top) * plotH;
-      return `<line class="gl" x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}"/>
-        <text class="axl" x="${pad.l - 7}" y="${y + 4}" text-anchor="end">${t}</text>`;
-    }).join("");
-    const bars = counts.map((c, i) => {
-      const bh = (c / top) * plotH;
-      const x = pad.l + i * bw + 2, y = pad.t + plotH - bh;
-      const lo = i * size, hi = (i + 1) * size;
-      return `<g fill="var(--s1)" ${tipAttr(`${lo}–${hi}h old`,
-        `${c} open request${c === 1 ? "" : "s"}`)}>
-        ${barTrack(x, y, Math.max(bw - 4, 1), Math.max(bh, c ? 3 : 0))}</g>`;
-    }).join("");
-    const labels = [0, Math.floor(bins / 2), bins].map(i => {
-      const x = pad.l + i * bw;
-      return `<text class="axl" x="${x}" y="${h - 12}" text-anchor="middle">${i * size}h</text>`;
-    }).join("");
-    return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(opts.aria || "histogram")}">
-      ${grid}${bars}${labels}</svg>`;
-  }
-
-  function niceTicks(max, count) {
-    const raw = max / count;
-    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
-    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || mag * 10;
-    const out = [];
-    for (let v = 0; v <= max + 1e-9; v += step) out.push(Math.round(v * 10) / 10);
-    if (out[out.length - 1] < max) out.push(Math.round((out[out.length - 1] + step) * 10) / 10);
-    return out;
-  }
-
-  // Backup is distinguished by a dash pattern, not by a paler colour: a fourth
-  // hue would not clear the CVD gate, and a near-surface grey is invisible.
-  const ROLE_STROKE = { owner: "var(--s1)", approver: "var(--s2)",
-                        delegate: "var(--ink-3)", backup: "var(--ink-3)" };
-  const ROLE_DASH = { backup: "4 4" };
-
-  function graphSVG(g) {
-    const procs = g.nodes.filter(n => n.kind === "process");
-    const people = g.nodes.filter(n => n.kind === "person");
-    const W = 1180, H = 560, cx = W / 2, cy = H / 2;   // wide enough for edge labels
-    const rp = 130, rq = 232;
-    const pos = {};
-    people.forEach((n, i) => {
-      const a = (2 * Math.PI * i) / Math.max(people.length, 1) - Math.PI / 2;
-      pos[n.id] = [cx + rp * Math.cos(a) * 1.42, cy + rp * Math.sin(a)];
-    });
-    procs.forEach((n, i) => {
-      const a = (2 * Math.PI * i) / Math.max(procs.length, 1) - Math.PI / 2;
-      pos[n.id] = [cx + rq * Math.cos(a) * 1.42, cy + rq * Math.sin(a), a];
-    });
-    const lines = ["backup", "delegate", "approver", "owner"].map(role =>
-      g.edges.filter(e => e.role === role).map(e => {
-        const s = pos[e.source], t = pos[e.target];
-        if (!s || !t) return "";
-        return `<line x1="${s[0].toFixed(1)}" y1="${s[1].toFixed(1)}" x2="${t[0].toFixed(1)}"
-          y2="${t[1].toFixed(1)}" stroke="${ROLE_STROKE[role]}"
-          stroke-width="${role === "owner" ? 1.5 : 1}"
-          ${ROLE_DASH[role] ? `stroke-dasharray="${ROLE_DASH[role]}"` : ""}
-          opacity="${role === "owner" ? .82 : (role === "backup" ? .5 : .38)}"/>`;
-      }).join("")).join("");
-    const dots = people.map(n => `<circle class="gnode" cx="${pos[n.id][0].toFixed(1)}"
-      cy="${pos[n.id][1].toFixed(1)}" r="5" fill="var(--s1)" stroke="var(--surface)"
-      stroke-width="1.5" ${tipAttr(n.label, n.group)}/>`).join("");
-    const pnodes = procs.map(n => {
-      const [x, y, a] = pos[n.id];
-      const right = Math.cos(a) >= 0;
-      return `<circle class="gnode" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.5"
-          fill="var(--s2)" stroke="var(--surface)" stroke-width="1.5" ${tipAttr(n.label, n.group)}/>
-        <text x="${(x + (right ? 11 : -11)).toFixed(1)}" y="${(y + 4).toFixed(1)}"
-          text-anchor="${right ? "start" : "end"}" class="cat"
-          style="font-size:11px">${esc(n.label)}</text>`;
-    }).join("");
-    const legend = `<div class="legend">
-      <span><i style="background:var(--s1)"></i>Owner</span>
-      <span><i style="background:var(--s2)"></i>Approver</span>
-      <span><i style="background:var(--ink-3)"></i>Delegate</span>
-      <span><i style="background:repeating-linear-gradient(90deg,var(--ink-3) 0 4px,transparent 4px 8px)"></i>Backup (dashed)</span>
-      <span><i style="background:var(--s2);border-radius:50%"></i>Processes</span>
-      <span><i style="background:var(--s1);border-radius:50%"></i>People</span></div>`;
-    return legend + `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" role="img"
-      aria-label="Responsibility graph: ${people.length} people, ${procs.length} processes,
-      ${g.edges.length} edges" style="min-width:640px">${lines}${dots}${pnodes}</svg></div>`;
-  }
-
-  /* =============================== dashboard ============================ */
-
-  function pageDashboard() {
-    const at = now();
-    const h = E.headline(S);
-    const status = E.byStatus(S);
-    const depts = E.openByDepartment(S);
-    const turn = E.turnaroundByDepartment(S);
-    const orphans = E.orphanProcesses(S);
-    const spofs = E.singlePointsOfFailure(S, 2);
-    const necks = E.bottlenecks(S);
-    const ages = E.queueAges(S);
-
-    const statusRows = status.map(r => ({
-      label: r.status, value: r.count,
-      color: r.key === "escalated" ? "var(--critical)" : "var(--s1)",
-      tip: r.count + " request" + (r.count === 1 ? "" : "s"),
-    }));
-    const deptRows = depts.map(d => ({
-      label: d.department, value: d.count,
-      tip: d.count + " open" + (d.escalated ? ` · ${d.escalated} escalated` : ""),
-    }));
-    const turnRows = turn.map(t => ({ label: t.department, a: t.avg_ack_hours, b: t.avg_complete_hours }));
-
-    const charts = `<div class="charts">
-      <div class="chart"><h3>Requests by status</h3>
-        <div class="csub">Every request ever raised. Escalated is marked in the critical colour
-          and named on the axis.</div>
-        ${hbar(statusRows, { aria: "Requests by status" })}</div>
-      <div class="chart"><h3>Open requests by department</h3>
-        <div class="csub">Where the open queue sits right now.</div>
-        ${deptRows.length ? hbar(deptRows, { aria: "Open requests by department" })
-          : empty("Nothing open right now.")}</div>
-      <div class="chart"><h3>Turnaround by department</h3>
-        <div class="legend"><span><i style="background:var(--s2)"></i>Time to acknowledge</span>
-          <span><i style="background:var(--s1)"></i>Time to complete</span></div>
-        ${turnRows.length ? groupedBar(turnRows, { aLabel: "Time to acknowledge",
-          bLabel: "Time to complete", aria: "Turnaround by department" })
-          : empty("No completed requests yet.")}</div>
-      <div class="chart"><h3>How long open items have been waiting</h3>
-        <div class="csub">Age of every open request, in simulated hours.</div>
-        ${ages.length ? histogram(ages.map(a => a.age_hours), { aria: "Queue age distribution" })
-          : empty("Nothing is waiting.")}</div>
-    </div>`;
-
-    const neckTable = necks.length ? `<div class="tblwrap"><table>
-      <thead><tr><th>Person</th><th>Title</th><th>Department</th><th class="n">Open</th>
-        <th class="n">Avg wait</th><th class="n">Oldest</th><th>Status</th></tr></thead>
-      <tbody>${necks.map(b => `<tr><td><strong>${esc(b.person)}</strong></td><td>${esc(b.title)}</td>
-        <td>${esc(b.department)}</td><td class="n">${b.open}</td>
-        <td class="n">${b.avg_wait_hours}h</td><td class="n">${b.oldest_wait_hours}h</td>
-        <td>${b.is_ooo ? badge("Out of office", "ooo") : `<span class="muted">In office</span>`}</td>
-        </tr>`).join("")}</tbody></table></div>` : empty("No queues are backing up.");
-
-    const orphanCards = orphans.length ? orphans.map(o => `<div class="card alarm">
-        <div class="card-t">${esc(o.process)} ${badge("No owner", "escalated")}</div>
-        <div class="card-m"><span>${esc(o.category)}</span>
-          <span>${o.open_requests} open request(s)</span>
-          <span>other roles configured: ${esc(o.other_roles)}</span></div></div>`).join("")
-      : `<div class="note info">Every process has an owner.</div>`;
-
-    const spofCards = spofs.length ? spofs.map(r => {
-      const detail = r.uncovered.length ? "Uncovered: " + r.uncovered.join(", ")
-        : r.owns ? "Every process they own has a delegate or backup."
-        : `Approves on ${r.approves} process(es) but owns none outright.`;
-      return `<div class="card${r.uncovered.length ? " alarm" : ""}">
-        <div class="card-t">${esc(r.person)}</div>
-        <div class="card-m"><span>${esc(r.title)}</span><span>${esc(r.department)}</span></div>
-        <div class="card-m" style="margin-top:7px">${badge(r.owns + " owned", "role")}
-          ${badge(r.approves + " approved", "role")}
-          ${badge(r.open_load + " open", r.open_load ? "gold" : "mute")}
-          ${r.is_ooo ? badge("Out of office", "ooo") : ""}
-          ${r.uncovered.length ? badge(r.uncovered.length + " uncovered", "escalated") : ""}</div>
-        <div class="card-b">${esc(detail)}</div></div>`;
-    }).join("") : `<div class="note info">No individual carries enough uncovered processes
-      to be a concern.</div>`;
-
-    return phead("Dashboard", "Where work is actually stuck",
-      "Queue times, bottlenecks, orphaned processes and single points of failure — computed live " +
-      "against simulated time.") +
-      `<p class="muted" style="margin-bottom:11px">Simulated time
-        <span class="mono">${esc(fmtTime(at))}</span></p>
-      <div class="tiles">
-        ${tile("Open requests", String(h.open_requests), "of " + h.total_requests + " raised")}
-        ${tile("Avg time to acknowledge", h.avg_ack_hours.toFixed(1) + "h", "first response")}
-        ${tile("Avg time to complete", h.avg_cycle_hours.toFixed(1) + "h", "raised to closed")}
-        ${tile("Escalation rate", Math.round(h.escalation_rate) + "%",
-               h.escalated_requests + " escalated", h.escalation_rate >= 20 ? "bad" : "")}
-        ${tile("Oldest open item", Math.round(h.oldest_open_hours) + "h", "still waiting",
-               h.oldest_open_hours >= 48 ? "warn" : "")}
+  function requestRow(r, counterpartId, label) {
+    const proc = r.process_id ? E.process_(S, r.process_id) : null;
+    const cp = counterpartId ? person(counterpartId) : null;
+    const unread = S.messages.filter(m => m.request_id === r.id && !m.read &&
+      m.recipient_id === UI.actor).length;
+    const chase = r.chase_count ? ` · ${r.chase_count} chase${r.chase_count === 1 ? "" : "s"}` : "";
+    return `<div class="rowline">
+      <div class="card ${r.status === "escalated" ? "alarm" : (r.status === "pending" ? "flag" : "")}">
+        <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+        <div class="card-m">${statusBadge(r.status)}
+          <span>${esc(proc ? proc.name : "Unmatched")}</span>
+          <span>${esc(label)} ${esc(cp ? cp.name : "—")}</span>
+          <span class="mono">raised ${esc(human(now() - r.created_at))} ago · quiet for ${
+            esc(human(now() - r.last_action_at))}${esc(chase)}</span></div>
       </div>
-      <div class="sect"><h2>Queue</h2></div>${charts}
-      <div class="sect"><h2>Bottlenecks</h2><p>Who the open queue is piling up behind.</p></div>
-      ${neckTable}
-      <div class="sect"><h2>Orphaned processes</h2>
-        <p>Requests matched to these have no owner to route to — they park for the admin.</p></div>
-      <div class="stack">${orphanCards}</div>
-      <div class="sect"><h2>Single points of failure</h2>
-        <p>People carrying several processes. “Uncovered” means the process has no available
-          delegate or backup behind them.</p></div>
-      <div class="stack">${spofCards}</div>`;
+      <button class="btn sm" data-act="open" data-id="${r.id}">Open${unread ? ` (${unread})` : ""}</button>
+    </div>`;
+  }
+
+  function pageRequests() {
+    if (UI.open) return requestDetail(UI.open);
+    const me = actor();
+    const open = S.requests.filter(r => r.assignee_id === UI.actor && E.OPEN_STATUSES.includes(r.status))
+      .sort((a, b) => b.last_action_at - a.last_action_at);
+    const mine = S.requests.filter(r => r.requester_id === UI.actor)
+      .sort((a, b) => b.created_at - a.created_at);
+    const done = S.requests.filter(r => r.assignee_id === UI.actor && r.status === "completed")
+      .sort((a, b) => b.last_action_at - a.last_action_at);
+    const which = UI.tab.requests || "inbox";
+    const rows = which === "inbox" ? open : which === "mine" ? mine : done;
+    const label = which === "mine" ? "with" : "from";
+    const cp = r => which === "mine" ? r.assignee_id : r.requester_id;
+
+    const tabs = [["inbox", `My inbox (${open.length})`], ["mine", `My requests (${mine.length})`],
+                  ["done", "Completed by me"]].map(([k, t]) =>
+      `<button class="tab" role="tab" data-act="subtab" data-group="requests" data-k="${k}"
+        aria-selected="${which === k}">${esc(t)}</button>`).join("");
+
+    const caption = which === "inbox" ? "Work Atlas has routed to you, newest activity first."
+      : which === "mine" ? "Everything you have raised, including what the agent has done with it."
+      : "Requests you have closed.";
+
+    return phead("Requests", `${me.name}'s desk`,
+      `${open.length} open with you · ${mine.length} raised by you · ${unreadFor(UI.actor)} unread`) +
+      `<div class="tabs" role="tablist">${tabs}</div>
+       <p class="sub" style="margin-bottom:11px">${esc(caption)}</p>` +
+      (rows.length ? `<div class="stack">${rows.map(r => requestRow(r, cp(r), label)).join("")}</div>`
+        : empty("Nothing here.", "Ask Atlas for something and it will show up on the other side."));
+  }
+
+  function requestDetail(id) {
+    const r = E.request(S, id);
+    if (!r) { UI.open = null; return pageRequests(); }
+    E.markRead(S, UI.actor, id);
+    const proc = r.process_id ? E.process_(S, r.process_id) : null;
+    const a = r.assignee_id ? person(r.assignee_id) : null;
+    const req = person(r.requester_id);
+    const orig = r.original_assignee_id ? person(r.original_assignee_id) : null;
+    const msgs = S.messages.filter(m => m.request_id === id)
+      .sort((x, y) => x.created_at - y.created_at || x.id - y.id);
+    const isAssignee = r.assignee_id === UI.actor;
+    const isOpen = E.OPEN_STATUSES.includes(r.status);
+
+    const actions = !isOpen
+      ? `<div class="note info">This request is closed.</div>`
+      : isAssignee ? `
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <button class="btn" data-act="ack" data-id="${id}"${
+            r.status === "pending" || r.status === "escalated" ? "" : " disabled"}>Acknowledge</button>
+          <button class="btn" data-act="prog" data-id="${id}"${
+            r.status === "in_progress" ? " disabled" : ""}>Mark in progress</button>
+          <button class="btn primary" data-act="done" data-id="${id}">Complete</button>
+        </div>
+        <label class="lbl" style="margin-top:13px" for="note">Add a note (sent to the requester)</label>
+        <div style="display:flex;gap:9px">
+          <input id="note" class="field" data-act="note" value="${esc(UI.note || "")}">
+          <button class="btn" data-act="sendnote" data-id="${id}">Send note</button>
+        </div>`
+      : `<p class="sub">You are watching this request. Switch to
+         <strong>${esc(a ? a.name : "the assignee")}</strong> on the left to act on it.</p>`;
+
+    return `<button class="btn sm" data-act="back">← Back to the list</button>
+      <div class="card flag" style="margin-top:13px">
+        <div class="card-t">#${r.id} — ${esc(r.title)}</div>
+        <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
+          <span class="mono">raised ${esc(human(now() - r.created_at))} ago</span></div>
+        <div class="card-b">${esc(r.body)}</div>
+      </div>
+      <div class="grid2" style="margin-top:20px">
+        <div><h2>Timeline</h2><div style="margin-top:9px">${trail(timelineOf(id))}</div></div>
+        <div>
+          <h2>Detail</h2>
+          <div style="margin-top:9px">
+            <div class="kv"><span class="k">Requester</span>${esc(req ? req.name : "—")}</div>
+            <div class="kv"><span class="k">Assignee</span>${esc(a ? a.name : "Unassigned")}</div>
+            ${orig && a && orig.id !== a.id ? `<div class="kv"><span class="k">Originally</span>
+              ${esc(orig.name)} ${badge("rerouted", "gold")}</div>` : ""}
+            <div class="kv"><span class="k">Raised</span><span class="mono">${esc(fmtTime(r.created_at))}</span></div>
+            <div class="kv"><span class="k">Acknowledged</span><span class="mono">${esc(fmtTime(r.acknowledged_at))}</span></div>
+            <div class="kv"><span class="k">Completed</span><span class="mono">${esc(fmtTime(r.completed_at))}</span></div>
+            <div class="kv"><span class="k">Chases sent</span><span class="mono">${r.chase_count}</span></div>
+          </div>
+          <h2 style="margin-top:20px">Messages</h2>
+          <div class="stack" style="margin-top:9px">${msgs.map(m => `<div class="card">
+            <div class="card-m">${badge(m.type.replace(/_/g, " "), "role")}
+              <span>${esc(m.sender_id ? person(m.sender_id).name : "Atlas agent")} →
+                ${esc(person(m.recipient_id) ? person(m.recipient_id).name : "—")}</span>
+              <span class="mono">${esc(fmtTime(m.created_at))}</span></div>
+            <div class="card-b">${esc(m.body)}</div></div>`).join("")}</div>
+        </div>
+      </div>
+      <div class="sect"><h2>Actions</h2></div>${actions}`;
+  }
+
+  /* =============================== agent log ============================ */
+
+  const LOG_FILTERS = {
+    "Autonomous actions": ["chase","escalation","escalation_blocked","reroute_ooo","reroute_chase","ooo_no_cover"],
+    "Chases": ["chase"],
+    "Reroutes": ["reroute","reroute_ooo","reroute_chase"],
+    "Escalations": ["escalation","escalation_blocked"],
+    "Routing decisions": ["routing","dispatch","orphan"],
+    "Everything": null,
+  };
+
+  function pageAgentLog() {
+    const at = now();
+    const counts = {
+      chase: S.events.filter(e => e.type === "chase").length,
+      reroute: S.events.filter(e => e.type === "reroute_ooo" || e.type === "reroute_chase").length,
+      esc: S.events.filter(e => e.type === "escalation").length,
+    };
+    const types = LOG_FILTERS[UI.filter] || null;
+    const rows = S.events.filter(e => !types || types.includes(e.type))
+      .sort((a, b) => b.created_at - a.created_at || b.id - a.id).slice(0, 200);
+
+    const cards = rows.map(e => {
+      const r = e.request_id ? E.request(S, e.request_id) : null;
+      const tone = e.type.indexOf("escalation") === 0 ? "escalated"
+        : (AGENT_TYPES.has(e.type) ? "gold" : "mute");
+      const label = EVENT_LABELS[e.type] ||
+        e.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      return `<div class="card${e.type.indexOf("escalation") === 0 ? " alarm" : ""}">
+        <div class="card-m">${badge(label, tone)}
+          <span class="mono">${esc(fmtTime(e.created_at))} · ${esc(human(at - e.created_at))} ago</span>
+          <strong>${esc(e.actor)}</strong>
+          <span>${esc(r ? "#" + r.id + " — " + r.title : "no request")}</span></div>
+        <div class="card-b">${esc(e.detail)}</div></div>`;
+    }).join("");
+
+    const opts = Object.keys(LOG_FILTERS).map(k =>
+      `<option${k === UI.filter ? " selected" : ""}>${esc(k)}</option>`).join("");
+
+    return phead("Agent Log", "What the agent did, and why",
+      "The agent evaluates its rules against simulated time every couple of seconds. " +
+      "Nothing here was triggered by a human.") +
+      `<div class="tiles">
+        ${tile("Agent", "Running", "last pass " + (S.lastTickAt ? fmtTime(S.lastTickAt) : "—"), "good")}
+        ${tile("Chases sent", String(counts.chase), "unacknowledged after 48h")}
+        ${tile("Reroutes", String(counts.reroute), "cover picked up the work")}
+        ${tile("Escalations", String(counts.esc), "handed to a manager", counts.esc ? "bad" : "")}
+      </div>
+      <div class="toolbar">
+        <div class="grow"><label class="lbl" for="lf">Show</label>
+          <select id="lf" class="field" data-act="logfilter">${opts}</select></div>
+        <button class="btn" data-act="tick">Run the agent now</button>
+      </div>
+      <p class="muted" style="margin-bottom:9px">${rows.length} entries · simulated time
+        <span class="mono">${esc(fmtTime(at))}</span></p>` +
+      (rows.length ? `<div class="stack">${cards}</div>`
+        : empty("The agent has not needed to act yet.",
+                "Advance the simulated clock on the left to make chases and escalations fire."));
   }
