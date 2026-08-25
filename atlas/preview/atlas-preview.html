@@ -287,6 +287,12 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
   box-shadow:0 8px 24px -8px rgba(0,0,0,.5); max-width:250px; }
 .tip .tt { font-weight:600; }
 .gnode { cursor:default; }
+.focusbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:11px 0 0;
+  padding:9px 13px; border:1px solid var(--line); border-radius:var(--r);
+  background:var(--surface-2); font-size:.85rem; }
+.focusbar.on { border-color:var(--gold); background:var(--gold-soft); }
+.focusbar .fb-label { font-weight:600; }
+.focusbar .chips { gap:5px; }
 </style>
 <div id="root"></div>
 <div id="tip" class="tip" hidden></div>
@@ -2117,6 +2123,36 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
   const isCollapsed = id => !!UI.tree.collapsed[id];
 
+  function findNode(roots, id) {
+    for (const r of roots) {
+      if (r.id === id) return r;
+      const found = findNode(r.children, id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // Best-match first: a name that starts with the term beats one that merely
+  // contains it, which beats a title or team hit.
+  function searchMatches(term) {
+    const t = String(term || "").trim().toLowerCase();
+    if (!t) return [];
+    const score = p => {
+      const n = p.name.toLowerCase();
+      if (n.startsWith(t)) return 4;
+      if (n.split(" ").some(w => w.startsWith(t))) return 3;
+      if (n.includes(t)) return 2;
+      if (p.title.toLowerCase().includes(t)) return 1;
+      return 0;
+    };
+    return S.people
+      .map(p => ({ p, s: Math.max(score(p),
+        E.departmentName(S, p).toLowerCase().includes(t) ? 1 : 0) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s || a.p.name.localeCompare(b.p.name))
+      .map(x => x.p);
+  }
+
   function matchesSearch(node, term) {
     if (!term) return false;
     const t = term.toLowerCase();
@@ -2151,11 +2187,15 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
   function treeSVG() {
     const term = (UI.tree.search || "").trim();
     const dept = UI.tree.dept;
-    const roots = E.orgTree(S);
+    const forest = E.orgTree(S);
+    // Focusing re-roots the chart on one person, which hides everyone above them.
+    const focused = UI.tree.root ? findNode(forest, UI.tree.root) : null;
+    const roots = focused ? [focused] : forest;
     const { placed, width, height } = layoutTree(roots, term);
     const byId = new Map(placed.map(p => [p.node.id, p]));
     const at = now();
-    const anyHit = term && placed.some(p => p.hits);
+    // Dimming is for scanning the whole chart; once focused it just greys a team out.
+    const anyHit = !focused && term && placed.some(p => p.hits);
 
     const edges = placed.filter(p => p.node.manager_id && byId.has(p.node.manager_id))
       .map(p => {
@@ -2245,6 +2285,9 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
       <div class="kv"><span class="k">Avg turnaround</span>${
         stats.avg_turnaround_hours !== null ? Math.round(stats.avg_turnaround_hours) + "h" : "—"}</div>
       <div class="acts">
+        ${UI.tree.root === p.id
+          ? `<button class="btn sm" data-act="focusclear">Show whole firm</button>`
+          : `<button class="btn sm" data-act="focusperson" data-id="${p.id}">Show only this branch</button>`}
         <button class="btn sm" data-act="say" data-text="Who is ${esc(p.name)}?">Ask Atlas about them</button>
       </div>
     </div>`;
@@ -2287,13 +2330,42 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
           <button class="btn sm" data-act="collapseall">Collapse to teams</button>
         </div>
       </div>
+      ${focusBar()}
       <div class="legend dept">${legend}<span><i class="ooo-dot"></i>Out of office</span></div>
       <div class="orgwrap">
         <div class="orgscroll" id="orgscroll" data-act="orgpan">${treeSVG()}</div>
         <aside class="orgside">${treeDetail()}</aside>
       </div>
-      <p class="muted">Drag the chart to pan. Click the − / + circle under anyone to fold their
-        team away. Click a card to see what they own.</p>`;
+      <p class="muted">Scroll on the chart to zoom, drag to pan. Click the − / + circle under
+        anyone to fold their team away. Click a card to see what they own.</p>`;
+  }
+
+  function focusBar() {
+    const focused = UI.tree.root ? person(UI.tree.root) : null;
+    const matches = searchMatches(UI.tree.search);
+    const others = matches.filter(p => !focused || p.id !== focused.id).slice(0, 5);
+
+    if (!focused) {
+      if (!matches.length) return "";
+      return `<div class="focusbar">
+        <span class="fb-label">${matches.length} match${matches.length === 1 ? "" : "es"}</span>
+        <div class="chips">${others.map(p => `<button class="chip sm" data-act="focusperson"
+          data-id="${p.id}">${esc(p.name)}</button>`).join("")}</div></div>`;
+    }
+
+    const mgr = focused.manager_id ? person(focused.manager_id) : null;
+    const above = E.pathToRoot(S, focused.id).length - 1;
+    return `<div class="focusbar on">
+      <span class="fb-label">Showing ${esc(focused.name)}${
+        focused.manager_id ? ` and their team only` : ``}</span>
+      ${mgr ? `<button class="btn sm" data-act="focusup" data-id="${mgr.id}">
+        ↑ Up to ${esc(mgr.name)}</button>` : ""}
+      ${above ? `<span class="muted">${above} level${above === 1 ? "" : "s"} hidden above</span>` : ""}
+      <button class="btn sm" data-act="focusclear">Show whole firm</button>
+      ${others.length ? `<span class="muted">Other matches:</span>
+        <div class="chips">${others.map(p => `<button class="chip sm" data-act="focusperson"
+          data-id="${p.id}">${esc(p.name)}</button>`).join("")}</div>` : ""}
+    </div>`;
   }
 
   function teamsPanel() {
@@ -2950,6 +3022,17 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     pushMsg("bot", "sent", { id: r.id });
   }
 
+  // Re-root the chart on someone and open on them at a readable size.
+  function focusOn(personId) {
+    UI.page = "people"; UI.tab.people = "org"; UI.process = null;
+    UI.tree.root = personId;
+    UI.tree.selected = personId;
+    delete UI.tree.collapsed[personId];      // show their team, not a "+n" stub
+    UI.tree.zoom = 1;
+    UI.tree.center = false;
+    UI.tree.focus = personId;
+  }
+
   function expandTo(personId) {
     for (const id of E.pathToRoot(S, personId)) delete UI.tree.collapsed[id];
     UI.tree.selected = personId;
@@ -3071,21 +3154,30 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
         expandTo(id); UI.tree.focus = id;
         return commit();
       case "zoom": {
-        const d = Number(el.dataset.d);
-        UI.tree.zoom = Math.max(0.4, Math.min(1.6,
-          Math.round((UI.tree.zoom + d * 0.15) * 100) / 100));
-        return commit();
+        const box = document.getElementById("orgscroll");
+        if (!box) return;
+        const step = Number(el.dataset.d) > 0 ? 1.15 : 1 / 1.15;
+        zoomAt(UI.tree.zoom * step, box.clientWidth / 2, box.clientHeight / 2);
+        return;
       }
       case "zoomfit": {
         const box = document.getElementById("orgscroll");
         const svg = document.getElementById("treesvg");
         if (box && svg) {
           const natural = svg.viewBox.baseVal.width || 1;
-          UI.tree.zoom = Math.max(0.4, Math.min(1.2,
-            Math.round(((box.clientWidth - 24) / natural) * 100) / 100));
+          UI.tree.zoom = clampZoom(Math.round(((box.clientWidth - 30) / natural) * 100) / 100);
+          applyZoom();
+          box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2;
+          box.scrollTop = 0;
+          saveSoon();
         }
-        return commit();
+        return;
       }
+      case "focusperson": focusOn(id); return commit();
+      case "focusup": focusOn(id); return commit();
+      case "focusclear":
+        UI.tree.root = null; UI.tree.center = true; UI.tree.zoom = 0.85;
+        return commit();
       case "expandall": UI.tree.collapsed = {}; UI.tree.center = true; return commit();
       case "collapseall": collapseToTeams(); UI.tree.center = true; return commit();
       default: return;
@@ -3124,7 +3216,14 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
       case "oood": UI.oooDays = el.value; break;
       case "composer": autoGrow(el); return;
       case "search": UI.search = el.value; debounceRender(el, 220); break;
-      case "treesearch": UI.tree.search = el.value; debounceRender(el, 240); break;
+      case "treesearch": {
+        UI.tree.search = el.value;
+        const matches = searchMatches(el.value);
+        if (matches.length) focusOn(matches[0].id);
+        else { UI.tree.root = null; UI.tree.center = true; }
+        debounceRender(el, 260);
+        break;
+      }
       default: return;
     }
     save();
@@ -3174,6 +3273,36 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
   /* ------------------------------ pan & zoom ---------------------------- */
 
+  const ZOOM_MIN = 0.3, ZOOM_MAX = 2;
+  const clampZoom = z => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+
+  function applyZoom() {
+    const svg = document.getElementById("treesvg");
+    if (!svg || !svg.viewBox.baseVal) return;
+    svg.style.width = Math.round(svg.viewBox.baseVal.width * UI.tree.zoom) + "px";
+    svg.style.height = Math.round(svg.viewBox.baseVal.height * UI.tree.zoom) + "px";
+    const label = document.querySelector(".zoomv");
+    if (label) label.textContent = Math.round(UI.tree.zoom * 100) + "%";
+  }
+
+  // Zoom about a point so whatever is under the cursor stays under it.
+  function zoomAt(next, px, py) {
+    const box = document.getElementById("orgscroll");
+    if (!box) return;
+    const old = UI.tree.zoom;
+    next = clampZoom(next);
+    if (Math.abs(next - old) < 0.001) return;
+    const cx = (box.scrollLeft + px) / old, cy = (box.scrollTop + py) / old;
+    UI.tree.zoom = next;
+    applyZoom();
+    box.scrollLeft = cx * next - px;
+    box.scrollTop = cy * next - py;
+    saveSoon();
+  }
+
+  let saveTimer = null;
+  function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+
   function bindPan() {
     const box = document.getElementById("orgscroll");
     if (!box) return;
@@ -3191,6 +3320,14 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     });
     box.addEventListener("pointerup", stop);
     box.addEventListener("pointerleave", stop);
+
+    box.addEventListener("wheel", ev => {
+      // The chart owns the wheel: this is a canvas, not a scrolling document.
+      ev.preventDefault();
+      const rect = box.getBoundingClientRect();
+      const step = ev.deltaY < 0 ? 1.12 : 1 / 1.12;
+      zoomAt(UI.tree.zoom * step, ev.clientX - rect.left, ev.clientY - rect.top);
+    }, { passive: false });
   }
 
   /* ------------------------------ tooltips ------------------------------ */

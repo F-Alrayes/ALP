@@ -287,6 +287,12 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
   box-shadow:0 8px 24px -8px rgba(0,0,0,.5); max-width:250px; }
 .tip .tt { font-weight:600; }
 .gnode { cursor:default; }
+.focusbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:11px 0 0;
+  padding:9px 13px; border:1px solid var(--line); border-radius:var(--r);
+  background:var(--surface-2); font-size:.85rem; }
+.focusbar.on { border-color:var(--gold); background:var(--gold-soft); }
+.focusbar .fb-label { font-weight:600; }
+.focusbar .chips { gap:5px; }
 </style>
 <div id="root"></div>
 <div id="tip" class="tip" hidden></div>

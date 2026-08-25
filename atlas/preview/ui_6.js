@@ -120,6 +120,17 @@
     pushMsg("bot", "sent", { id: r.id });
   }
 
+  // Re-root the chart on someone and open on them at a readable size.
+  function focusOn(personId) {
+    UI.page = "people"; UI.tab.people = "org"; UI.process = null;
+    UI.tree.root = personId;
+    UI.tree.selected = personId;
+    delete UI.tree.collapsed[personId];      // show their team, not a "+n" stub
+    UI.tree.zoom = 1;
+    UI.tree.center = false;
+    UI.tree.focus = personId;
+  }
+
   function expandTo(personId) {
     for (const id of E.pathToRoot(S, personId)) delete UI.tree.collapsed[id];
     UI.tree.selected = personId;
@@ -241,21 +252,30 @@
         expandTo(id); UI.tree.focus = id;
         return commit();
       case "zoom": {
-        const d = Number(el.dataset.d);
-        UI.tree.zoom = Math.max(0.4, Math.min(1.6,
-          Math.round((UI.tree.zoom + d * 0.15) * 100) / 100));
-        return commit();
+        const box = document.getElementById("orgscroll");
+        if (!box) return;
+        const step = Number(el.dataset.d) > 0 ? 1.15 : 1 / 1.15;
+        zoomAt(UI.tree.zoom * step, box.clientWidth / 2, box.clientHeight / 2);
+        return;
       }
       case "zoomfit": {
         const box = document.getElementById("orgscroll");
         const svg = document.getElementById("treesvg");
         if (box && svg) {
           const natural = svg.viewBox.baseVal.width || 1;
-          UI.tree.zoom = Math.max(0.4, Math.min(1.2,
-            Math.round(((box.clientWidth - 24) / natural) * 100) / 100));
+          UI.tree.zoom = clampZoom(Math.round(((box.clientWidth - 30) / natural) * 100) / 100);
+          applyZoom();
+          box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2;
+          box.scrollTop = 0;
+          saveSoon();
         }
-        return commit();
+        return;
       }
+      case "focusperson": focusOn(id); return commit();
+      case "focusup": focusOn(id); return commit();
+      case "focusclear":
+        UI.tree.root = null; UI.tree.center = true; UI.tree.zoom = 0.85;
+        return commit();
       case "expandall": UI.tree.collapsed = {}; UI.tree.center = true; return commit();
       case "collapseall": collapseToTeams(); UI.tree.center = true; return commit();
       default: return;
@@ -294,7 +314,14 @@
       case "oood": UI.oooDays = el.value; break;
       case "composer": autoGrow(el); return;
       case "search": UI.search = el.value; debounceRender(el, 220); break;
-      case "treesearch": UI.tree.search = el.value; debounceRender(el, 240); break;
+      case "treesearch": {
+        UI.tree.search = el.value;
+        const matches = searchMatches(el.value);
+        if (matches.length) focusOn(matches[0].id);
+        else { UI.tree.root = null; UI.tree.center = true; }
+        debounceRender(el, 260);
+        break;
+      }
       default: return;
     }
     save();
@@ -344,6 +371,36 @@
 
   /* ------------------------------ pan & zoom ---------------------------- */
 
+  const ZOOM_MIN = 0.3, ZOOM_MAX = 2;
+  const clampZoom = z => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+
+  function applyZoom() {
+    const svg = document.getElementById("treesvg");
+    if (!svg || !svg.viewBox.baseVal) return;
+    svg.style.width = Math.round(svg.viewBox.baseVal.width * UI.tree.zoom) + "px";
+    svg.style.height = Math.round(svg.viewBox.baseVal.height * UI.tree.zoom) + "px";
+    const label = document.querySelector(".zoomv");
+    if (label) label.textContent = Math.round(UI.tree.zoom * 100) + "%";
+  }
+
+  // Zoom about a point so whatever is under the cursor stays under it.
+  function zoomAt(next, px, py) {
+    const box = document.getElementById("orgscroll");
+    if (!box) return;
+    const old = UI.tree.zoom;
+    next = clampZoom(next);
+    if (Math.abs(next - old) < 0.001) return;
+    const cx = (box.scrollLeft + px) / old, cy = (box.scrollTop + py) / old;
+    UI.tree.zoom = next;
+    applyZoom();
+    box.scrollLeft = cx * next - px;
+    box.scrollTop = cy * next - py;
+    saveSoon();
+  }
+
+  let saveTimer = null;
+  function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+
   function bindPan() {
     const box = document.getElementById("orgscroll");
     if (!box) return;
@@ -361,6 +418,14 @@
     });
     box.addEventListener("pointerup", stop);
     box.addEventListener("pointerleave", stop);
+
+    box.addEventListener("wheel", ev => {
+      // The chart owns the wheel: this is a canvas, not a scrolling document.
+      ev.preventDefault();
+      const rect = box.getBoundingClientRect();
+      const step = ev.deltaY < 0 ? 1.12 : 1 / 1.12;
+      zoomAt(UI.tree.zoom * step, ev.clientX - rect.left, ev.clientY - rect.top);
+    }, { passive: false });
   }
 
   /* ------------------------------ tooltips ------------------------------ */

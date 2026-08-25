@@ -106,6 +106,18 @@ with pan, zoom, per-node collapse, search-to-highlight and a detail panel.
 It opens folded to the five department heads rather than dropping the viewer
 into a 7,000-pixel canvas, and auto-fits to the container on first paint.
 
+**Zoom** is on the wheel, anchored at the cursor so whatever you point at stays
+put. The chart owns the wheel — it is a canvas, not a scrolling document — and
+the zoom is applied straight to the DOM rather than through a re-render, so the
+scroll position survives.
+
+**Search re-roots the chart** on the best match: everyone above that person is
+hidden, and the view zooms in on them. A bar above the chart names who is
+showing, says how many levels are hidden, offers "↑ Up to <manager>" to climb
+back one level at a time, and "Show whole firm" to reset. Other matches appear
+as chips to jump between. The selected person's full reporting line is still
+readable in the side panel, so nothing is lost by hiding it in the chart.
+
 ## Known differences from the Python app
 
 - **Chat and the org chart are browser-only.** The Python app still has the

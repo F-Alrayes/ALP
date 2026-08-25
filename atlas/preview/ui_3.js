@@ -12,6 +12,36 @@
 
   const isCollapsed = id => !!UI.tree.collapsed[id];
 
+  function findNode(roots, id) {
+    for (const r of roots) {
+      if (r.id === id) return r;
+      const found = findNode(r.children, id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // Best-match first: a name that starts with the term beats one that merely
+  // contains it, which beats a title or team hit.
+  function searchMatches(term) {
+    const t = String(term || "").trim().toLowerCase();
+    if (!t) return [];
+    const score = p => {
+      const n = p.name.toLowerCase();
+      if (n.startsWith(t)) return 4;
+      if (n.split(" ").some(w => w.startsWith(t))) return 3;
+      if (n.includes(t)) return 2;
+      if (p.title.toLowerCase().includes(t)) return 1;
+      return 0;
+    };
+    return S.people
+      .map(p => ({ p, s: Math.max(score(p),
+        E.departmentName(S, p).toLowerCase().includes(t) ? 1 : 0) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s || a.p.name.localeCompare(b.p.name))
+      .map(x => x.p);
+  }
+
   function matchesSearch(node, term) {
     if (!term) return false;
     const t = term.toLowerCase();
@@ -46,11 +76,15 @@
   function treeSVG() {
     const term = (UI.tree.search || "").trim();
     const dept = UI.tree.dept;
-    const roots = E.orgTree(S);
+    const forest = E.orgTree(S);
+    // Focusing re-roots the chart on one person, which hides everyone above them.
+    const focused = UI.tree.root ? findNode(forest, UI.tree.root) : null;
+    const roots = focused ? [focused] : forest;
     const { placed, width, height } = layoutTree(roots, term);
     const byId = new Map(placed.map(p => [p.node.id, p]));
     const at = now();
-    const anyHit = term && placed.some(p => p.hits);
+    // Dimming is for scanning the whole chart; once focused it just greys a team out.
+    const anyHit = !focused && term && placed.some(p => p.hits);
 
     const edges = placed.filter(p => p.node.manager_id && byId.has(p.node.manager_id))
       .map(p => {
@@ -140,6 +174,9 @@
       <div class="kv"><span class="k">Avg turnaround</span>${
         stats.avg_turnaround_hours !== null ? Math.round(stats.avg_turnaround_hours) + "h" : "—"}</div>
       <div class="acts">
+        ${UI.tree.root === p.id
+          ? `<button class="btn sm" data-act="focusclear">Show whole firm</button>`
+          : `<button class="btn sm" data-act="focusperson" data-id="${p.id}">Show only this branch</button>`}
         <button class="btn sm" data-act="say" data-text="Who is ${esc(p.name)}?">Ask Atlas about them</button>
       </div>
     </div>`;
@@ -182,13 +219,42 @@
           <button class="btn sm" data-act="collapseall">Collapse to teams</button>
         </div>
       </div>
+      ${focusBar()}
       <div class="legend dept">${legend}<span><i class="ooo-dot"></i>Out of office</span></div>
       <div class="orgwrap">
         <div class="orgscroll" id="orgscroll" data-act="orgpan">${treeSVG()}</div>
         <aside class="orgside">${treeDetail()}</aside>
       </div>
-      <p class="muted">Drag the chart to pan. Click the − / + circle under anyone to fold their
-        team away. Click a card to see what they own.</p>`;
+      <p class="muted">Scroll on the chart to zoom, drag to pan. Click the − / + circle under
+        anyone to fold their team away. Click a card to see what they own.</p>`;
+  }
+
+  function focusBar() {
+    const focused = UI.tree.root ? person(UI.tree.root) : null;
+    const matches = searchMatches(UI.tree.search);
+    const others = matches.filter(p => !focused || p.id !== focused.id).slice(0, 5);
+
+    if (!focused) {
+      if (!matches.length) return "";
+      return `<div class="focusbar">
+        <span class="fb-label">${matches.length} match${matches.length === 1 ? "" : "es"}</span>
+        <div class="chips">${others.map(p => `<button class="chip sm" data-act="focusperson"
+          data-id="${p.id}">${esc(p.name)}</button>`).join("")}</div></div>`;
+    }
+
+    const mgr = focused.manager_id ? person(focused.manager_id) : null;
+    const above = E.pathToRoot(S, focused.id).length - 1;
+    return `<div class="focusbar on">
+      <span class="fb-label">Showing ${esc(focused.name)}${
+        focused.manager_id ? ` and their team only` : ``}</span>
+      ${mgr ? `<button class="btn sm" data-act="focusup" data-id="${mgr.id}">
+        ↑ Up to ${esc(mgr.name)}</button>` : ""}
+      ${above ? `<span class="muted">${above} level${above === 1 ? "" : "s"} hidden above</span>` : ""}
+      <button class="btn sm" data-act="focusclear">Show whole firm</button>
+      ${others.length ? `<span class="muted">Other matches:</span>
+        <div class="chips">${others.map(p => `<button class="chip sm" data-act="focusperson"
+          data-id="${p.id}">${esc(p.name)}</button>`).join("")}</div>` : ""}
+    </div>`;
   }
 
   function teamsPanel() {
