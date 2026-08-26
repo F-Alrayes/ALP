@@ -293,6 +293,51 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
 .focusbar.on { border-color:var(--gold); background:var(--gold-soft); }
 .focusbar .fb-label { font-weight:600; }
 .focusbar .chips { gap:5px; }
+
+/* --------------------------------------------------- full-bleed org chart */
+.app.orgmode .canvas { display:flex; flex-direction:column; height:100vh;
+  padding:20px 24px 0; }
+/* margin:0 auto on the cross axis beats align-items:stretch, so clear it. */
+.app.orgmode .wrap { display:flex; flex-direction:column; flex:1; min-height:0;
+  max-width:none; width:100%; margin:0; }
+.app.orgmode #page { display:flex; flex-direction:column; flex:1; min-height:0; }
+.app.orgmode .tabs { margin-bottom:14px; }
+
+.orgtools { display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-bottom:11px; }
+.findwrap { position:relative; flex:1; min-width:230px; max-width:380px; }
+.field.slim { width:auto; min-width:170px; padding:8px 11px; font-size:.86rem; }
+.suggest-list { position:absolute; z-index:30; top:calc(100% + 5px); left:0; right:0;
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  box-shadow:0 16px 40px -14px rgba(0,0,0,.4); overflow:hidden; }
+.sug { display:block; width:100%; text-align:left; background:none; border:none; cursor:pointer;
+  padding:9px 13px; border-bottom:1px solid var(--line-soft); }
+.sug:last-child { border-bottom:none; }
+.sug:hover, .sug.on { background:var(--gold-soft); }
+.sug .sug-n { display:block; font-weight:600; font-size:.9rem; color:var(--ink); }
+.sug .sug-t { display:block; font-size:.78rem; color:var(--ink-3); }
+
+.orgstage { position:relative; flex:1; min-height:340px; margin-bottom:16px; }
+.orgstage .orgscroll { height:100%; border-radius:var(--r); padding:26px;
+  display:flex; justify-content:safe center; align-items:safe center; }
+/* The chart is a flex item: without this it shrinks back to the container and
+   zooming changes nothing but the label. */
+.orgstage .orgscroll > svg { flex:none; }
+.orgpanel { position:absolute; top:14px; right:14px; width:302px; z-index:12;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:14px 16px; box-shadow:0 14px 36px -14px rgba(0,0,0,.4); }
+.orgpanel .kv { gap:8px; }
+.orgpanel .kv .k { min-width:84px; }
+.orglegend { position:absolute; left:14px; bottom:12px; z-index:11; display:flex; gap:11px;
+  flex-wrap:wrap; font-size:.73rem; color:var(--ink-2); background:var(--surface);
+  border:1px solid var(--line); border-radius:999px; padding:5px 13px; opacity:.94; }
+.orglegend i { width:8px; height:8px; border-radius:2px; display:inline-block; margin-right:4px; }
+.orglegend .ooo-dot { width:8px; height:8px; border-radius:50%; background:var(--warn);
+  display:inline-block; margin-right:4px; }
+@media (max-width:900px) {
+  .app.orgmode .canvas { height:auto; }
+  .orgstage { min-height:60vh; }
+  .orgpanel { position:static; width:auto; margin-top:11px; }
+}
 </style>
 <div id="root"></div>
 <div id="tip" class="tip" hidden></div>

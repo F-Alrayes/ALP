@@ -57,6 +57,18 @@ in the browser rather than erroring.
 `export_seed.py` imports the real `atlas.seed` module, so the preview's data is
 generated from the Python seed rather than transcribed by hand.
 
+## Browser test suite
+
+`test_preview.py` drives the built page in a real browser and checks the
+first-run guide, the chat flow, the org chart (full-bleed layout, suggestions,
+focus, climbing back up, wheel zoom and its cursor anchoring, folding), the other
+pages, persistence across a reload, and dark mode.
+
+```bash
+pip install playwright && playwright install chromium
+python3 test_preview.py
+```
+
 ## Parity suite
 
 Proves the JavaScript behaves like the Python across matching, the full request
@@ -106,17 +118,28 @@ with pan, zoom, per-node collapse, search-to-highlight and a detail panel.
 It opens folded to the five department heads rather than dropping the viewer
 into a 7,000-pixel canvas, and auto-fits to the container on first paint.
 
+The chart is **full-bleed**: on the Org chart tab the page header is dropped and
+the canvas fills the viewport, with the detail panel floating over the top-right
+corner and the legend over the bottom-left.
+
 **Zoom** is on the wheel, anchored at the cursor so whatever you point at stays
 put. The chart owns the wheel — it is a canvas, not a scrolling document — and
 the zoom is applied straight to the DOM rather than through a re-render, so the
-scroll position survives.
+scroll position survives. (The chart is a flex item; it needs `flex:none` or the
+container shrinks it back and zoom silently does nothing.)
 
-**Search re-roots the chart** on the best match: everyone above that person is
-hidden, and the view zooms in on them. A bar above the chart names who is
-showing, says how many levels are hidden, offers "↑ Up to <manager>" to climb
-back one level at a time, and "Show whole firm" to reset. Other matches appear
-as chips to jump between. The selected person's full reporting line is still
-readable in the side panel, so nothing is lost by hiding it in the chart.
+**Search is a combobox.** Typing filters a suggestion list and leaves the chart
+alone; the chart only moves once you pick someone. Arrow keys move the
+highlight, Enter takes the top match, Escape closes. Picking someone re-roots
+the chart on them — everyone above is hidden — and centres them in the stage.
+
+A bar above the chart then names who is showing, says how many levels are hidden
+above, offers "↑ Up to <manager>" to climb back one level at a time, and "Show
+whole firm" to reset.
+
+The **detail panel is deliberately short** — name, title, team, away status, who
+they report to, team size, and what they own. Anything deeper is a question for
+Ask Atlas rather than a wall of fields on first glance.
 
 ## Known differences from the Python app
 

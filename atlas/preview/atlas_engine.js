@@ -791,6 +791,18 @@
   const isOpen = r => OPEN_STATUSES.includes(r.status);
   const hrs = (a, b) => (a - b) / HOUR;
 
+  // Python's round() breaks exact halves to even; JS's Math.round() goes up.
+  // Displayed averages hit that tie (a mean of 1.25h), so match Python here.
+  function round1(value) {
+    const x = value * 10;
+    const frac = Math.abs(x - Math.trunc(x));
+    if (Math.abs(frac - 0.5) < 1e-9) {
+      const floor = Math.floor(x);
+      return (floor % 2 === 0 ? floor : floor + 1) / 10;
+    }
+    return Math.round(x) / 10;
+  }
+
   function departmentName(st, p) {
     if (!p) return "Unassigned";
     if (p.department_id === null || p.department_id === undefined) return "Executive";
@@ -850,8 +862,8 @@
     const mean = a => (a && a.length) ? a.reduce((x, y) => x + y, 0) / a.length : 0;
     return depts.map(d => ({
       department: d,
-      avg_ack_hours: Math.round(mean(ack.get(d)) * 10) / 10,
-      avg_complete_hours: Math.round(mean(cycle.get(d)) * 10) / 10,
+      avg_ack_hours: round1(mean(ack.get(d))),
+      avg_complete_hours: round1(mean(cycle.get(d))),
       sample: Math.max((ack.get(d) || []).length, (cycle.get(d) || []).length),
     }));
   }
@@ -917,8 +929,8 @@
       if (!p) continue;
       out.push({
         person: p.name, title: p.title, department: departmentName(st, p), open: e.open,
-        avg_wait_hours: Math.round((e.waits.reduce((x, y) => x + y, 0) / e.waits.length) * 10) / 10,
-        oldest_wait_hours: Math.round(Math.max(...e.waits) * 10) / 10,
+        avg_wait_hours: round1(e.waits.reduce((x, y) => x + y, 0) / e.waits.length),
+        oldest_wait_hours: round1(Math.max(...e.waits)),
         is_ooo: C.isOutOfOffice(p, at),
       });
     }
@@ -933,7 +945,7 @@
       return {
         id: r.id, title: r.title, status: STATUS_LABELS[r.status],
         department: departmentName(st, a), assignee: a ? a.name : "Unassigned",
-        age_hours: Math.round(hrs(at, r.created_at) * 10) / 10, chases: r.chase_count,
+        age_hours: round1(hrs(at, r.created_at)), chases: r.chase_count,
       };
     }).sort((a, b) => b.age_hours - a.age_hours);
   }
@@ -944,7 +956,7 @@
     const t = done.map(r => hrs(r.completed_at, r.created_at));
     return {
       total: reqs.length, open: reqs.filter(isOpen).length, completed: done.length,
-      avg_turnaround_hours: t.length ? Math.round((t.reduce((x, y) => x + y, 0) / t.length) * 10) / 10 : null,
+      avg_turnaround_hours: t.length ? round1(t.reduce((x, y) => x + y, 0) / t.length) : null,
     };
   }
 
@@ -953,7 +965,7 @@
     const done = handled.filter(r => r.completed_at);
     const t = done.map(r => hrs(r.completed_at, r.created_at));
     const a = handled.filter(r => r.acknowledged_at).map(r => hrs(r.acknowledged_at, r.created_at));
-    const mean = arr => arr.length ? Math.round((arr.reduce((x, y) => x + y, 0) / arr.length) * 10) / 10 : null;
+    const mean = arr => arr.length ? round1(arr.reduce((x, y) => x + y, 0) / arr.length) : null;
     return {
       open_load: handled.filter(isOpen).length, completed: done.length,
       avg_turnaround_hours: mean(t), avg_ack_hours: mean(a),

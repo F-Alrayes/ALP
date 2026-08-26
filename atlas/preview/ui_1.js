@@ -201,7 +201,9 @@
         aria-selected="${UI.page === k}">${esc(label)}${extra}</button>`;
     }).join("");
 
-    root.innerHTML = `<div class="app${UI.page === "chat" ? " chatmode" : ""}">
+    const orgMode = UI.page === "people" && (UI.tab.people || "org") === "org";
+    root.innerHTML = `<div class="app${UI.page === "chat" ? " chatmode" : ""}${
+      orgMode ? " orgmode" : ""}">
       <aside class="rail">${railHTML()}</aside>
       <main class="canvas"><div class="wrap${UI.page === "people" ? " wide" : ""}">
         <div class="tabs" role="tablist">${tabs}</div>

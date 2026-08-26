@@ -271,10 +271,16 @@
         }
         return;
       }
+      case "pickperson": {
+        const picked = person(id);
+        if (picked) UI.tree.query = picked.name;
+        closeSuggest(); focusOn(id); return commit();
+      }
       case "focusperson": focusOn(id); return commit();
       case "focusup": focusOn(id); return commit();
       case "focusclear":
-        UI.tree.root = null; UI.tree.center = true; UI.tree.zoom = 0.85;
+        UI.tree.root = null; UI.tree.query = ""; UI.tree.selected = null;
+        UI.tree.center = true; UI.tree.zoom = 0.85;
         return commit();
       case "expandall": UI.tree.collapsed = {}; UI.tree.center = true; return commit();
       case "collapseall": collapseToTeams(); UI.tree.center = true; return commit();
@@ -314,18 +320,47 @@
       case "oood": UI.oooDays = el.value; break;
       case "composer": autoGrow(el); return;
       case "search": UI.search = el.value; debounceRender(el, 220); break;
-      case "treesearch": {
-        UI.tree.search = el.value;
-        const matches = searchMatches(el.value);
-        if (matches.length) focusOn(matches[0].id);
-        else { UI.tree.root = null; UI.tree.center = true; }
-        debounceRender(el, 260);
-        break;
-      }
+      case "treequery": UI.tree.query = el.value; sugIndex = -1; renderSuggest(); return;
       default: return;
     }
     save();
   });
+
+  let sugIndex = -1;
+
+  function currentSuggestions() {
+    const input = document.querySelector('[data-act="treequery"]');
+    const q = input ? input.value.trim() : "";
+    return q ? searchMatches(q).slice(0, 6) : [];
+  }
+
+  function renderSuggest() {
+    const box = document.getElementById("suggestbox");
+    const input = document.querySelector('[data-act="treequery"]');
+    if (!box || !input) return;
+    const matches = currentSuggestions();
+    if (!matches.length) {
+      box.hidden = true; box.innerHTML = "";
+      input.setAttribute("aria-expanded", "false");
+      return;
+    }
+    box.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+    box.innerHTML = matches.map((p, i) => `
+      <button class="sug${i === sugIndex ? " on" : ""}" role="option"
+        aria-selected="${i === sugIndex}" data-act="pickperson" data-id="${p.id}">
+        <span class="sug-n">${esc(p.name)}</span>
+        <span class="sug-t">${esc(p.title)} · ${esc(E.departmentName(S, p))}</span>
+      </button>`).join("");
+  }
+
+  function closeSuggest() {
+    const box = document.getElementById("suggestbox");
+    const input = document.querySelector('[data-act="treequery"]');
+    sugIndex = -1;
+    if (box) { box.hidden = true; box.innerHTML = ""; }
+    if (input) input.setAttribute("aria-expanded", "false");
+  }
 
   let debTimer = null;
   function debounceRender(el, ms) {
@@ -353,6 +388,29 @@
     if (box) box.value = "";
     submitChat(text);
     commit();
+  });
+
+  document.addEventListener("keydown", ev => {
+    const combo = ev.target.closest('[data-act="treequery"]');
+    if (!combo) return;
+    const matches = currentSuggestions();
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      if (!matches.length) return;
+      ev.preventDefault();
+      const step = ev.key === "ArrowDown" ? 1 : -1;
+      sugIndex = sugIndex < 0
+        ? (step > 0 ? 0 : matches.length - 1)
+        : (sugIndex + step + matches.length) % matches.length;
+      renderSuggest();
+      return;
+    }
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      const pick = matches[sugIndex >= 0 ? sugIndex : 0];
+      if (pick) { UI.tree.query = pick.name; focusOn(pick.id); closeSuggest(); commit(); }
+      return;
+    }
+    if (ev.key === "Escape") { ev.preventDefault(); closeSuggest(); }
   });
 
   // Enter sends, Shift+Enter makes a new line.

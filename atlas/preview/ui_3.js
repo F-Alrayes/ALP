@@ -42,19 +42,11 @@
       .map(x => x.p);
   }
 
-  function matchesSearch(node, term) {
-    if (!term) return false;
-    const t = term.toLowerCase();
-    return node.name.toLowerCase().includes(t) || node.title.toLowerCase().includes(t) ||
-           node.department.toLowerCase().includes(t);
-  }
-
   // Tidy-tree layout: leaves take the next slot, parents centre over children.
-  function layoutTree(roots, term) {
+  function layoutTree(roots) {
     const cursor = { x: 0 };
     const placed = [];
     const walk = (node, depth) => {
-      const hits = matchesSearch(node, term);
       const kids = isCollapsed(node.id) ? [] : node.children;
       let x;
       if (!kids.length) {
@@ -64,7 +56,7 @@
         const childXs = kids.map(k => walk(k, depth + 1));
         x = (childXs[0] + childXs[childXs.length - 1]) / 2;
       }
-      placed.push({ node, x, y: depth * (NODE_H + V_GAP), depth, hits });
+      placed.push({ node, x, y: depth * (NODE_H + V_GAP), depth });
       return x;
     };
     roots.forEach(r => walk(r, 0));
@@ -74,17 +66,14 @@
   }
 
   function treeSVG() {
-    const term = (UI.tree.search || "").trim();
     const dept = UI.tree.dept;
     const forest = E.orgTree(S);
     // Focusing re-roots the chart on one person, which hides everyone above them.
     const focused = UI.tree.root ? findNode(forest, UI.tree.root) : null;
     const roots = focused ? [focused] : forest;
-    const { placed, width, height } = layoutTree(roots, term);
+    const { placed, width, height } = layoutTree(roots);
     const byId = new Map(placed.map(p => [p.node.id, p]));
     const at = now();
-    // Dimming is for scanning the whole chart; once focused it just greys a team out.
-    const anyHit = !focused && term && placed.some(p => p.hits);
 
     const edges = placed.filter(p => p.node.manager_id && byId.has(p.node.manager_id))
       .map(p => {
@@ -103,7 +92,7 @@
       const load = S.requests.filter(r => r.assignee_id === n.id &&
         E.OPEN_STATUSES.includes(r.status)).length;
       const hidden = n.children.length && isCollapsed(n.id);
-      const dim = (anyHit && !p.hits) || (dept !== "All departments" && n.department !== dept);
+      const dim = dept !== "All departments" && n.department !== dept;
       const selected = UI.tree.selected === n.id;
       const toggle = n.children.length ? `
         <g class="tgl" data-act="treetoggle" data-id="${n.id}" tabindex="0"
@@ -113,7 +102,7 @@
           <text x="${NODE_W / 2}" y="${NODE_H + 5}" text-anchor="middle"
             class="tglt">${hidden ? "+" + n.descendants : "–"}</text>
         </g>` : "";
-      return `<g class="onode${dim ? " dim" : ""}${p.hits ? " hit" : ""}${selected ? " sel" : ""}"
+      return `<g class="onode${dim ? " dim" : ""}${selected ? " sel" : ""}"
           transform="translate(${p.x},${p.y})">
         <g data-act="treeselect" data-id="${n.id}" tabindex="0" role="button"
            aria-label="${esc(n.name)}, ${esc(n.title)}">
@@ -137,49 +126,34 @@
       <g>${edges}${nodes}</g></svg>`;
   }
 
+  // Deliberately short: a first-time viewer needs who they are, who they report
+  // to, and what they own. Everything else is a click away in Ask Atlas.
   function treeDetail() {
     const id = UI.tree.selected;
-    if (!id) return `<div class="empty side"><div class="big">Nobody selected</div>
-      <div>Click anyone in the chart to see what they own and who they cover for.</div></div>`;
+    if (!id) return "";
     const p = person(id);
     if (!p) return "";
     const at = now();
-    const stats = E.personStats(S, id);
-    const grouped = E.responsibilitiesOf(S, id);
     const mgr = p.manager_id ? person(p.manager_id) : null;
-    const reports = S.people.filter(x => x.manager_id === id)
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const chain = E.pathToRoot(S, id).slice(0, -1).map(x => person(x).name);
-    const roleRows = ["owner", "approver", "delegate", "backup"].map(role => {
-      const list = grouped[role] || [];
-      if (!list.length) return "";
-      return `<div class="kv"><span class="k">${esc(role[0].toUpperCase() + role.slice(1))}</span>
-        <span class="chips">${list.map(x => badge(x.name, "role")).join(" ")}</span></div>`;
-    }).join("");
+    const reports = S.people.filter(x => x.manager_id === id).length;
+    const owns = (E.responsibilitiesOf(S, id).owner || []).map(x => x.name);
 
-    return `<div class="side-card">
-      <div class="side-head">
+    return `<div class="side-head">
         <div><h3>${esc(p.name)}</h3><p class="sub">${esc(p.title)}</p></div>
         <button class="btn sm" data-act="treeclose" aria-label="Close">✕</button>
       </div>
       <div class="chips tight">${badge(E.departmentName(S, p), "role")}
-        ${E.isOutOfOffice(p, at) ? badge("Out of office until " + E.fmtDate(p.ooo_until), "ooo") : ""}
-        ${stats.open_load ? badge(stats.open_load + " open", "gold") : badge("No open work", "mute")}</div>
-      <div class="kv"><span class="k">Reporting line</span>${
-        esc(chain.length ? chain.join(" → ") : "Top of the tree")}</div>
-      <div class="kv"><span class="k">Direct reports</span>${
-        reports.length ? esc(reports.map(r => r.name).join(", ")) : `<span class="muted">none</span>`}</div>
-      ${roleRows || `<div class="kv"><span class="k">Responsibilities</span>
-        <span class="muted">no edges in the graph</span></div>`}
-      <div class="kv"><span class="k">Avg turnaround</span>${
-        stats.avg_turnaround_hours !== null ? Math.round(stats.avg_turnaround_hours) + "h" : "—"}</div>
+        ${E.isOutOfOffice(p, at) ? badge("Away until " + E.fmtDate(p.ooo_until), "ooo") : ""}</div>
+      <div class="kv"><span class="k">Reports to</span>${esc(mgr ? mgr.name : "Nobody — top of the firm")}</div>
+      ${reports ? `<div class="kv"><span class="k">Team</span>${reports} direct report${
+        reports === 1 ? "" : "s"}</div>` : ""}
+      <div class="kv"><span class="k">Owns</span>${owns.length
+        ? esc(owns.join(", ")) : `<span class="muted">nothing directly</span>`}</div>
       <div class="acts">
         ${UI.tree.root === p.id
           ? `<button class="btn sm" data-act="focusclear">Show whole firm</button>`
-          : `<button class="btn sm" data-act="focusperson" data-id="${p.id}">Show only this branch</button>`}
-        <button class="btn sm" data-act="say" data-text="Who is ${esc(p.name)}?">Ask Atlas about them</button>
-      </div>
-    </div>`;
+          : `<button class="btn sm" data-act="focusperson" data-id="${p.id}">Show just their team</button>`}
+      </div>`;
   }
 
   function pagePeople() {
@@ -189,44 +163,45 @@
                   ["processes", "Processes"]]
       .map(([k, t]) => `<button class="tab" role="tab" data-act="subtab" data-group="people"
         data-k="${k}" aria-selected="${which === k}">${esc(t)}</button>`).join("");
+    const tabsBar = `<div class="tabs" role="tablist">${tabs}</div>`;
+    if (which === "org") return tabsBar + orgPanel();
     const head = phead("People", "Who works here, and who they answer to",
       "Search anyone, expand a team, and see what each person is actually accountable for.") +
-      `<div class="tabs" role="tablist">${tabs}</div>`;
+      tabsBar;
     if (which === "list") return head + peopleList();
     if (which === "teams") return head + teamsPanel();
-    if (which === "processes") return head + processList();
-    return head + orgPanel();
+    return head + processList();
   }
 
   function orgPanel() {
     const t = UI.tree;
     const legend = Object.keys(DEPT_HUE).map(d =>
       `<span><i style="background:${deptColor(d)}"></i>${esc(d)}</span>`).join("");
-    return `<div class="toolbar">
-        <div class="grow"><label class="lbl" for="ts">Find someone</label>
-          <input id="ts" class="field" data-act="treesearch" placeholder="name, title or team"
-            value="${esc(t.search)}"></div>
-        <div class="grow"><label class="lbl" for="td">Highlight team</label>
-          <select id="td" class="field" data-act="treedept">${deptOptions(t.dept)}</select></div>
+    return `<div class="orgtools">
+        <div class="findwrap">
+          <label class="sr" for="ts">Find someone</label>
+          <input id="ts" class="field" data-act="treequery" role="combobox" autocomplete="off"
+            aria-expanded="false" aria-controls="suggestbox" aria-autocomplete="list"
+            placeholder="Find someone by name…" value="${esc(t.query || "")}">
+          <div class="suggest-list" id="suggestbox" role="listbox" aria-label="Matching people" hidden></div>
+        </div>
+        <select class="field slim" data-act="treedept" aria-label="Highlight a team">
+          ${deptOptions(t.dept)}</select>
         <div class="zoomer" role="group" aria-label="Zoom">
           <button class="btn sm" data-act="zoom" data-d="-1" aria-label="Zoom out">−</button>
           <span class="mono zoomv">${Math.round(t.zoom * 100)}%</span>
           <button class="btn sm" data-act="zoom" data-d="1" aria-label="Zoom in">+</button>
           <button class="btn sm" data-act="zoomfit">Fit</button>
         </div>
-        <div class="btn-pair">
-          <button class="btn sm" data-act="expandall">Expand all</button>
-          <button class="btn sm" data-act="collapseall">Collapse to teams</button>
-        </div>
+        <button class="btn sm" data-act="expandall">Expand all</button>
+        <button class="btn sm" data-act="collapseall">Collapse</button>
       </div>
       ${focusBar()}
-      <div class="legend dept">${legend}<span><i class="ooo-dot"></i>Out of office</span></div>
-      <div class="orgwrap">
+      <div class="orgstage">
         <div class="orgscroll" id="orgscroll" data-act="orgpan">${treeSVG()}</div>
-        <aside class="orgside">${treeDetail()}</aside>
-      </div>
-      <p class="muted">Scroll on the chart to zoom, drag to pan. Click the − / + circle under
-        anyone to fold their team away. Click a card to see what they own.</p>`;
+        ${UI.tree.selected ? `<aside class="orgpanel">${treeDetail()}</aside>` : ""}
+        <div class="orglegend">${legend}<span><i class="ooo-dot"></i>Away</span></div>
+      </div>`;
   }
 
   function focusBar() {

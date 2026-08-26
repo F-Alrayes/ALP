@@ -31,7 +31,7 @@ print("\n[1] Fresh setup -> seeded database")
 seed()
 with session_scope() as s:
     check("40 people seeded", s.query(Person).count() == 40)
-    check("14 processes seeded", s.query(Process).count() == 14)
+    check("8 processes seeded", s.query(Process).count() == 8)
     check("historical requests present", 15 <= s.query(Request).count() <= 20,
           f"count={s.query(Request).count()}")
     check("mixed states", len({r.status for r in s.query(Request).all()}) >= 3)

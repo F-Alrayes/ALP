@@ -10,7 +10,7 @@ Atlas makes responsibility a live, queryable dataset and routes work through it.
 
 This is a fully working local prototype: real SQLite database, real routing
 logic, a real background agent, real analytics. The only thing that is fake is
-the data — the 40 employees, 5 departments and 14 processes are seeded. There
+the data — the 40 employees, 5 departments and 8 processes are seeded. There
 are no integrations, no auth, and no network calls of any kind.
 
 ![Intake — the resolution trace](docs/intake.png)
@@ -216,7 +216,7 @@ These are deliberate — they are what the walkthrough depends on.
   Exception Approval.
 - **1 single point of failure**: *Huda Al-Najjar* owns or approves four
   processes, and Valuation Sign-off has no cover behind her.
-- **20 historical requests** in mixed states, two of them already past the
+- **18 historical requests** in mixed states, two of them already past the
   48-hour chase threshold, so the Agent Log has content the moment you open it.
 
 Reset any time from the sidebar (**Reset & reseed**) or with

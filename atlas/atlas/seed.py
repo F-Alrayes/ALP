@@ -102,33 +102,20 @@ PROCESSES: list[tuple[str, str, str, str]] = [
         "ap, invoice sign off, payment run",
     ),
     (
-        "KYC Refresh",
-        "Compliance",
-        "Periodic refresh of know-your-customer and anti-money-laundering documentation for an "
-        "existing investor or counterparty.",
-        "kyc, know your customer, aml, client due diligence, cdd, refresh, screening, "
-        "investor documentation, sanctions check",
-    ),
-    (
-        "NDA Review",
-        "Legal",
-        "Legal review and mark-up of an inbound or outbound non-disclosure agreement.",
-        "nda, non-disclosure, non disclosure agreement, confidentiality agreement, mutual nda, "
-        "sign nda, review nda, confidentiality",
-    ),
-    (
-        "Vendor Onboarding",
-        "Procurement",
-        "Onboard a new supplier: due diligence, bank details verification and system setup.",
-        "vendor, supplier onboarding, new supplier, third party, vendor setup, supplier form, "
-        "counterparty setup, new vendor",
-    ),
-    (
         "IT Access Provisioning",
         "IT",
-        "Provision system access, licences or shared drive permissions for a colleague.",
+        "Provision system access, licences or shared drive permissions for a colleague, "
+        "including password resets and locked accounts.",
         "access, permissions, system access, provisioning, licence, license, vpn access, "
-        "shared drive, new account, joiner setup",
+        "shared drive, new account, joiner setup, password, reset password, locked out, "
+        "mfa, login issue, cannot log in, account locked",
+    ),
+    (
+        "Travel Approval",
+        "Operations",
+        "Approve business travel and book flights, hotels and ground transport.",
+        "travel, flight, flights, trip, hotel, business travel, travel request, itinerary, "
+        "travel booking, visa",
     ),
     (
         "Expense Reimbursement",
@@ -143,34 +130,6 @@ PROCESSES: list[tuple[str, str, str, str]] = [
         "Quarterly fair-value sign-off for portfolio holdings feeding the NAV.",
         "valuation, nav, fair value, portfolio valuation, sign off, mark, quarterly valuation, "
         "pricing, net asset value",
-    ),
-    (
-        "Board Pack Preparation",
-        "Executive",
-        "Compile, format and distribute the board or investment committee pack ahead of a meeting.",
-        "board pack, board meeting, board deck, committee papers, board materials, ic pack, "
-        "investment committee, board papers",
-    ),
-    (
-        "Travel Approval",
-        "Operations",
-        "Approve business travel and book flights, hotels and ground transport.",
-        "travel, flight, flights, trip, hotel, business travel, travel request, itinerary, "
-        "travel booking, visa",
-    ),
-    (
-        "Contract Renewal",
-        "Legal",
-        "Review and renew an expiring supplier or service contract before its termination date.",
-        "contract renewal, renew contract, msa, agreement renewal, extension, contract expiry, "
-        "renewal, service agreement",
-    ),
-    (
-        "Password Reset",
-        "IT",
-        "Reset a forgotten password or unlock an account, including MFA re-enrolment.",
-        "password, reset password, locked out, mfa, login issue, cannot log in, "
-        "account locked, forgot password, two factor",
     ),
     (
         "Purchase Order Approval",
@@ -202,26 +161,16 @@ RESPONSIBILITIES: dict[str, dict[str, list[str]]] = {
         "delegate": ["Karim El-Masri"],
         "backup": ["Tomas Ferreira"],
     },
-    "KYC Refresh": {
-        "owner": ["Tariq Benali"],
-        "approver": ["Zainab Al-Hashimi"],
-        "delegate": ["Hassan Al-Farsi"],
-    },
-    "NDA Review": {
-        "owner": ["Eleanor Voss"],
-        "approver": ["Nadia Suleiman"],
-        "delegate": ["Grace Mwangi"],
-    },
-    "Vendor Onboarding": {
-        "owner": ["Youssef Karim"],
-        "approver": ["Huda Al-Najjar", "Michael Trent"],
-        "delegate": ["Anna Sorenson"],
-    },
     "IT Access Provisioning": {
         "owner": ["Bilal Rahman"],
         "approver": ["Vikram Chandra"],
         "delegate": ["Ivan Kovacs"],
         "backup": ["Ahmed Zaki"],
+    },
+    "Travel Approval": {
+        "owner": ["Hamza Al-Dosari"],
+        "approver": ["Michael Trent", "Huda Al-Najjar"],
+        "delegate": ["Anna Sorenson"],
     },
     "Expense Reimbursement": {
         "owner": ["Peter Lindqvist"],
@@ -232,26 +181,6 @@ RESPONSIBILITIES: dict[str, dict[str, list[str]]] = {
     "Valuation Sign-off": {
         "owner": ["Huda Al-Najjar"],
         "approver": ["Amira Haddadin"],
-    },
-    "Board Pack Preparation": {
-        "owner": ["Priya Nair"],
-        "approver": ["Claire Donovan"],
-        "delegate": ["Anna Sorenson"],
-    },
-    "Travel Approval": {
-        "owner": ["Hamza Al-Dosari"],
-        "approver": ["Michael Trent"],
-        "delegate": ["Anna Sorenson"],
-    },
-    # No delegate: chases here end in a managerial escalation.
-    "Contract Renewal": {
-        "owner": ["Robert Ashby"],
-        "approver": ["Nadia Suleiman"],
-    },
-    "Password Reset": {
-        "owner": ["Ahmed Zaki"],
-        "delegate": ["Ivan Kovacs"],
-        "backup": ["Bilal Rahman"],
     },
     # Orphans — deliberately nobody owns these.
     "Purchase Order Approval": {},
@@ -489,12 +418,11 @@ def seed(reset: bool = True) -> None:
 
 
 def _seed_history(session, rng, base, people, processes) -> None:
-    """15-20 historical requests in mixed states, including overdue ones."""
+    """Historical requests in mixed states, including overdue ones."""
 
     def hours_ago(h: float):
         return base - timedelta(hours=h)
 
-    # (process, requester, assignee, title, body, status, created_hours_ago, ack, complete)
     completed = [
         (
             "Expense Reimbursement", "Marco Bianchi", "Peter Lindqvist",
@@ -509,13 +437,7 @@ def _seed_history(session, rng, base, people, processes) -> None:
             330.0, 1.5, 8.0,
         ),
         (
-            "NDA Review", "Sarah Whitfield", "Eleanor Voss",
-            "Mutual NDA with Cedarline Partners",
-            "Counterparty sent their paper. Please review and mark up before Thursday.",
-            290.0, 6.0, 52.0,
-        ),
-        (
-            "Password Reset", "Anna Sorenson", "Ahmed Zaki",
+            "IT Access Provisioning", "Anna Sorenson", "Bilal Rahman",
             "Locked out of the expenses portal",
             "MFA re-enrolment failed after my phone was replaced.",
             220.0, 0.5, 2.0,
@@ -533,9 +455,9 @@ def _seed_history(session, rng, base, people, processes) -> None:
             150.0, 2.0, 12.0,
         ),
         (
-            "KYC Refresh", "Omar Haddad", "Tariq Benali",
-            "KYC refresh — Northgate Investments",
-            "Their documentation lapsed last month and we cannot draw down until it is refreshed.",
+            "Data Room Access", "Omar Haddad", "Layla Mansour",
+            "Data room access for the Northgate diligence team",
+            "Three analysts need read access to the Northgate folder before Monday.",
             120.0, 5.0, 41.0,
         ),
     ]
@@ -555,21 +477,21 @@ def _seed_history(session, rng, base, people, processes) -> None:
 
     in_progress = [
         (
-            "Vendor Onboarding", "Michael Trent", "Youssef Karim",
-            "Onboard Halcyon Facilities Management",
-            "New cleaning contractor for the Dubai office. Bank details attached for verification.",
+            "Travel Approval", "Michael Trent", "Hamza Al-Dosari",
+            "Flights for the Halcyon site visit",
+            "Two of us, out Wednesday back Friday. Fares are moving so worth booking early.",
             70.0, 5.0,
         ),
         (
-            "Contract Renewal", "Anna Sorenson", "Robert Ashby",
-            "Renewal — Bloomberg terminal agreement",
-            "The agreement lapses in six weeks. Please confirm whether we roll or renegotiate.",
+            "Expense Reimbursement", "Anna Sorenson", "Peter Lindqvist",
+            "Office supplies bought on a personal card",
+            "The card on file was declined, so I paid for the print cartridges myself.",
             58.0, 9.0,
         ),
         (
-            "Board Pack Preparation", "Khalid Al-Rayes", "Priya Nair",
-            "March investment committee pack",
-            "Please pull the March IC pack together — three deal papers plus the pipeline update.",
+            "IT Access Provisioning", "Khalid Al-Rayes", "Bilal Rahman",
+            "Board portal access for the new committee member",
+            "Please set up an account before the next investment committee.",
             44.0, 2.0,
         ),
     ]
@@ -633,16 +555,10 @@ def _seed_history(session, rng, base, people, processes) -> None:
             5.0,
         ),
         (
-            "KYC Refresh", "Sarah Whitfield", "Tariq Benali",
-            "KYC refresh — Sandpiper Family Office",
-            "Annual refresh due. They have already sent the updated corporate documents.",
+            "Expense Reimbursement", "Sarah Whitfield", "Peter Lindqvist",
+            "Taxis during the Sandpiper roadshow",
+            "Four days of client meetings across the city. Receipts are in the folder.",
             3.0,
-        ),
-        (
-            "NDA Review", "James Okonkwo", "Eleanor Voss",
-            "NDA for Project Falcon vendor diligence",
-            "Technical diligence vendor needs an NDA before we open the data room to them.",
-            1.5,
         ),
     ]
     for proc, requester, assignee, title, body, created_h in fresh_pending:
@@ -661,15 +577,15 @@ def _seed_history(session, rng, base, people, processes) -> None:
     # Agent Log is never empty when the demo starts.
     overdue = [
         (
-            "Contract Renewal", "Tomas Ferreira", "Robert Ashby",
-            "Renewal — custodian service agreement",
-            "The custodian agreement auto-renews in three weeks unless we serve notice.",
+            "Invoice Approval", "Tomas Ferreira", "Rania Khoury",
+            "Invoice 88604 — custodian quarterly fee",
+            "The custodian fee is due at the end of the week.",
             53.0,
         ),
         (
-            "Board Pack Preparation", "Claire Donovan", "Priya Nair",
-            "Ops committee pack — April",
-            "Operations committee papers for the April cycle.",
+            "Travel Approval", "Claire Donovan", "Hamza Al-Dosari",
+            "Ops offsite — flights and hotel",
+            "Six of us, two nights, the week after next.",
             51.0,
         ),
     ]
