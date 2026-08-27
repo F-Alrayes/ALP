@@ -11,7 +11,7 @@
       <div class="card ${r.status === "escalated" ? "alarm" : (r.status === "pending" ? "flag" : "")}">
         <div class="card-t">#${r.id} — ${esc(r.title)}</div>
         <div class="card-m">${statusBadge(r.status)}
-          <span>${esc(proc ? proc.name : "Unmatched")}</span>
+          <span>${esc(proc ? proc.name : "No set process")}</span>
           <span>${esc(label)} ${esc(cp ? cp.name : "—")}</span>
           <span class="mono">raised ${esc(human(now() - r.created_at))} ago · quiet for ${
             esc(human(now() - r.last_action_at))}${esc(chase)}</span></div>
@@ -82,7 +82,7 @@
     return `<button class="btn sm" data-act="back">← Back to the list</button>
       <div class="card flag" style="margin-top:13px">
         <div class="card-t">#${r.id} — ${esc(r.title)}</div>
-        <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
+        <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "No set process")}</span>
           <span class="mono">raised ${esc(human(now() - r.created_at))} ago</span></div>
         <div class="card-b">${esc(r.body)}</div>
       </div>

@@ -252,8 +252,21 @@
         <div class="chips tight">${members.map(m =>
           `<button class="chip sm" data-act="treeperson" data-id="${m.id}">${esc(m.name)}</button>`
         ).join("")}</div>
+        ${coversLine(t.department)}
       </div>`;
     }).join("")}</div>`;
+  }
+
+  // What Atlas will route to this team from a plain-English question. Showing
+  // it makes the routing inspectable — and makes clear it is editable data,
+  // not something the chat invented.
+  function coversLine(name) {
+    const dept = S.departments.find(d => d.name === name);
+    const words = String(dept && dept.topics || "").split(",")
+      .map(w => w.trim()).filter(Boolean);
+    if (!words.length) return "";
+    return `<details class="why"><summary>Covers ${words.length} topics</summary>
+      <p class="sub small">${esc(words.join(" · "))}</p></details>`;
   }
 
   function deptOptions(selected) {

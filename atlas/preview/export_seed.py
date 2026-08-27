@@ -19,7 +19,7 @@ with session_scope() as s:
         return None if dt is None else round((dt - base).total_seconds() / 3600.0, 4)
 
     data = {
-        "departments": [{"id": d.id, "name": d.name}
+        "departments": [{"id": d.id, "name": d.name, "topics": d.topics or ""}
                         for d in s.query(Department).order_by(Department.id).all()],
         "people": [{"id": p.id, "name": p.name, "title": p.title,
                     "department_id": p.department_id, "manager_id": p.manager_id,

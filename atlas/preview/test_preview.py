@@ -72,7 +72,7 @@ def run(p):
     check("shows the routing trace", "Owner lookup" in log and "Layla Mansour" in log)
     check("detects out of office and delegates", "out of office" in log and "James Okonkwo" in log)
     check("offers an editable draft", p.locator('[data-act="dbody"]').count() == 1)
-    p.get_by_role("button", name="Send it").click()
+    p.locator('[data-act="chatsend"]').click()
     p.wait_for_timeout(1000)
     check("confirms it was sent", "Sent." in p.inner_text("#chatlog"))
 
@@ -85,7 +85,7 @@ def run(p):
     check("answers who owns a process", "Rania Khoury" in ask("Who owns invoice approval?"))
     check("answers who is away", "Layla Mansour" in ask("Is anyone out of office?"))
     check("answers about a person", "Financial Controller" in ask("Who is Huda Al-Najjar?"))
-    check("answers for help", "find them and send it" in ask("help").lower())
+    check("answers for help", "find the right person and send it" in ask("help").lower())
     check("password requests route to IT access",
           "IT Access Provisioning" in ask("I am locked out of my account"))
 
@@ -129,6 +129,38 @@ def run(p):
     check("a question about a person is still a question", "Senior Associate" in log,
           log[:160])
 
+    # ------------------------------------------------- who do I contact?
+    section("chat — problems no request type covers")
+    log = reply("who do i need to contact to get my laptop fixed")
+    check("a broken laptop reaches IT", "IT" in log and "Vikram Chandra" in log, log[:160])
+    check("shows the word it routed on", "laptop" in log, log[:160])
+    check("offers to send it", p.locator('[data-act="sendcontact"]').count() == 1)
+    p.locator('[data-act="sendcontact"]').last.click()
+    p.wait_for_timeout(700)
+    log = p.locator("#chatlog .msg.bot").last.inner_text()
+    check("sends it to the team contact", "Sent." in log and "Vikram Chandra" in log, log[:160])
+    check("is honest that no process covers it", "No request type covers this" in log,
+          log[:200])
+    # The recipient gets the need, not the routing question wrapped round it.
+    check("titles it with what was actually asked for", "get my laptop fixed" in log
+          and "who do i need to contact" not in log.lower(), log[:220])
+
+    for question, team, who in [
+        ("my chair is broken", "Operations / HR", "Claire Donovan"),
+        ("who handles payroll", "Finance", "Karim El-Masri"),
+        ("i think i got a phishing email", "IT", "Vikram Chandra"),
+        ("who do i contact about a sanctions check", "Legal & Compliance", "Nadia Suleiman"),
+    ]:
+        log = reply(question)
+        check(f"{question!r} reaches {who}", team in log and who in log, log[:140])
+
+    log = reply("who owns invoice approval?")
+    check("a real process still beats the team fallback", "Rania Khoury" in log, log[:140])
+
+    reply("where is the coffee machine")
+    tail = p.inner_text("#chatlog")[-700:]
+    check("a genuine blank stays a blank", "couldn't match" in tail, tail[:160])
+
     p.select_option('[data-act="actor"]', label="Noura Al-Sabah")
     p.wait_for_timeout(700)
 
@@ -141,6 +173,17 @@ def run(p):
     check("spans the canvas width", m["w"] > (m["vw"] - 288) * 0.93, f"{m['w']:.0f}px")
     check("fills most of the height", m["h"] > m["vh"] * 0.7, f"{m['h']:.0f}px")
     check("opens folded to the teams", len(names(p)) == 6, f"{len(names(p))} cards")
+    fit = p.evaluate("""() => {
+        const box = document.getElementById('orgscroll');
+        const svg = document.getElementById('treesvg');
+        const r = svg.getBoundingClientRect(), b = box.getBoundingClientRect();
+        return {left: r.left - b.left, right: b.right - r.right,
+                top: r.top - b.top, bottom: b.bottom - r.bottom}; }""")
+    # The chart is centred in the stage rather than pinned to a corner.
+    check("centred horizontally", abs(fit["left"] - fit["right"]) < 4,
+          f"{fit['left']:.0f} vs {fit['right']:.0f}")
+    check("centred vertically", abs(fit["top"] - fit["bottom"]) < 4,
+          f"{fit['top']:.0f} vs {fit['bottom']:.0f}")
 
     section("org chart — search suggestions")
     before = names(p)
@@ -258,7 +301,7 @@ def run(p):
         check("picking a request type drafts it",
               p.locator('[data-act="dbody"]').count() == 1)
         check("the draft is for that request type", want in p.inner_text("#chatlog"), want)
-        p.get_by_role("button", name="Send it").click(); p.wait_for_timeout(900)
+        p.locator('[data-act="chatsend"]').click(); p.wait_for_timeout(900)
         check("it can be sent", "Sent." in p.inner_text("#chatlog"))
     else:
         check("explains when they own nothing", "doesn" in log.lower())

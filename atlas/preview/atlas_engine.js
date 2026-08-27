@@ -225,7 +225,7 @@
     return joined.charAt(0).toUpperCase() + joined.slice(1) + ".";
   }
 
-  root.AtlasFuzz = { ratio, partialRatio, tokenSetRatio, tokenize };
+  root.AtlasFuzz = { ratio, partialRatio, tokenSetRatio, tokenize, STOPWORDS };
   root.AtlasMatch = { matchProcesses, why, keywordList, confidenceLabel };
 
   if (typeof module !== "undefined" && module.exports) {
@@ -1025,7 +1025,7 @@
   root.AtlasAnalytics = {
     headline, byStatus, openByDepartment, turnaroundByDepartment, orphanProcesses,
     singlePointsOfFailure, bottlenecks, queueAges, processStats, personStats,
-    responsibilitiesOf, responsibilityGraph, departmentName, isOpen,
+    responsibilitiesOf, responsibilityGraph, departmentName, isOpen, round1,
   };
   if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, root.AtlasAnalytics);
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -1114,11 +1114,15 @@
   // Questions Atlas answers about itself. Anything else is treated as a job to
   // be routed, because that is what people actually come here to do.
   const PATTERNS = [
-    ["help",      /\b(help|how does this work|what can you do|guide|tutorial|get started)\b/i],
+    // Bare "help" is the guide; "who can help me with a visa" is not.
+    ["help",      /^\s*(help|help me|\?)\s*$|\b(how does (this|atlas) work|what can you do|show me the guide|walk me through|tutorial|getting started|get started|how do i use)\b/i],
     ["who_ooo",   /\b((who|anyone|anybody)('?s| is| are)? (out|away|off|on leave|on holiday)|out of office|\booo\b|who is away)\b/i],
     ["my_inbox",  /\b(my inbox|assigned to me|what.{0,12}(waiting|with) me|my queue|my work)\b/i],
     ["my_requests", /\b(my requests?|requests? i (raised|made|sent)|where is my|status of my|track my)\b/i],
     ["who_owns",  /\b(who (owns?|is responsible for|handles?|approves?|looks after|runs?)|owner of|responsible for|accountable for)\b/i],
+    // "Who do I contact to get my laptop fixed?" — the same question, asked
+    // about a problem rather than a process.
+    ["who_to_contact", /\b(who (do|should|would|can|could) (i|we)( need to| have to)? ?(contact|ask|speak to|speak with|talk to|go to|see|email|call|chase)|who (can|could) (i |we )?(help|assist)|who (looks after|deals with|sorts out|takes care of)|who to (contact|ask|speak to)|point me (to|at)|put me in touch|where do i (go|start)|who fixes)\b/i],
     ["about",     /\b(who is|tell me about|what does .+ do|profile (of|for))\b/i],
   ];
 
@@ -1309,7 +1313,199 @@
       .filter(x => x.process);
   }
 
+  /* ------------------------- who do I contact? --------------------------
+     Not every problem is one of the eight request types. A broken laptop is
+     nobody's process, but it is obviously IT's. Each team carries the words
+     people actually use for its problems (seed.DEPARTMENTS), so a question no
+     process answers still lands on a real person rather than a shrug. */
+
+  const MIN_TOPIC_WORD = 3;
+
+  // Words in half the firm's job titles that say nothing about ground.
+  const GENERIC_TITLE_WORDS = new Set(("head lead leader manager director officer chief senior " +
+    "junior associate analyst specialist coordinator assistant executive business partner " +
+    "principal counsel general deputy controller administrator advisor adviser consultant support"
+    ).split(" "));
+
+  function topicList(dept) {
+    const out = [];
+    for (const raw of String(dept.topics || "").split(",")) {
+      const keyword = raw.trim().toLowerCase();
+      if (!keyword) continue;
+      if (!keyword.includes(" ") && keyword.length < MIN_TOPIC_WORD) continue;
+      out.push(keyword);
+    }
+    return out;
+  }
+
+  // Crude inflection stripper — enough for plurals and -ing/-ed.
+  function stemWord(word) {
+    for (const suffix of ["ing", "es", "ed", "s"]) {
+      if (word.endsWith(suffix) && word.length - suffix.length >= 3)
+        return word.slice(0, word.length - suffix.length);
+    }
+    return word;
+  }
+
+  // Whole-word matching for a curated vocabulary. The process matcher is
+  // deliberately forgiving, which is right when it is scoring eight long
+  // descriptions. Here the vocabulary is hand-written and dense, so forgiveness
+  // becomes noise: "contact" scores as "contract", "screen" as "screening", and
+  // a broken laptop lands on the lawyers.
+  function topicHits(query, tokens, topics) {
+    const lowered = " " + String(query).toLowerCase() + " ";
+    const exact = new Set(tokens);
+    const stems = new Set(tokens.map(stemWord));
+    const hits = [], seen = new Set();
+    const has = w => exact.has(w) || stems.has(stemWord(w));
+    for (const keyword of topics) {
+      if (seen.has(keyword)) continue;
+      const words = keyword.match(/[a-z0-9']+/g) || [];
+      if (!words.length) continue;
+      const matched = words.length === 1
+        ? has(words[0])
+        : (lowered.includes(" " + keyword + " ") || words.every(has));
+      if (matched) { seen.add(keyword); hits.push(keyword); }
+    }
+    return hits;
+  }
+
+  // How much of a job title the question actually names.
+  function titleScore(title, tokens) {
+    const words = (String(title || "").toLowerCase().match(/[a-z]+/g) || []).filter(w => w.length > 2);
+    const meaningful = words.filter(w => !GENERIC_TITLE_WORDS.has(w) && !root.AtlasFuzz.STOPWORDS.has(w));
+    if (!meaningful.length) return 0;
+    const exact = new Set(tokens);
+    const stems = new Set(tokens.map(stemWord));
+    let covered = 0;
+    for (const w of meaningful) if (exact.has(w) || stems.has(stemWord(w))) covered++;
+    return covered / meaningful.length;
+  }
+
+  // Whoever's job title says so, else whoever sits closest to the top.
+  function pickContact(st, dept, titlePerson, score) {
+    if (titlePerson && score >= 0.5)
+      return { person: titlePerson, reason: `${titlePerson.title} in ${dept.name}` };
+    const people = st.people.filter(p => p.department_id === dept.id);
+    if (!people.length) return { person: null, reason: `${dept.name} has nobody in the directory` };
+    const depth = p => {
+      const guard = new Set();
+      let steps = 0, cur = p;
+      while (cur && cur.manager_id && !guard.has(cur.id)) {
+        guard.add(cur.id); cur = C.person(st, cur.manager_id); steps++;
+      }
+      return steps;
+    };
+    let lead = people[0], best = [depth(lead), lead.name];
+    for (const p of people) {
+      const key = [depth(p), p.name];
+      if (key[0] < best[0] || (key[0] === best[0] && key[1] < best[1])) { lead = p; best = key; }
+    }
+    return { person: lead, reason: `leads ${dept.name}` };
+  }
+
+  function matchDepartments(st, query, limit) {
+    limit = limit || 3;
+    query = String(query || "").trim();
+    const depts = st.departments.slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (!query || !depts.length) return [];
+
+    const tokens = root.AtlasFuzz.tokenize(query);
+    const lowered = query.toLowerCase();
+    const out = [];
+
+    for (const dept of depts) {
+      const hits = topicHits(query, tokens, topicList(dept));
+      // One specific word ("pension", "wifi") is already strong evidence, so
+      // the first hit is worth the most and each further hit adds less.
+      const topicScore = hits.length ? 1 - Math.pow(0.5, hits.length) : 0;
+      const nameScore = root.AtlasFuzz.tokenSetRatio(lowered, dept.name.toLowerCase()) / 100;
+
+      let best = 0, bestPerson = null;
+      for (const p of st.people) {
+        if (p.department_id !== dept.id) continue;
+        const score = titleScore(p.title, tokens);
+        if (score > best) { best = score; bestPerson = p; }
+      }
+
+      const raw = 0.62 * topicScore + 0.20 * nameScore + 0.18 * best;
+      const confidence = Math.max(0, Math.min(100, (raw - 0.10) / 0.70 * 100));
+      if (confidence <= 0) continue;
+
+      const picked = pickContact(st, dept, bestPerson, best);
+      out.push({
+        department_id: dept.id, department_name: dept.name,
+        confidence: A.round1(confidence), matched_keywords: hits.slice(0, 5),
+        person_id: picked.person ? picked.person.id : null,
+        person_name: picked.person ? picked.person.name : null,
+        person_title: picked.person ? picked.person.title : null,
+        reason: picked.reason,
+      });
+    }
+
+    out.sort((a, b) => (b.confidence - a.confidence) ||
+                       (b.matched_keywords.length - a.matched_keywords.length));
+    return out.slice(0, limit);
+  }
+
+  // A resolution for a request that matched no process, so the trace stays
+  // honest: it says it routed on the topic, and it still applies OOO failover.
+  function resolveContact(st, contact, at) {
+    if (at === undefined) at = C.now(st);
+    const res = {
+      process_id: null, process_name: contact.department_name + " (no set process)",
+      assignee_id: null, assignee_name: null, assignee_role: "team contact",
+      owner_id: contact.person_id, owner_name: contact.person_name,
+      rerouted: false, needs_admin: false, steps: [],
+    };
+    const words = contact.matched_keywords.length
+      ? `'${contact.matched_keywords.slice(0, 3).join("', '")}'` : "the wording";
+    res.steps.push({ label: "Topic match", outcome: "ok",
+      detail: `No request type covers this. ${words} points at ${contact.department_name}.` });
+
+    const contactPerson = contact.person_id ? C.person(st, contact.person_id) : null;
+    if (!contactPerson) {
+      res.needs_admin = true;
+      res.steps.push({ label: "Team contact", outcome: "fail",
+        detail: `${contact.department_name} has nobody in the directory. Flagged for the Atlas admin.` });
+      return res;
+    }
+    res.steps.push({ label: "Team contact", outcome: "ok",
+      detail: `${contactPerson.name} (${contactPerson.title}) ${contact.reason}.`,
+      person_id: contactPerson.id, person_name: contactPerson.name });
+
+    if (!C.isOutOfOffice(contactPerson, at)) {
+      res.steps.push({ label: "Availability check", outcome: "ok",
+        detail: `${contactPerson.name} is available.`,
+        person_id: contactPerson.id, person_name: contactPerson.name });
+      res.assignee_id = contactPerson.id; res.assignee_name = contactPerson.name;
+      return res;
+    }
+
+    res.rerouted = true;
+    res.steps.push({ label: "Availability check", outcome: "warn",
+      detail: `${contactPerson.name} is out of office until ${C.fmtDate(contactPerson.ooo_until)}.`,
+      person_id: contactPerson.id, person_name: contactPerson.name });
+
+    // No process means no delegate edge, so fall back up the reporting line.
+    const manager = contactPerson.manager_id ? C.person(st, contactPerson.manager_id) : null;
+    if (manager && !C.isOutOfOffice(manager, at)) {
+      res.assignee_id = manager.id; res.assignee_name = manager.name;
+      res.assignee_role = "manager";
+      res.steps.push({ label: "Manager fallback", outcome: "ok",
+        detail: `${manager.name} (${manager.title}) manages them and is available.`,
+        person_id: manager.id, person_name: manager.name });
+      return res;
+    }
+    res.needs_admin = true;
+    res.steps.push({ label: "Manager fallback", outcome: "fail",
+      detail: manager ? `${manager.name} is also out of office. Flagged for the Atlas admin.`
+                      : `No manager is recorded. Flagged for the Atlas admin.` });
+    return res;
+  }
+
   root.AtlasOrg = { orgTree, teamSummary, pathToRoot, classify, understand, splitRelay, normalise,
+                    matchDepartments, resolveContact, topicHits, titleScore, stemWord,
                     findPerson, findProcess, processesFor,
                     REQUEST_HINT };
   if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, root.AtlasOrg);

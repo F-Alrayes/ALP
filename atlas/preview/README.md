@@ -100,8 +100,8 @@ What it currently confirms:
 
 `understand()` in the engine reads one message and returns what kind of thing it
 is, who it points at, and what it is asking for. Intents are: raise a request,
-who owns X, who is out of office, my inbox, my requests, who is this person,
-help — anything else is treated as a request. It is keyword and fuzzy matching
+who owns X, who do I contact about X, who is out of office, my inbox, my
+requests, who is this person, help — anything else is treated as a request. It is keyword and fuzzy matching
 over the seeded data, not a language model: there is no network call, and the
 same input always produces the same answer.
 
@@ -144,6 +144,38 @@ The same reading runs in the Python app: `atlas/matching.py` carries
 matches on `matchable_text(query)`. `parity/ref_relay.py` pins the two
 implementations to the same output for 16 sentences.
 
+### Problems no request type covers
+
+> "Who do I need to contact to get my laptop fixed?"
+
+A broken laptop is nobody's process, but it is obviously IT's. Every team
+carries the vocabulary people actually use for its problems — see
+`DEPARTMENTS` in `atlas/seed.py`, which is the file to edit when a team picks
+up new ground. `match_departments()` scores the teams on those words plus the
+job titles of the people in them, and names a contact: whoever's title says so
+(`payroll` → **Payroll Specialist**), otherwise whoever leads the team.
+
+Topics are matched on **whole words**, not the forgiving fuzz the process
+matcher uses. That matters: the process matcher is right to be generous when
+scoring eight long descriptions, but on a dense hand-written vocabulary the
+same generosity scores "contact" as "contract" and "screen" as "screening",
+and a broken laptop lands on the lawyers.
+
+`resolve_contact()` produces a normal resolution trace, so a request routed
+this way still shows its working and still fails over when the contact is
+away — up the reporting line, since a team with no process has no delegate
+edge to follow.
+
+The fallback is wired in three places: a `who do I contact…` question, a
+request that matched no process, and a relay whose subject matched no process.
+All three end in the same card — the team, the person, the words that got us
+there, and a button that sends it. The Streamlit intake shows the same answer
+under its "no process matched" warning. `parity/ref_contact.py` pins both
+implementations to the same team, contact and confidence across 24 questions.
+
+When even the team vocabulary draws a blank ("where is the coffee machine"),
+Atlas says so rather than guessing.
+
 ## The org chart
 
 `orgTree()` builds a forest from `manager_id`; anyone whose manager is missing
@@ -153,6 +185,14 @@ with pan, zoom, per-node collapse, search-to-highlight and a detail panel.
 
 It opens folded to the five department heads rather than dropping the viewer
 into a 7,000-pixel canvas, and auto-fits to the container on first paint.
+
+**Fit** works on both axes and against the stage's content box, so a chart that
+is short and wide stops filling the width and overflowing the height. Whatever
+the stage cannot fit is centred rather than pinned to a corner (`safe center` in
+CSS for the axis that fits, scroll position for the axis that does not). The
+fit runs as a two-pass render — measure, set the zoom, re-render, then centre —
+so `UI.tree.center` has to survive the first pass. Clearing it early left the
+chart correctly scaled and stuck against the left edge.
 
 The chart is **full-bleed**: on the Org chart tab the page header is dropped and
 the canvas fills the viewport, with the detail panel floating over the top-right

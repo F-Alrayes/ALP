@@ -313,3 +313,184 @@ def matchable_text(query: str) -> str:
     subject, ask = split_relay(query)
     joined = " ".join(part for part in (subject, ask) if part).strip()
     return joined if len(joined) >= 3 else (query or "").strip()
+
+
+# --------------------------------------------------------------------------
+# "Who do I contact about X?"
+#
+# Not every problem is one of the request types. A broken laptop is nobody's
+# process, but it is obviously IT's. Score the teams on the words they own,
+# and on the job titles of the people in them, so a question that no process
+# answers still lands on a real person rather than a shrug.
+# --------------------------------------------------------------------------
+
+
+@dataclass
+class Contact:
+    """Where a question that matched no process should go."""
+
+    department_id: int
+    department_name: str
+    confidence: float
+    matched_keywords: list[str]
+    person_id: int | None
+    person_name: str | None
+    person_title: str | None
+    reason: str
+
+
+# Keyword hits are substring-first, so a two-letter topic matches inside
+# ordinary words — "it" inside "permit", "pc" inside "topics". Single words that
+# short are dropped rather than trusted.
+_MIN_TOPIC_WORD = 3
+
+# Words that appear in half the firm's job titles and say nothing about ground.
+GENERIC_TITLE_WORDS = {
+    "head", "lead", "leader", "manager", "director", "officer", "chief", "senior",
+    "junior", "associate", "analyst", "specialist", "coordinator", "assistant",
+    "executive", "business", "partner", "principal", "counsel", "general", "deputy",
+    "controller", "administrator", "advisor", "adviser", "consultant", "support",
+}
+
+
+def _topic_list(department: "Department") -> list[str]:
+    out = []
+    for keyword in (department.topics or "").split(","):
+        keyword = keyword.strip().lower()
+        if not keyword:
+            continue
+        if " " not in keyword and len(keyword) < _MIN_TOPIC_WORD:
+            continue
+        out.append(keyword)
+    return out
+
+
+def _stem(word: str) -> str:
+    """Crude inflection stripper — enough for plurals and -ing/-ed."""
+    for suffix in ("ing", "es", "ed", "s"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            return word[: -len(suffix)]
+    return word
+
+
+def _topic_hits(query: str, tokens: list[str], topics: list[str]) -> list[str]:
+    """Whole-word matching for a curated vocabulary.
+
+    The process matcher is deliberately forgiving, which is right when it is
+    scoring eight long descriptions. Here the vocabulary is hand-written and
+    dense, so forgiveness becomes noise: "contact" scores as "contract",
+    "screen" as "screening", and a broken laptop lands on the lawyers. Match
+    whole words and their obvious inflections, nothing looser.
+    """
+    lowered = f" {query.lower()} "
+    exact = set(tokens)
+    stems = {_stem(t) for t in tokens}
+    hits, seen = [], set()
+    for keyword in topics:
+        if keyword in seen:
+            continue
+        words = re.findall(r"[a-z0-9']+", keyword)
+        if not words:
+            continue
+        matched = (
+            all(w in exact or _stem(w) in stems for w in words)
+            if len(words) == 1
+            else (f" {keyword} " in lowered or all(w in exact or _stem(w) in stems for w in words))
+        )
+        if matched:
+            seen.add(keyword)
+            hits.append(keyword)
+    return hits
+
+
+def _title_score(title: str, query_tokens: list[str]) -> float:
+    """How much of a job title the question actually names.
+
+    Scored on the title's own distinctive words: "Payroll Specialist" against
+    "who handles payroll" is a hit, while every "Head of ..." in the firm is not.
+    """
+    words = [w for w in re.findall(r"[a-z]+", (title or "").lower()) if len(w) > 2]
+    meaningful = [w for w in words if w not in GENERIC_TITLE_WORDS and w not in STOPWORDS]
+    if not meaningful:
+        return 0.0
+    exact = set(query_tokens)
+    stems = {_stem(t) for t in query_tokens}
+    covered = sum(1 for w in meaningful if w in exact or _stem(w) in stems)
+    return covered / len(meaningful)
+
+
+def match_departments(session: Session, query: str, limit: int = 3) -> list[Contact]:
+    """Rank teams against a plain-English problem, best first."""
+    from .models import Department, Person  # local: avoids a circular import at module load
+
+    query = (query or "").strip()
+    departments = session.query(Department).order_by(Department.name).all()
+    if not query or not departments:
+        return []
+
+    tokens = tokenize(query)
+    lowered = query.lower()
+    out: list[Contact] = []
+
+    for department in departments:
+        topics = _topic_list(department)
+        hits = _topic_hits(query, tokens, topics)
+        # One specific word ("pension", "wifi") is already strong evidence, so
+        # the first hit is worth the most and each further hit adds less.
+        topic_score = 1.0 - 0.5 ** len(hits) if hits else 0.0
+        name_score = fuzz.token_set_ratio(lowered, department.name.lower()) / 100.0
+
+        # A job title is the other place a team's ground is written down, and it
+        # is more specific than the team name: "Payroll Specialist" beats "Finance".
+        title_score, title_person = 0.0, None
+        for person in department.people:
+            score = _title_score(person.title, tokens)
+            if score > title_score:
+                title_score, title_person = score, person
+
+        raw = 0.62 * topic_score + 0.20 * name_score + 0.18 * title_score
+        confidence = max(0.0, min(100.0, (raw - 0.10) / 0.70 * 100.0))
+        if confidence <= 0:
+            continue
+
+        contact, reason = _pick_contact(session, department, title_person, title_score)
+        out.append(
+            Contact(
+                department_id=department.id,
+                department_name=department.name,
+                confidence=round(confidence, 1),
+                matched_keywords=hits[:5],
+                person_id=contact.id if contact else None,
+                person_name=contact.name if contact else None,
+                person_title=contact.title if contact else None,
+                reason=reason,
+            )
+        )
+
+    out.sort(key=lambda c: (c.confidence, len(c.matched_keywords)), reverse=True)
+    return out[:limit]
+
+
+def _pick_contact(
+    session: Session, department: "Department", title_person: "Person | None", title_score: float
+) -> tuple["Person | None", str]:
+    """Who in the team to name: whoever's job title says so, else whoever leads it."""
+    if title_person is not None and title_score >= 0.5:
+        return title_person, f"{title_person.title} in {department.name}"
+
+    people = list(department.people)
+    if not people:
+        return None, f"{department.name} has nobody in the directory"
+
+    # The lead is whoever sits closest to the top of the tree.
+    def depth(person: "Person") -> int:
+        seen: set[int] = set()
+        steps, cursor = 0, person
+        while cursor is not None and cursor.manager_id and cursor.id not in seen:
+            seen.add(cursor.id)
+            cursor = session.get(type(person), cursor.manager_id)
+            steps += 1
+        return steps
+
+    lead = min(people, key=lambda p: (depth(p), p.name))
+    return lead, f"leads {department.name}"

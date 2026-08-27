@@ -27,12 +27,60 @@ from .models import (
     Responsibility,
 )
 
-DEPARTMENTS = [
-    "Investments / Deal Team",
-    "Finance",
-    "Legal & Compliance",
-    "IT",
-    "Operations / HR",
+# Each team carries the vocabulary people actually use for its problems, so
+# "who do I contact to get my laptop fixed" can reach IT even though no request
+# type covers a broken laptop. This is the firm's own words, not a taxonomy: it
+# is the thing that has to be edited when a team picks up new ground.
+DEPARTMENTS: list[tuple[str, str]] = [
+    (
+        "Investments / Deal Team",
+        "deal, transaction, data room, diligence, due diligence, target, portfolio, "
+        "portfolio company, investment, investment committee, pipeline, mandate, "
+        "teaser, deal model, fund, co-invest, term sheet, nda with a counterparty",
+    ),
+    (
+        "Finance",
+        "invoice, payment, pay, supplier, vendor payment, expense, expenses, "
+        "reimburse, reimbursement, receipt, budget, cost, spend, purchase order, "
+        "accounts, accounts payable, payroll, salary, pay slip, bonus, tax, "
+        "audit, nav, valuation, treasury, bank, bank details, wire, transfer, "
+        "forecast, month end, ledger, billing, credit card, corporate card, "
+        "claim, expense claim, out of pocket",
+    ),
+    (
+        "Legal & Compliance",
+        "contract, agreement, nda, non disclosure, legal, lawyer, counsel, review a "
+        "contract, terms, clause, policy, compliance, regulation, regulatory, fca, "
+        "kyc, aml, anti money laundering, sanctions, screening check, gdpr, data "
+        "protection, privacy, personal data, breach, dispute, litigation, "
+        "insurance, conflict of interest, gift register, whistleblowing",
+    ),
+    (
+        "IT",
+        "laptop, computer, macbook, desktop, monitor, screen, keyboard, "
+        "mouse, docking station, headset, webcam, hardware, crashed, frozen, "
+        "blue screen, won't turn on, wifi, wi-fi, internet, network, vpn, "
+        "remote access, printer, printing, "
+        "scanner, software, application, install, licence, license, email, "
+        "outlook, mailbox, calendar, teams, zoom, phone, mobile, password, "
+        "login, log in, locked out, mfa, two factor, permissions, shared "
+        "drive, sharepoint, onedrive, backup, virus, phishing, it support, "
+        "helpdesk, service desk, tech, technology",
+    ),
+    (
+        "Operations / HR",
+        "office, facilities, building, desk, seating, meeting room, room booking, "
+        "parking, security pass, badge, access card, stationery, supplies, "
+        "chair, furniture, lighting, heating, air conditioning, "
+        "catering, kitchen, cleaning, courier, travel, flight, hotel, taxi, "
+        "visa, itinerary, holiday, annual leave, time off, sick, sickness, "
+        "absence, maternity, paternity, hr, people team, contract of employment, "
+        "onboarding, joiner, new starter, leaver, offboarding, benefits, pension, "
+        "private medical, recruitment, hiring, hire, new hire, headcount, "
+        "interview, reference, training, course, performance review, appraisal, "
+        "grievance, health and safety, "
+        "first aid, fire drill",
+    ),
 ]
 
 # (name, title, department, manager name or None)
@@ -353,8 +401,8 @@ def seed(reset: bool = True) -> None:
         base = now(session)
 
         departments: dict[str, Department] = {}
-        for name in DEPARTMENTS:
-            dept = Department(name=name)
+        for name, topics in DEPARTMENTS:
+            dept = Department(name=name, topics=topics)
             session.add(dept)
             departments[name] = dept
         session.flush()

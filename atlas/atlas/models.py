@@ -24,6 +24,8 @@ class Department(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(120), unique=True)
+    # The words people use for this team's problems — see seed.DEPARTMENTS.
+    topics: Mapped[str] = mapped_column(Text, default="")
 
     people: Mapped[list["Person"]] = relationship(back_populates="department")
 

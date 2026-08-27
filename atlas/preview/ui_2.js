@@ -2,9 +2,9 @@
   /* ================================= chat =============================== */
 
   const SUGGESTIONS = [
+    "Who do I contact to get my laptop fixed?",
     "Email whoever owns the data room and ask them for access",
     "Ask whoever approves expenses to sign off my claim",
-    "Who owns invoice approval?",
     "What's in my inbox?",
   ];
 
@@ -29,6 +29,9 @@
     const matches = E.matchProcesses(S.processes, query, 3);
     const top = matches[0];
     if (!top || top.confidence < 25) {
+      // No request type covers it. Before giving up, try the teams — most
+      // things people need are somebody's job even when they are nobody's form.
+      if (botContact(query)) return;
       pushMsg("bot", "text", { text:
         "I couldn't match that. Pick the closest one, or rephrase it." });
       pushMsg("bot", "pick", { query, options: matches.map(m => m.process_id) });
@@ -60,6 +63,7 @@
     if (!top || top.confidence < 25) {
       // Understood the instruction, not the subject.
       if (named) { pushMsg("bot", "askwho", { id: named.id }); return; }
+      if (botContact(u.subject || query)) return;
       pushMsg("bot", "text", { text:
         "I can tell you want something raised — I just can't tell what. Pick one:" });
       pushMsg("bot", "pick", { query, options: [] });
@@ -133,12 +137,60 @@
 
   function botWhoOwns(text) {
     const proc = E.findProcess(S, text);
-    if (!proc) {
+    if (proc) { pushMsg("bot", "owners", { processId: proc.id }); return; }
+    // No request type covers it — "who do I contact to get my laptop fixed" is
+    // still a fair question, and the team vocabulary can answer it.
+    if (botContact(text)) return;
+    pushMsg("bot", "text", { text:
+      "I don't know who covers that. Try naming the thing itself — a laptop, an " +
+      "invoice, a contract — or browse People." });
+  }
+
+  // Route a problem to a team when no process matches. Returns false if even
+  // the team vocabulary draws a blank, so the caller can say so plainly.
+  function botContact(text) {
+    const found = E.matchDepartments(S, text, 2);
+    const top = found[0];
+    if (!top || top.confidence < 25 || !top.person_id) return false;
+    pushMsg("bot", "contact", { query: text, deptId: top.department_id });
+    return true;
+  }
+
+  // "Who do I contact to get my laptop fixed" is a routing question wrapped
+  // round a need. Vikram should receive the need, not the question.
+  const CONTACT_FRAMING = new RegExp(
+    "^\\s*(?:who\\s+(?:do|should|would|can|could)\\s+(?:i|we)(?:\\s+need\\s+to|\\s+have\\s+to)?\\s*" +
+    "(?:contact|ask|speak\\s+to|speak\\s+with|talk\\s+to|go\\s+to|see|email|call|chase)" +
+    "|who\\s+(?:looks\\s+after|deals\\s+with|sorts\\s+out|takes\\s+care\\s+of|fixes|handles)" +
+    "|where\\s+do\\s+i\\s+(?:go|start))" +
+    "\\s*(?:to|about|for|with|regarding)?\\s*", "i");
+
+  function askedFor(text) {
+    const stripped = String(text || "").replace(CONTACT_FRAMING, "").trim().replace(/[?]+$/, "");
+    return stripped.length >= 3 ? stripped : String(text || "").trim();
+  }
+
+  function sendToContact(text, deptId) {
+    const found = E.matchDepartments(S, text, 3);
+    const contact = found.find(c => c.department_id === deptId) || found[0];
+    if (!contact) return;
+    const res = E.resolveContact(S, contact);
+    if (res.assignee_id === null) {
       pushMsg("bot", "text", { text:
-        "Which one? Try invoice approval, data room access, travel approval." });
+        `Everyone I'd send this to in ${contact.department_name} is away. ` +
+        `Try again tomorrow, or pick someone in People.` });
       return;
     }
-    pushMsg("bot", "owners", { processId: proc.id });
+    const r = E.createRequest(S, {
+      requester_id: UI.actor, process_id: null, assignee_id: res.assignee_id,
+      title: E.suggestTitle(askedFor(text), contact.department_name),
+      // draftBody only reads the name off this, and naming the team beats
+      // telling the recipient they have received "an unmatched request".
+      body: E.draftBody(actor(), { name: contact.department_name }, res, askedFor(text)),
+      resolution: res,
+    });
+    UI.draft = null;
+    pushMsg("bot", "sent", { id: r.id, auto: true, team: contact.department_name });
   }
 
   function botOoo() {
@@ -183,8 +235,9 @@
 
   function botHelp() {
     pushMsg("bot", "text", { text:
-      "Write it the way you'd say it. \"Email whoever owns the data room and ask " +
-      "for access\" is enough — I'll find them and send it.\n\n" +
+      "Describe the problem, not the paperwork. \"Who do I contact to get my " +
+      "laptop fixed?\" and \"email whoever owns the data room and ask for access\" " +
+      "both work — I'll find the right person and send it.\n\n" +
       "Once sent, I chase after 48h, hand over to a cover, then escalate." });
     pushMsg("bot", "suggest", { items: SUGGESTIONS });
   }
@@ -198,7 +251,8 @@
     switch (u.intent) {
       case "help":        botHelp(); break;
       case "who_ooo":     botOoo(); break;
-      case "who_owns":    botWhoOwns(text); break;
+      case "who_owns":
+      case "who_to_contact": botWhoOwns(text); break;
       case "my_inbox":    botInbox(); break;
       case "my_requests": botMyRequests(); break;
       case "about":       botAbout(u); break;
@@ -288,7 +342,10 @@
     // Show the lookup, not just the outcome: finding the right person is the
     // work the user skipped by asking Atlas instead of guessing an address.
     let trail = "";
-    if (m.data.auto && owner) {
+    if (m.data.team) {
+      trail = `<p class="sub small">No request type covers this, so it went to
+        ${esc(m.data.team)}.</p>`;
+    } else if (m.data.auto && owner) {
       const lead = m.data.subject
         ? `Whoever owns <strong>${esc(m.data.subject)}</strong> is <strong>${esc(owner.name)}</strong>`
         : `<strong>${esc(owner.name)}</strong> owns that`;
@@ -306,7 +363,7 @@
       ${trail}
       <div class="card flag tight">
         <div class="card-t">#${r.id} — ${esc(r.title)}</div>
-        <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
+        <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "No set process")}</span>
           <span class="mono">raised ${esc(human(now() - r.created_at))} ago</span></div>
       </div>
       <p class="sub small">I'll chase it if it isn't picked up in 48h.</p>
@@ -314,6 +371,36 @@
         <button class="btn sm" data-act="open" data-id="${r.id}">Timeline</button>
         <button class="btn sm" data-act="adv" data-h="48">Skip 48h</button>
         ${undo}
+      </div>`);
+  }
+
+  // A question no request type answers. Name the team, the person, and the
+  // words that got us there — then offer to just send it.
+  function renderContact(m) {
+    const found = E.matchDepartments(S, m.data.query, 3);
+    const c = found.find(x => x.department_id === m.data.deptId) || found[0];
+    if (!c || !c.person_id) return botWrap(`<p>I couldn't work out who covers that.</p>`);
+    const p = person(c.person_id);
+    const res = E.resolveContact(S, c);
+    const away = E.isOutOfOffice(p, now());
+    const kw = c.matched_keywords.slice(0, 3).map(k => badge(k, "role")).join(" ");
+
+    return botWrap(`
+      <p>That's <strong>${esc(c.department_name)}</strong>.</p>
+      <div class="card">
+        <div class="card-t">${esc(p.name)} ${away ? badge("away", "ooo") : ""}</div>
+        <div class="card-m"><span>${esc(p.title)}</span>${
+          // The reason only earns its place when it isn't the job title again.
+          c.reason.startsWith("leads") ? `<span>· leads the team</span>` : ""}</div>
+      </div>
+      ${kw ? `<div class="chips tight">${kw}</div>` : ""}
+      ${away && res.assignee_id && res.assignee_id !== p.id
+        ? `<p class="sub small">Away until ${esc(E.fmtDate(p.ooo_until))} — this would go to
+           ${esc(res.assignee_name)} instead.</p>` : ""}
+      <div class="acts">
+        <button class="btn primary sm" data-act="sendcontact" data-id="${c.department_id}"
+          data-q="${esc(m.data.query)}">Send it to ${esc((res.assignee_name || p.name).split(" ")[0])}</button>
+        <button class="btn sm" data-act="treeperson" data-id="${p.id}">Show in the org chart</button>
       </div>`);
   }
 
@@ -453,6 +540,7 @@
       case "person":  return renderPersonMsg(m);
       case "pick":    return renderPick(m);
       case "choose":  return renderChoose(m);
+      case "contact": return renderContact(m);
       case "askwho":  return renderAskWho(m);
       case "suggest":
         return `<div class="chips suggest">${m.data.items.map(s =>

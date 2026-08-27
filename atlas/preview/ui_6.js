@@ -190,6 +190,9 @@
         openDraft(`I need ${proc.name.toLowerCase()}`, proc.id);
         return commit();
       }
+      case "sendcontact":
+        sendToContact(el.dataset.q, id);
+        return commit();
       case "chose":
         commitChoice(el.dataset.q, id);
         return commit();
@@ -265,11 +268,9 @@
         const box = document.getElementById("orgscroll");
         const svg = document.getElementById("treesvg");
         if (box && svg) {
-          const natural = svg.viewBox.baseVal.width || 1;
-          UI.tree.zoom = clampZoom(Math.round(((box.clientWidth - 30) / natural) * 100) / 100);
+          UI.tree.zoom = fitZoom(box, svg);
           applyZoom();
-          box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2;
-          box.scrollTop = 0;
+          centreStage(box);
           saveSoon();
         }
         return;
@@ -446,6 +447,24 @@
 
   const ZOOM_MIN = 0.3, ZOOM_MAX = 2;
   const clampZoom = z => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+
+  // Fit against the stage's content box, and against both axes: fitting the
+  // width alone leaves a chart that is still taller than the stage.
+  function fitZoom(box, svg) {
+    const vb = svg.viewBox.baseVal;
+    const css = getComputedStyle(box);
+    const padX = parseFloat(css.paddingLeft) + parseFloat(css.paddingRight);
+    const padY = parseFloat(css.paddingTop) + parseFloat(css.paddingBottom);
+    const w = (box.clientWidth - padX) / (vb.width || 1);
+    const h = (box.clientHeight - padY) / (vb.height || 1);
+    return clampZoom(Math.floor(Math.min(w, h, ZOOM_MAX) * 100) / 100);
+  }
+
+  // Whatever the stage cannot fit gets centred, not pinned to a corner.
+  function centreStage(box) {
+    box.scrollLeft = Math.max(0, (box.scrollWidth - box.clientWidth) / 2);
+    box.scrollTop = Math.max(0, (box.scrollHeight - box.clientHeight) / 2);
+  }
 
   function applyZoom() {
     const svg = document.getElementById("treesvg");
@@ -646,13 +665,16 @@
     if (UI.tree.center && UI.page === "people") {
       const box = document.getElementById("orgscroll");
       const svg = document.getElementById("treesvg");
-      if (box && svg) {
-        const natural = svg.viewBox.baseVal.width || 1;
-        const fit = Math.max(0.4, Math.min(1, Math.round(((box.clientWidth - 30) / natural) * 100) / 100));
+      if (!box || !svg) {
         UI.tree.center = false;
+      } else {
+        const fit = fitZoom(box, svg);
+        // Leave `center` set through the re-render. Clearing it here left the
+        // chart correctly scaled and stuck against the left edge, because the
+        // second pass never got to centre it.
         if (Math.abs(fit - UI.tree.zoom) > 0.02) { UI.tree.zoom = fit; save(); render(); return; }
-        box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2;
-        box.scrollTop = 0;
+        UI.tree.center = false;
+        centreStage(box);
       }
     }
     if (UI.tree.focus) {

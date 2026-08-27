@@ -3,6 +3,7 @@
  *   cd atlas/preview/parity
  *   python3 ref_match.py > ref_match.json
  *   python3 ref_relay.py > ref_relay.json
+ *   python3 ref_contact.py > ref_contact.json
  *   python3 ref_agent.py > ref_agent.json
  *   python3 ref_analytics.py > ref_analytics.json
  *   node check_parity.js
@@ -59,6 +60,25 @@ console.log("\n[reading plain English]");
     }
   }
   ok(`subject and ask identical across ${ref.length} sentences`, bad === 0,
+     bad ? `${bad} differed, first ${first}` : "");
+}
+
+/* -------------------------- who do I contact? ---------------------------- */
+console.log("\n[routing a problem to a team]");
+{
+  // Both apps answer "who do I contact to get my laptop fixed" from the same
+  // team vocabulary. A drift here would send the same question to two
+  // different people depending on which front end you happened to be in.
+  const ref = require("./ref_contact.json");
+  const st = E.hydrate(seed, Date.now());
+  let bad = 0, first = "";
+  for (const row of ref) {
+    const js = JSON.stringify(E.matchDepartments(st, row.q, 3).map(c =>
+      [c.department_name, c.confidence, c.matched_keywords, c.person_name, c.reason]));
+    const py = JSON.stringify(row.top.map(c => [c.dept, c.conf, c.kw, c.who, c.reason]));
+    if (js !== py) { bad++; if (!first) first = JSON.stringify(row.q); }
+  }
+  ok(`team, contact and confidence identical across ${ref.length} questions`, bad === 0,
      bad ? `${bad} differed, first ${first}` : "");
 }
 

@@ -6,7 +6,8 @@ import streamlit as st
 
 from atlas import clock
 from atlas.db import session_scope, write_lock
-from atlas.matching import match_processes, matchable_text, suggest_title
+from atlas.matching import (match_departments, match_processes, matchable_text,
+                            suggest_title)
 from atlas.models import Person, Process
 from atlas.routing import resolve
 from atlas.services import (
@@ -130,6 +131,20 @@ def render(actor_id: int) -> None:
         matches = match_processes(session, matchable_text(query), limit=3)
         all_processes = session.query(Process).order_by(Process.name).all()
         process_options = {p.id: f"{p.name} — {p.category}" for p in all_processes}
+        # A broken laptop is nobody's process but obviously IT's. When no
+        # request type fits, say which team covers it rather than shrugging.
+        contacts = (
+            match_departments(session, query, limit=1)
+            if not matches or matches[0].confidence < 25
+            else []
+        )
+        contact = contacts[0] if contacts and contacts[0].confidence >= 25 else None
+        contact_line = (
+            f"That reads like <strong>{esc(contact.department_name)}</strong> — "
+            f"{esc(contact.person_name)}, {esc(contact.person_title)}, {esc(contact.reason)}."
+            if contact and contact.person_name
+            else ""
+        )
 
     st.markdown("## Process match")
     if not matches or matches[0].confidence < 25:
@@ -137,6 +152,12 @@ def render(actor_id: int) -> None:
             "No process matched with usable confidence. Pick one manually, or send it anyway "
             "and Atlas will park it for the admin."
         )
+        if contact_line:
+            st.markdown(
+                f"<div class='card'><div class='card-title'>Who covers this</div>"
+                f"<div class='card-meta'>{contact_line}</div></div>",
+                unsafe_allow_html=True,
+            )
     top = matches[0] if matches else None
 
     if top is not None:
