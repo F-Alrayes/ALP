@@ -154,7 +154,8 @@
 
     switch (act) {
       case "page": UI.page = el.dataset.page; UI.open = UI.person = UI.process = null;
-        return commit();
+        UI.moreOpen = false; return commit();
+      case "moretoggle": UI.moreOpen = !UI.moreOpen; return commit();
       case "subtab": UI.tab[el.dataset.group] = el.dataset.k;
         UI.person = UI.process = null; return commit();
 
@@ -201,6 +202,20 @@
 
       /* chat */
       case "say": UI.page = "chat"; submitChat(el.dataset.text); return commit();
+      case "askperson": {
+        UI.page = "chat"; UI.draft = null; hideHover();
+        const who = person(id);
+        if (who) pushMsg("user", "text", { text: `I need something from ${who.name}.` });
+        botAskWho(id);
+        return commit();
+      }
+      case "askproc": {
+        const proc = E.process_(S, id);
+        if (!proc) return;
+        pushMsg("user", "text", { text: proc.name });
+        openDraft(`I need ${proc.name.toLowerCase()}`, proc.id);
+        return commit();
+      }
       case "chatsend": sendDraft(); return commit();
       case "chatcancel": UI.draft = null;
         pushMsg("bot", "text", { text: "Dropped it. Tell me what you need instead." });
@@ -286,6 +301,18 @@
       case "collapseall": collapseToTeams(); UI.tree.center = true; return commit();
       default: return;
     }
+  });
+
+  // Clicking anywhere off the menu closes it.
+  document.addEventListener("click", ev => {
+    if (!UI.moreOpen) return;
+    if (ev.target.closest(".morewrap")) return;
+    UI.moreOpen = false;
+    const menu = document.querySelector(".moremenu");
+    if (menu) menu.remove();
+    const btn = document.querySelector('[data-act="moretoggle"]');
+    if (btn) btn.setAttribute("aria-expanded", "false");
+    save();
   });
 
   document.addEventListener("change", ev => {
@@ -486,6 +513,107 @@
     }, { passive: false });
   }
 
+  /* ---------------------------- org hover card --------------------------- */
+  /* Details on demand rather than crammed into every node, plus the pattern of
+     lighting up the chain of command from the hovered person to the top. */
+
+  let hoverTimer = null, hideTimer = null, hoveredId = null;
+
+  function chainHighlight(personId) {
+    const stage = document.getElementById("orgscroll");
+    if (!stage) return;
+    const chain = new Set(personId ? E.pathToRoot(S, personId) : []);
+    stage.querySelectorAll(".onode").forEach(node => {
+      const id = Number(node.dataset.node);
+      node.classList.toggle("chain", chain.has(id));
+      node.classList.toggle("faded", chain.size > 0 && !chain.has(id));
+    });
+  }
+
+  function hoverCardHTML(p) {
+    const at = now();
+    const mgr = p.manager_id ? person(p.manager_id) : null;
+    const reports = S.people.filter(x => x.manager_id === p.id).length;
+    const owns = (E.responsibilitiesOf(S, p.id).owner || []).map(x => x.name);
+    const load = S.requests.filter(r => r.assignee_id === p.id &&
+      E.OPEN_STATUSES.includes(r.status)).length;
+    const away = E.isOutOfOffice(p, at);
+    return `<div class="hc-head">
+        <span class="hc-av" style="background:${deptColor(E.departmentName(S, p))}">${
+          esc(initials(p.name))}</span>
+        <span><strong>${esc(p.name)}</strong><br><span class="sub">${esc(p.title)}</span></span>
+      </div>
+      <div class="chips tight">${badge(E.departmentName(S, p), "role")}
+        ${away ? badge("Away until " + E.fmtDate(p.ooo_until), "ooo") : ""}
+        ${load ? badge(load + " open", "gold") : ""}</div>
+      <div class="kv"><span class="k">Reports to</span>${esc(mgr ? mgr.name : "Nobody")}</div>
+      ${reports ? `<div class="kv"><span class="k">Team</span>${reports} direct report${
+        reports === 1 ? "" : "s"}</div>` : ""}
+      <div class="kv"><span class="k">Owns</span>${owns.length
+        ? esc(owns.join(", ")) : `<span class="muted">nothing directly</span>`}</div>
+      <div class="acts">
+        <button class="btn primary sm" data-act="askperson" data-id="${p.id}">Ask them for something</button>
+        <button class="btn sm" data-act="focusperson" data-id="${p.id}">Their team</button>
+      </div>`;
+  }
+
+  function showHover(nodeEl, personId) {
+    const card = document.getElementById("hovercard");
+    const stage = document.querySelector(".orgstage");
+    const p = person(personId);
+    if (!card || !stage || !p) return;
+    card.innerHTML = hoverCardHTML(p);
+    card.hidden = false;
+    const nb = nodeEl.getBoundingClientRect(), sb = stage.getBoundingClientRect();
+    const cb = card.getBoundingClientRect();
+    // Prefer below-right of the node, flip when that would leave the stage.
+    let left = nb.left - sb.left + nb.width / 2 - cb.width / 2;
+    let top = nb.bottom - sb.top + 10;
+    left = Math.max(8, Math.min(left, sb.width - cb.width - 8));
+    if (top + cb.height > sb.height - 8) top = nb.top - sb.top - cb.height - 10;
+    card.style.left = Math.round(left) + "px";
+    card.style.top = Math.round(Math.max(8, top)) + "px";
+  }
+
+  function hideHover() {
+    const card = document.getElementById("hovercard");
+    if (card) { card.hidden = true; card.innerHTML = ""; }
+    hoveredId = null;
+    chainHighlight(null);
+  }
+
+  function bindHover() {
+    const stage = document.getElementById("orgscroll");
+    const card = document.getElementById("hovercard");
+    if (!stage || !card) return;
+
+    stage.querySelectorAll('g[data-act="treeselect"]').forEach(node => {
+      const id = Number(node.dataset.id);
+      const enter = () => {
+        clearTimeout(hideTimer); clearTimeout(hoverTimer);
+        if (hoveredId === id) return;
+        hoverTimer = setTimeout(() => {
+          hoveredId = id;
+          chainHighlight(id);
+          showHover(node, id);
+        }, 220);
+      };
+      const leave = () => {
+        clearTimeout(hoverTimer);
+        hideTimer = setTimeout(hideHover, 220);
+      };
+      node.addEventListener("mouseenter", enter);
+      node.addEventListener("mouseleave", leave);
+      node.addEventListener("focus", () => { hoveredId = id; chainHighlight(id); showHover(node, id); });
+      node.addEventListener("blur", leave);
+    });
+
+    // Moving into the card keeps it open so its buttons are clickable.
+    card.addEventListener("mouseenter", () => clearTimeout(hideTimer));
+    card.addEventListener("mouseleave", () => { hideTimer = setTimeout(hideHover, 180); });
+    stage.addEventListener("scroll", hideHover, { passive: true });
+  }
+
   /* ------------------------------ tooltips ------------------------------ */
 
   const tipEl = () => document.getElementById("tip");
@@ -514,6 +642,7 @@
   function afterRender() {
     bindCharts();
     bindPan();
+    bindHover();
     if (UI.page === "chat") {
       const log = document.getElementById("chatlog");
       if (log) log.scrollTop = log.scrollHeight;

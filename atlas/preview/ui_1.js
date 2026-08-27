@@ -189,24 +189,39 @@
 
   /* --------------------------------- shell ------------------------------ */
 
-  const PAGES = [["chat", "Ask Atlas"], ["people", "People"], ["requests", "Requests"],
-                 ["agentlog", "Agent Log"], ["dashboard", "Dashboard"], ["guide", "Guide"]];
+  // Everyday work stays on the bar; the pitch and admin surfaces sit behind
+  // "More", so a first-time employee sees three choices, not six.
+  const PRIMARY = [["chat", "Ask Atlas"], ["people", "People"], ["requests", "Requests"]];
+  const MORE = [["processes", "What you can ask for"], ["dashboard", "Dashboard"],
+                ["agentlog", "Agent log"], ["guide", "Guide"]];
+  const LABELS = Object.fromEntries(PRIMARY.concat(MORE));
 
   function render() {
     const root = document.getElementById("root");
-    const tabs = PAGES.map(([k, label]) => {
-      const extra = k === "requests" && unreadFor(UI.actor)
-        ? ` <span class="pip">${unreadFor(UI.actor)}</span>` : "";
+    const orgMode = UI.page === "people" && (UI.tab.people || "org") === "org";
+    const inMore = MORE.some(([k]) => k === UI.page);
+
+    const tabs = PRIMARY.map(([k, label]) => {
+      const unread = k === "requests" ? unreadFor(UI.actor) : 0;
       return `<button class="tab" role="tab" data-act="page" data-page="${k}"
-        aria-selected="${UI.page === k}">${esc(label)}${extra}</button>`;
+        aria-selected="${UI.page === k}">${esc(label)}${
+          unread ? ` <span class="pip">${unread}</span>` : ""}</button>`;
     }).join("");
 
-    const orgMode = UI.page === "people" && (UI.tab.people || "org") === "org";
+    const moreMenu = `<div class="morewrap">
+      <button class="tab more${inMore ? " on" : ""}" data-act="moretoggle"
+        aria-expanded="${!!UI.moreOpen}" aria-haspopup="menu">${
+        esc(inMore ? LABELS[UI.page] : "More")} <span class="caret">▾</span></button>
+      ${UI.moreOpen ? `<div class="moremenu" role="menu">${MORE.map(([k, label]) =>
+        `<button role="menuitem" data-act="page" data-page="${k}"
+          class="${UI.page === k ? "on" : ""}">${esc(label)}</button>`).join("")}</div>` : ""}
+    </div>`;
+
     root.innerHTML = `<div class="app${UI.page === "chat" ? " chatmode" : ""}${
       orgMode ? " orgmode" : ""}">
       <aside class="rail">${railHTML()}</aside>
-      <main class="canvas"><div class="wrap${UI.page === "people" ? " wide" : ""}">
-        <div class="tabs" role="tablist">${tabs}</div>
+      <main class="canvas"><div class="wrap">
+        <div class="tabs" role="tablist">${tabs}${moreMenu}</div>
         <div id="page">${pageHTML()}</div>
       </div></main></div>` +
       (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "") +
@@ -221,6 +236,7 @@
   function pageHTML() {
     switch (UI.page) {
       case "people":    return pagePeople();
+      case "processes": return pageProcesses();
       case "requests":  return pageRequests();
       case "agentlog":  return pageAgentLog();
       case "dashboard": return pageDashboard();

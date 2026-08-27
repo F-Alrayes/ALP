@@ -1,7 +1,7 @@
 
   /* ============================ people & org tree ======================= */
 
-  const NODE_W = 186, NODE_H = 62, H_GAP = 18, V_GAP = 58;
+  const NODE_W = 208, NODE_H = 66, H_GAP = 20, V_GAP = 62;
 
   const DEPT_HUE = {
     "Executive": "var(--gold)", "Investments / Deal Team": "var(--s1)",
@@ -11,6 +11,13 @@
   const deptColor = d => DEPT_HUE[d] || "var(--ink-3)";
 
   const isCollapsed = id => !!UI.tree.collapsed[id];
+
+  function initials(name) {
+    const parts = String(name || "").split(/\s+/).filter(Boolean);
+    if (!parts.length) return "?";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
 
   function findNode(roots, id) {
     for (const r of roots) {
@@ -89,11 +96,10 @@
       const n = p.node;
       const pers = person(n.id);
       const ooo = pers && E.isOutOfOffice(pers, at);
-      const load = S.requests.filter(r => r.assignee_id === n.id &&
-        E.OPEN_STATUSES.includes(r.status)).length;
       const hidden = n.children.length && isCollapsed(n.id);
       const dim = dept !== "All departments" && n.department !== dept;
       const selected = UI.tree.selected === n.id;
+      const hue = deptColor(n.department);
       const toggle = n.children.length ? `
         <g class="tgl" data-act="treetoggle" data-id="${n.id}" tabindex="0"
            role="button" aria-label="${hidden ? "Expand" : "Collapse"} ${esc(n.name)}'s team">
@@ -102,20 +108,18 @@
           <text x="${NODE_W / 2}" y="${NODE_H + 5}" text-anchor="middle"
             class="tglt">${hidden ? "+" + n.descendants : "–"}</text>
         </g>` : "";
+      const title = n.title.length > 26 ? n.title.slice(0, 24) + "…" : n.title;
       return `<g class="onode${dim ? " dim" : ""}${selected ? " sel" : ""}"
-          transform="translate(${p.x},${p.y})">
+          data-node="${n.id}" transform="translate(${p.x},${p.y})">
         <g data-act="treeselect" data-id="${n.id}" tabindex="0" role="button"
-           aria-label="${esc(n.name)}, ${esc(n.title)}">
-          <rect class="obox" width="${NODE_W}" height="${NODE_H}" rx="9"/>
-          <rect class="ostripe" width="4" height="${NODE_H}" rx="2" fill="${deptColor(n.department)}"/>
-          <text class="oname" x="14" y="24">${esc(n.name)}</text>
-          <text class="otitle" x="14" y="41">${esc(n.title.length > 30 ?
-            n.title.slice(0, 28) + "…" : n.title)}</text>
-          <text class="ometa" x="14" y="55">${esc(n.department)}${
-            n.reports ? " · " + n.reports + " report" + (n.reports === 1 ? "" : "s") : ""}</text>
-          ${ooo ? `<circle cx="${NODE_W - 14}" cy="20" r="5" fill="var(--warn)"/>
-                   <title>Out of office</title>` : ""}
-          ${load ? `<text class="oload" x="${NODE_W - 12}" y="55" text-anchor="end">${load} open</text>` : ""}
+           aria-label="${esc(n.name)}, ${esc(n.title)}, ${esc(n.department)}">
+          <rect class="obox" width="${NODE_W}" height="${NODE_H}" rx="11"/>
+          <rect class="ostripe" width="4" height="${NODE_H}" rx="2" fill="${hue}"/>
+          <circle class="oav" cx="32" cy="${NODE_H / 2}" r="15" fill="${hue}"/>
+          <text class="oavt" x="32" y="${NODE_H / 2 + 4}" text-anchor="middle">${esc(initials(n.name))}</text>
+          <text class="oname" x="57" y="${NODE_H / 2 - 4}">${esc(n.name)}</text>
+          <text class="otitle" x="57" y="${NODE_H / 2 + 13}">${esc(title)}</text>
+          ${ooo ? `<circle class="oaway" cx="${NODE_W - 15}" cy="17" r="5"/>` : ""}
         </g>${toggle}</g>`;
     }).join("");
 
@@ -150,6 +154,7 @@
       <div class="kv"><span class="k">Owns</span>${owns.length
         ? esc(owns.join(", ")) : `<span class="muted">nothing directly</span>`}</div>
       <div class="acts">
+        <button class="btn primary sm" data-act="askperson" data-id="${p.id}">Ask them for something</button>
         ${UI.tree.root === p.id
           ? `<button class="btn sm" data-act="focusclear">Show whole firm</button>`
           : `<button class="btn sm" data-act="focusperson" data-id="${p.id}">Show just their team</button>`}
@@ -157,10 +162,8 @@
   }
 
   function pagePeople() {
-    if (UI.process) return processProfile(UI.process);
     const which = UI.tab.people || "org";
-    const tabs = [["org", "Org chart"], ["list", "Directory"], ["teams", "Teams"],
-                  ["processes", "Processes"]]
+    const tabs = [["org", "Org chart"], ["teams", "Teams"]]
       .map(([k, t]) => `<button class="tab" role="tab" data-act="subtab" data-group="people"
         data-k="${k}" aria-selected="${which === k}">${esc(t)}</button>`).join("");
     const tabsBar = `<div class="tabs" role="tablist">${tabs}</div>`;
@@ -168,9 +171,7 @@
     const head = phead("People", "Who works here, and who they answer to",
       "Search anyone, expand a team, and see what each person is actually accountable for.") +
       tabsBar;
-    if (which === "list") return head + peopleList();
-    if (which === "teams") return head + teamsPanel();
-    return head + processList();
+    return head + teamsPanel();
   }
 
   function orgPanel() {
@@ -199,6 +200,7 @@
       ${focusBar()}
       <div class="orgstage">
         <div class="orgscroll" id="orgscroll" data-act="orgpan">${treeSVG()}</div>
+        <div class="hovercard" id="hovercard" hidden></div>
         ${UI.tree.selected ? `<aside class="orgpanel">${treeDetail()}</aside>` : ""}
         <div class="orglegend">${legend}<span><i class="ooo-dot"></i>Away</span></div>
       </div>`;
@@ -262,39 +264,11 @@
     return names.map(n => `<option${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
   }
 
-  function peopleList() {
-    const at = now();
-    const term = (UI.search || "").trim().toLowerCase();
-    const rows = S.people.slice().sort((a, b) => a.name.localeCompare(b.name)).filter(p => {
-      const dept = E.departmentName(S, p);
-      if (UI.dept !== "All departments" && dept !== UI.dept) return false;
-      if (term && !(p.name.toLowerCase().includes(term) || p.title.toLowerCase().includes(term)))
-        return false;
-      return true;
-    });
-    const cards = rows.map(p => {
-      const owned = S.responsibilities.filter(r => r.person_id === p.id &&
-        (r.role === "owner" || r.role === "approver")).length;
-      const load = S.requests.filter(r => r.assignee_id === p.id &&
-        E.OPEN_STATUSES.includes(r.status)).length;
-      const ooo = E.isOutOfOffice(p, at);
-      return `<div class="rowline"><div class="card">
-        <div class="card-t">${esc(p.name)}</div>
-        <div class="card-m"><span>${esc(p.title)}</span><span>${esc(E.departmentName(S, p))}</span></div>
-        <div class="card-m" style="margin-top:7px">${badge(owned + " owned/approved", "role")}
-          ${badge(load + " open", load ? "gold" : "mute")}
-          ${ooo ? badge("OOO until " + E.fmtDate(p.ooo_until), "ooo") : ""}</div>
-      </div><button class="btn sm" data-act="treeperson" data-id="${p.id}">Org chart</button></div>`;
-    }).join("");
-    return `<div class="toolbar">
-        <div class="grow"><label class="lbl" for="ps">Search people</label>
-          <input id="ps" class="field" data-act="search" placeholder="name or title"
-            value="${esc(UI.search || "")}"></div>
-        <div class="grow"><label class="lbl" for="pd">Department</label>
-          <select id="pd" class="field" data-act="dept">${deptOptions(UI.dept)}</select></div>
-      </div>
-      <p class="muted" style="margin-bottom:9px">${rows.length} people</p>` +
-      (rows.length ? `<div class="stack">${cards}</div>` : empty("Nobody matches that search."));
+  function pageProcesses() {
+    if (UI.process) return processProfile(UI.process);
+    return phead("Requests", "What you can ask for",
+      "The eight things Atlas routes today. Ask for any of them in plain English — you do " +
+      "not need to know which one it is.") + processList();
   }
 
   function processList() {

@@ -183,21 +183,71 @@ def run(p):
         check(f"no longer shows '{gone}'", gone not in panel)
     check("stays short", len([l for l in panel.split("\n") if l.strip()]) <= 12)
 
+    # -------------------------------------------------- hover card & chain
+    section("org chart — hover card")
+    p.get_by_role("button", name="Expand all").click(); p.wait_for_timeout(1000)
+    node = p.locator('g[data-act="treeselect"]').nth(6)
+    node.hover(); p.wait_for_timeout(650)
+    check("a hover card appears", p.locator("#hovercard").is_visible())
+    hc = p.inner_text("#hovercard")
+    check("hover card names who they report to", "Reports to" in hc)
+    check("hover card shows what they own", "Owns" in hc)
+    check("hover card offers a request action", "Ask them for something" in hc)
+    check("hovering lights the chain of command", p.locator(".onode.chain").count() >= 2,
+          f"{p.locator('.onode.chain').count()} in chain")
+    check("everyone off the chain is muted", p.locator(".onode.faded").count() > 10)
+    p.mouse.move(10, 10); p.wait_for_timeout(600)
+    check("card hides on leaving", not p.locator("#hovercard").is_visible())
+    check("highlight clears", p.locator(".onode.chain").count() == 0)
+
+    # ------------------------------------------------- request from a person
+    section("request straight from the chart")
+    node = p.locator('g[data-act="treeselect"]').nth(6)
+    node.hover(); p.wait_for_timeout(650)
+    who = p.evaluate("""() => document.querySelector('#hovercard strong').textContent""")
+    p.locator('#hovercard [data-act="askperson"]').click(); p.wait_for_timeout(1000)
+    log = p.inner_text("#chatlog")
+    check("jumps to the chat scoped to that person", who in log, who)
+    chips = p.locator('[data-act="askproc"]')
+    if chips.count():
+        want = chips.first.inner_text().strip()
+        chips.first.click(); p.wait_for_timeout(1000)
+        check("picking a request type drafts it",
+              p.locator('[data-act="dbody"]').count() == 1)
+        check("the draft is for that request type", want in p.inner_text("#chatlog"), want)
+        p.get_by_role("button", name="Send it").click(); p.wait_for_timeout(900)
+        check("it can be sent", "Sent." in p.inner_text("#chatlog"))
+    else:
+        check("explains when they own nothing", "doesn" in log.lower())
+
     # ---------------------------------------------------------- other pages
     section("other pages")
-    tab(p, "Teams")
+    tab(p, "People"); p.wait_for_timeout(500)
+    p.get_by_role("tab", name="Teams", exact=False).first.click(); p.wait_for_timeout(800)
     t = p.inner_text("#page")
     check("teams lists every department", all(d in t for d in
           ["Investments / Deal Team", "Finance", "Legal & Compliance", "IT", "Operations / HR"]))
-    tab(p, "Processes")
-    check("catalogue is trimmed to 8", p.locator("#page .rowline").count() == 8,
-          f"{p.locator('#page .rowline').count()}")
-    for name, probe in [("Requests", "desk"), ("Agent Log", "What the agent did"),
-                        ("Dashboard", "Where work is actually stuck"), ("Guide", "How to drive Atlas")]:
-        tab(p, name)
-        check(f"{name} renders", probe in p.inner_text("#page"))
-    tab(p, "Dashboard")
-    p.wait_for_timeout(700)
+    section("navigation")
+    n_primary = p.evaluate(
+        "[...document.querySelectorAll('.tabs')][0].querySelectorAll('.tab:not(.more)').length")
+    check("only three primary tabs", n_primary == 3, f"{n_primary} tabs")
+    p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(450)
+    check("More opens a menu", p.locator(".moremenu button").count() == 4)
+    for label, probe in [("What you can ask for", "What you can ask for"),
+                         ("Dashboard", "Where work is actually stuck"),
+                         ("Agent log", "What the agent did"),
+                         ("Guide", "How to drive Atlas")]:
+        if p.locator(".moremenu").count() == 0:
+            p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(400)
+        p.locator(".moremenu button", has_text=label).first.click(); p.wait_for_timeout(900)
+        check(f"{label} renders", probe in p.inner_text("#page"))
+    p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(400)
+    p.locator(".moremenu button", has_text="What you can ask for").first.click()
+    p.wait_for_timeout(800)
+    n_proc = p.locator("#page .rowline").count()
+    check("catalogue is trimmed to 8", n_proc == 8, f"{n_proc} request types")
+    p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(400)
+    p.locator(".moremenu button", has_text="Dashboard").first.click(); p.wait_for_timeout(900)
     check("dashboard charts draw", p.locator(".chart svg").count() >= 4)
 
     # --------------------------------------------------------- persistence

@@ -137,9 +137,32 @@ A bar above the chart then names who is showing, says how many levels are hidden
 above, offers "↑ Up to <manager>" to climb back one level at a time, and "Show
 whole firm" to reset.
 
+**Nodes carry an avatar, a name and a title, and nothing else.** Everything else
+lives on a **hover card** — team, away date, who they report to, team size, what
+they own, open load — with two actions: ask that person for something, or focus
+on their team. Hovering also lights the chain of command from that person up to
+the CEO and mutes everyone off it.
+
+**You can raise a request straight from the chart.** "Ask them for something"
+opens the chat scoped to that person and offers the request types they own as
+chips; picking one drafts it. If they own nothing, it says so and asks what you
+need instead. If they are away, the routing still applies — the request goes to
+their cover, and the trace says why.
+
 The **detail panel is deliberately short** — name, title, team, away status, who
 they report to, team size, and what they own. Anything deeper is a question for
 Ask Atlas rather than a wall of fields on first glance.
+
+### Navigation
+
+Three primary tabs — Ask Atlas, People, Requests — carry everyday work. The
+pitch and admin surfaces (what you can ask for, dashboard, agent log, guide) sit
+behind a **More** menu, so a first-time employee sees three choices rather than
+six. Within People, the old Directory tab is gone: the search box does that job.
+
+These follow established org-chart practice: an avatar as the hero element,
+details on demand rather than crammed into every node, hover-highlighting the
+reporting chain, and deferring rarely-used features to a secondary surface.
 
 ## Known differences from the Python app
 

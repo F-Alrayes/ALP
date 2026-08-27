@@ -16,11 +16,9 @@
   function greet() {
     UI.chat = [];
     pushMsg("bot", "text", { text:
-      "I'm Atlas. Tell me what you need in plain English and I'll work out which " +
-      "process it is, who is accountable for it right now, and send it to them.\n\n" +
-      "You can also ask me who owns something, who is out of office, or where your " +
-      "requests have got to." });
-    pushMsg("bot", "suggest", { items: SUGGESTIONS });
+      "I'm Atlas. Tell me what you need in plain English and I'll work out who is " +
+      "accountable for it right now, and send it to them." });
+    pushMsg("bot", "suggest", { items: SUGGESTIONS.slice(0, 3) });
   }
 
   /* ---------------------------- bot responses --------------------------- */
@@ -98,6 +96,11 @@
       return;
     }
     pushMsg("bot", "person", { id: p.id });
+  }
+
+  // Reached from the org chart: scope the conversation to one person.
+  function botAskWho(personId) {
+    pushMsg("bot", "askwho", { id: personId });
   }
 
   function botHelp() {
@@ -293,6 +296,33 @@
         Show in the org chart</button></div>`);
   }
 
+  function renderAskWho(m) {
+    const p = person(m.data.id);
+    if (!p) return botWrap(`<p>That person is no longer in the directory.</p>`);
+    const owns = E.responsibilitiesOf(S, p.id).owner || [];
+    const at = now();
+    const away = E.isOutOfOffice(p, at);
+
+    if (!owns.length) {
+      return botWrap(`
+        <p><strong>${esc(p.name)}</strong> doesn't own any request type directly, so there is
+          nothing to send them through Atlas.</p>
+        <p class="sub small">Tell me what you need and I'll find whoever is accountable for it.</p>
+        <div class="chips tight">${SUGGESTIONS.slice(0, 2).map(q =>
+          `<button class="chip sm" data-act="say" data-text="${esc(q)}">${esc(q)}</button>`).join("")}</div>`);
+    }
+
+    return botWrap(`
+      <p>What do you need from <strong>${esc(p.name)}</strong>?</p>
+      <p class="sub small">${esc(p.title)} · owns ${owns.length}
+        request type${owns.length === 1 ? "" : "s"}${
+        away ? ` · away until ${E.fmtDate(p.ooo_until)}, so this may be routed to their cover`
+             : ""}</p>
+      <div class="chips tight">${owns.map(proc =>
+        `<button class="chip" data-act="askproc" data-id="${proc.id}"
+          data-who="${p.id}">${esc(proc.name)}</button>`).join("")}</div>`);
+  }
+
   function renderPick(m) {
     const opts = S.processes.slice().sort((a, b) => a.name.localeCompare(b.name));
     return botWrap(`<div class="picker">
@@ -313,6 +343,7 @@
       case "reqlist": return renderReqList(m);
       case "person":  return renderPersonMsg(m);
       case "pick":    return renderPick(m);
+      case "askwho":  return renderAskWho(m);
       case "suggest":
         return `<div class="chips suggest">${m.data.items.map(s =>
           `<button class="chip" data-act="say" data-text="${esc(s)}">${esc(s)}</button>`).join("")}</div>`;
