@@ -82,13 +82,36 @@ def drop_all() -> None:
     Base.metadata.drop_all(get_engine())
 
 
+def schema_is_current() -> bool:
+    """True when the file on disk matches the models this code expects.
+
+    ``create_all`` creates missing tables but never alters existing ones, so a
+    database written before a column was added stays silently short of it and
+    the first query blows up. Comparing the columns is enough here: the data is
+    seeded demo data, so a mismatch is fixed by reseeding rather than migrating.
+    """
+    from sqlalchemy import inspect
+
+    inspector = inspect(get_engine())
+    existing = set(inspector.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing:
+            continue
+        on_disk = {c["name"] for c in inspector.get_columns(table.name)}
+        if not {c.name for c in table.columns} <= on_disk:
+            return False
+    return True
+
+
 def database_is_seeded() -> bool:
-    """True when the schema exists and carries at least one person."""
+    """True when the schema is current and carries the seeded demo firm."""
     from sqlalchemy import inspect
 
     engine = get_engine()
     inspector = inspect(engine)
     if "people" not in inspector.get_table_names():
+        return False
+    if not schema_is_current():
         return False
     with session_scope() as session:
         return session.scalar(select(Setting).where(Setting.key == "seeded_at")) is not None

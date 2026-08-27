@@ -70,19 +70,27 @@
       return;
     }
 
-    // Two plausible readings, or one weak one: ask before sending anything.
-    const second = matches[1];
-    const tooClose = second && second.confidence >= 25 && top.confidence - second.confidence < 20;
-    if (tooClose || top.confidence < 55) {
-      pushMsg("bot", "choose", { query, text: u.text, subject: u.subject || "",
-        ids: matches.filter(m => m.confidence >= 15).slice(0, 3).map(m => m.process_id) });
-      return;
-    }
-
     const proc = E.process_(S, top.process_id);
     const res = E.resolve(S, proc);
     const title = E.suggestTitle(u.ask || u.subject || u.text, proc.name);
     const dupes = E.findSimilarOpen(S, { process_id: proc.id, requester_id: UI.actor, title });
+
+    // Two plausible readings, or one weak one: don't send on a guess.
+    const second = matches[1];
+    const tooClose = second && second.confidence >= 25 && top.confidence - second.confidence < 20;
+    if (tooClose || top.confidence < 55) {
+      const options = matches.filter(m => m.confidence >= 15).slice(0, 3);
+      // Only a real fork is worth a question. One weak candidate goes to the
+      // editable draft instead — "which do you mean?" above a single row is
+      // just an extra click.
+      if (options.length > 1) {
+        pushMsg("bot", "choose", { query, text: u.text, subject: u.subject || "",
+          ids: options.map(m => m.process_id) });
+      } else {
+        openDraft(u.text, proc.id, matches, title);
+      }
+      return;
+    }
 
     // Anything Atlas can't route cleanly, or that looks like a repeat, goes
     // back to the user before it is sent.

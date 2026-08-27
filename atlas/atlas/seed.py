@@ -148,7 +148,7 @@ PROCESSES: list[tuple[str, str, str, str]] = [
         "Finance",
         "Approve a supplier invoice for payment once goods or services are confirmed received.",
         "invoice, approve invoice, supplier payment, pay invoice, billing, accounts payable, "
-        "ap, invoice sign off, payment run",
+        "invoice sign off, payment run",
     ),
     (
         "IT Access Provisioning",

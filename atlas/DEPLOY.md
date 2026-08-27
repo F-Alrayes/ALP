@@ -5,7 +5,8 @@ external dependencies, so it will run anywhere that can run Python or a
 container. It seeds itself on first launch, which means an ephemeral filesystem
 is fine — there is nothing to provision.
 
-Pick one of the three options below. The first is the fastest.
+Pick one of the four options below. The first is the fastest; the second needs
+no account with any new service.
 
 ---
 
@@ -43,7 +44,30 @@ Two things worth knowing:
 
 ---
 
-## Option B — Any container host (Render, Railway, Fly.io, Cloud Run)
+## Option B — GitHub Codespaces (free, nothing to sign up for)
+
+Runs Atlas in a browser tab on GitHub's machines. Nothing is installed locally
+and there is no third-party service to authorise — if you can see the
+repository, you can run it.
+
+1. Open <https://github.com/F-Alrayes/ALP> and switch to the
+   `claude/new-platform-setup-dkls05` branch.
+2. **Code** → **Codespaces** → **Create codespace on
+   claude/new-platform-setup-dkls05**.
+3. Wait for it to build. `.devcontainer/devcontainer.json` installs the
+   requirements and starts Atlas on port 8501; the preview tab opens on its own.
+
+If the tab does not open, use the **Ports** panel and click the globe next to
+8501. To restart the app after stopping it: `cd atlas && python run.py --address
+0.0.0.0 --headless`.
+
+Codespaces are private to you by default and stop after 30 minutes idle. The
+free monthly allowance is far more than a demo needs, but it is not unlimited —
+delete the codespace when you are finished.
+
+---
+
+## Option C — Any container host (Render, Railway, Fly.io, Cloud Run)
 
 `atlas/Dockerfile` builds a self-contained image. It binds `$PORT` when the host
 injects one and falls back to 8501.
@@ -65,7 +89,7 @@ build context or root directory to `atlas/`.
 
 ---
 
-## Option C — Run it on your own machine
+## Option D — Run it on your own machine
 
 The lowest-friction way to try it, and the only one where nothing is public:
 

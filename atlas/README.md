@@ -41,8 +41,9 @@ Useful flags:
 Requires Python 3.10+. Everything runs offline.
 
 To put it on a URL someone else can open, see **[DEPLOY.md](DEPLOY.md)** —
-Streamlit Community Cloud takes about two minutes, and there is a `Dockerfile`
-for any container host.
+Streamlit Community Cloud takes about two minutes, GitHub Codespaces needs no
+signup at all (`.devcontainer/` starts the app for you), and there is a
+`Dockerfile` for any container host.
 
 To click through it with nothing installed at all, open
 [`preview/atlas-preview.html`](preview/README.md) — a single self-contained file

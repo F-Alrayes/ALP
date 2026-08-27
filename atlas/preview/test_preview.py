@@ -119,11 +119,14 @@ def run(p):
     check("reads an ask-first sentence", "Sent." in log or "Expense Reimbursement" in log,
           log[:160])
 
-    log = reply("send a message to whoever is in charge of purchase orders "
-                "asking them to approve mine")
+    # "access" genuinely means two different things here, so Atlas should ask
+    # rather than pick one and send it.
+    log = reply("ask whoever owns access and ask them to give me the documents")
     check("asks first when two readings are close",
-          p.locator('[data-act="chose"]').count() >= 2, log[:160])
-    check("names who each option would reach", "Rania Khoury" in log, log[:200])
+          p.locator('[data-act="chose"]').count() >= 2, log[:200])
+    check("offers both readings", "IT Access Provisioning" in log
+          and "Data Room Access" in log, log[:200])
+    check("names who each option would reach", "Bilal Rahman" in log, log[:200])
 
     log = reply("tell me about Layla Mansour")
     check("a question about a person is still a question", "Senior Associate" in log,
