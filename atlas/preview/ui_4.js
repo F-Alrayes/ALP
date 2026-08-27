@@ -39,16 +39,13 @@
       `<button class="tab" role="tab" data-act="subtab" data-group="requests" data-k="${k}"
         aria-selected="${which === k}">${esc(t)}</button>`).join("");
 
-    const caption = which === "inbox" ? "Work Atlas has routed to you, newest activity first."
-      : which === "mine" ? "Everything you have raised, including what the agent has done with it."
-      : "Requests you have closed.";
+    const caption = "";
 
     return phead("Requests", `${me.name}'s desk`,
-      `${open.length} open with you · ${mine.length} raised by you · ${unreadFor(UI.actor)} unread`) +
-      `<div class="tabs" role="tablist">${tabs}</div>
-       <p class="sub" style="margin-bottom:11px">${esc(caption)}</p>` +
+      `${open.length} with you · ${mine.length} raised by you`) +
+      `<div class="tabs" role="tablist">${tabs}</div>` +
       (rows.length ? `<div class="stack">${rows.map(r => requestRow(r, cp(r), label)).join("")}</div>`
-        : empty("Nothing here.", "Ask Atlas for something and it will show up on the other side."));
+        : empty("Nothing here."));
   }
 
   function requestDetail(id) {
@@ -79,8 +76,8 @@
           <input id="note" class="field" data-act="note" value="${esc(UI.note || "")}">
           <button class="btn" data-act="sendnote" data-id="${id}">Send note</button>
         </div>`
-      : `<p class="sub">You are watching this request. Switch to
-         <strong>${esc(a ? a.name : "the assignee")}</strong> on the left to act on it.</p>`;
+      : `<p class="sub">Switch to <strong>${esc(a ? a.name : "the assignee")}</strong>
+         to act on it.</p>`;
 
     return `<button class="btn sm" data-act="back">← Back to the list</button>
       <div class="card flag" style="margin-top:13px">
@@ -154,23 +151,18 @@
     const opts = Object.keys(LOG_FILTERS).map(k =>
       `<option${k === UI.filter ? " selected" : ""}>${esc(k)}</option>`).join("");
 
-    return phead("Agent Log", "What the agent did, and why",
-      "The agent evaluates its rules against simulated time every couple of seconds. " +
-      "Nothing here was triggered by a human.") +
+    return phead("Agent", "What the agent did", "Nobody triggered any of this.") +
       `<div class="tiles">
-        ${tile("Agent", "Running", "last pass " + (S.lastTickAt ? fmtTime(S.lastTickAt) : "—"), "good")}
-        ${tile("Chases sent", String(counts.chase), "unacknowledged after 48h")}
-        ${tile("Reroutes", String(counts.reroute), "cover picked up the work")}
-        ${tile("Escalations", String(counts.esc), "handed to a manager", counts.esc ? "bad" : "")}
+        ${tile("Chases sent", String(counts.chase), "after 48h")}
+        ${tile("Reroutes", String(counts.reroute), "to a cover")}
+        ${tile("Escalations", String(counts.esc), "to a manager", counts.esc ? "bad" : "")}
       </div>
       <div class="toolbar">
         <div class="grow"><label class="lbl" for="lf">Show</label>
           <select id="lf" class="field" data-act="logfilter">${opts}</select></div>
         <button class="btn" data-act="tick">Run the agent now</button>
       </div>
-      <p class="muted" style="margin-bottom:9px">${rows.length} entries · simulated time
-        <span class="mono">${esc(fmtTime(at))}</span></p>` +
+      <p class="muted" style="margin-bottom:9px">${rows.length} entries</p>` +
       (rows.length ? `<div class="stack">${cards}</div>`
-        : empty("The agent has not needed to act yet.",
-                "Advance the simulated clock on the left to make chases and escalations fire."));
+        : empty("Nothing yet.", "Move the clock forward in Demo controls."));
   }

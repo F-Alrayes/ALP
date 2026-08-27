@@ -168,9 +168,7 @@
         data-k="${k}" aria-selected="${which === k}">${esc(t)}</button>`).join("");
     const tabsBar = `<div class="tabs" role="tablist">${tabs}</div>`;
     if (which === "org") return tabsBar + orgPanel();
-    const head = phead("People", "Who works here, and who they answer to",
-      "Search anyone, expand a team, and see what each person is actually accountable for.") +
-      tabsBar;
+    const head = phead("People", "Teams", "") + tabsBar;
     return head + teamsPanel();
   }
 
@@ -266,9 +264,8 @@
 
   function pageProcesses() {
     if (UI.process) return processProfile(UI.process);
-    return phead("Requests", "What you can ask for",
-      "The eight things Atlas routes today. Ask for any of them in plain English — you do " +
-      "not need to know which one it is.") + processList();
+    return phead("Catalogue", "What you can ask for",
+      "Ask for any of these in plain English.") + processList();
   }
 
   function processList() {

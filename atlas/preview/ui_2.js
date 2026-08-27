@@ -16,8 +16,7 @@
   function greet() {
     UI.chat = [];
     pushMsg("bot", "text", { text:
-      "I'm Atlas. Tell me what you need in plain English and I'll work out who is " +
-      "accountable for it right now, and send it to them." });
+      "Tell me what you need. I'll find who's accountable and send it to them." });
     pushMsg("bot", "suggest", { items: SUGGESTIONS.slice(0, 3) });
   }
 
@@ -28,8 +27,7 @@
     const top = matches[0];
     if (!top || top.confidence < 25) {
       pushMsg("bot", "text", { text:
-        "I couldn't match that to a process I know about. Pick the closest one and " +
-        "I'll route it, or rephrase and I'll try again." });
+        "I couldn't match that. Pick the closest one, or rephrase it." });
       pushMsg("bot", "pick", { query: text, options: matches.map(m => m.process_id) });
       return;
     }
@@ -55,8 +53,7 @@
     const proc = E.findProcess(S, text);
     if (!proc) {
       pushMsg("bot", "text", { text:
-        "I'm not sure which process you mean. Name it — invoice approval, KYC refresh, " +
-        "NDA review, data room access — and I'll tell you who is accountable." });
+        "Which one? Try invoice approval, data room access, travel approval." });
       return;
     }
     pushMsg("bot", "owners", { processId: proc.id });
@@ -91,8 +88,7 @@
     const p = E.findPerson(S, text);
     if (!p) {
       pushMsg("bot", "text", { text:
-        "I couldn't find that person. Try their full name, or browse the org chart " +
-        "under People." });
+        "I couldn't find them. Try their full name, or browse People." });
       return;
     }
     pushMsg("bot", "person", { id: p.id });
@@ -105,15 +101,9 @@
 
   function botHelp() {
     pushMsg("bot", "text", { text:
-      "Here's what I can do:\n\n" +
-      "• Raise a request — just describe it. I'll find the process, work out who is " +
-      "accountable right now, show you my reasoning, and draft the message.\n" +
-      "• Answer \"who owns invoice approval?\" or \"who approves valuation sign-off?\"\n" +
-      "• Tell you who is out of office.\n" +
-      "• Show your inbox, or where your requests have got to.\n\n" +
-      "Once something is sent, the agent takes over: it chases after 48 hours, hands " +
-      "over to a cover, then escalates to a manager. Use the clock buttons on the left " +
-      "to watch that happen in seconds." });
+      "Ask me for something, or ask who owns what, who's away, or where your " +
+      "requests got to.\n\n" +
+      "Once sent, I chase after 48h, hand over to a cover, then escalate." });
     pushMsg("bot", "suggest", { items: SUGGESTIONS });
   }
 
@@ -194,9 +184,10 @@
       <p>That looks like <strong>${esc(proc.name)}</strong>${top ?
         ` — ${badge(top.confidence.toFixed(0) + "% · " + top.confidence_label,
           top.confidence >= 70 ? "gold" : "mute")}` : ""}</p>
-      ${top ? `<p class="sub small">${esc(E.why(top))}</p>` : ""}
       ${kw ? `<div class="chips tight">${kw}</div>` : ""}
-      <div class="who-now"><span class="lbl">Who is accountable right now</span>${steps}
+      ${top ? `<details class="why"><summary>Why this match?</summary>
+        <p class="sub small">${esc(E.why(top))}</p></details>` : ""}
+      <div class="who-now"><span class="lbl">Who it goes to</span>${steps}
         <div class="note ${res.needs_admin ? "bad" : "info"} tight">${esc(E.resolutionSummary(res))}</div>
       </div>
       ${dupeBlock}
@@ -215,10 +206,10 @@
         <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
           <span class="mono">raised ${esc(human(now() - r.created_at))} ago</span></div>
       </div>
-      <p class="sub small">I'll chase it automatically if it isn't acknowledged within 48 hours.</p>
+      <p class="sub small">I'll chase it if it isn't picked up in 48h.</p>
       <div class="acts">
-        <button class="btn sm" data-act="open" data-id="${r.id}">View the timeline</button>
-        <button class="btn sm" data-act="adv" data-h="48">Skip forward 48h and watch me chase it</button>
+        <button class="btn sm" data-act="open" data-id="${r.id}">Timeline</button>
+        <button class="btn sm" data-act="adv" data-h="48">Skip 48h</button>
       </div>`);
   }
 
@@ -257,7 +248,7 @@
             ${covers.length ? `<span>owns ${esc(covers.join(", "))}</span>` : ""}</div>
         </div>`;
       }).join("")}</div>
-      <p class="sub small">Requests for anything they own are routed to a delegate automatically.</p>`);
+      `);
   }
 
   function renderReqList(m) {
@@ -305,19 +296,16 @@
 
     if (!owns.length) {
       return botWrap(`
-        <p><strong>${esc(p.name)}</strong> doesn't own any request type directly, so there is
-          nothing to send them through Atlas.</p>
-        <p class="sub small">Tell me what you need and I'll find whoever is accountable for it.</p>
+        <p><strong>${esc(p.name)}</strong> doesn't own anything you can request directly.</p>
+        <p class="sub small">Tell me what you need instead.</p>
         <div class="chips tight">${SUGGESTIONS.slice(0, 2).map(q =>
           `<button class="chip sm" data-act="say" data-text="${esc(q)}">${esc(q)}</button>`).join("")}</div>`);
     }
 
     return botWrap(`
       <p>What do you need from <strong>${esc(p.name)}</strong>?</p>
-      <p class="sub small">${esc(p.title)} · owns ${owns.length}
-        request type${owns.length === 1 ? "" : "s"}${
-        away ? ` · away until ${E.fmtDate(p.ooo_until)}, so this may be routed to their cover`
-             : ""}</p>
+      ${away ? `<p class="sub small">Away until ${E.fmtDate(p.ooo_until)} — this may go
+        to their cover.</p>` : ""}
       <div class="chips tight">${owns.map(proc =>
         `<button class="chip" data-act="askproc" data-id="${proc.id}"
           data-who="${p.id}">${esc(proc.name)}</button>`).join("")}</div>`);
@@ -354,7 +342,6 @@
   }
 
   function pageChat() {
-    const me = actor();
     return `<div class="chatpage">
       <div class="chatlog" id="chatlog">
         ${UI.chat.map(renderMsg).join("")}
@@ -365,7 +352,5 @@
           data-act="composer"></textarea>
         <button class="btn primary" type="submit" data-act="chatsubmit">Send</button>
       </form>
-      <p class="muted composer-note">Acting as ${esc(me.name)} · everything runs locally,
-        nothing leaves your browser</p>
     </div>`;
   }

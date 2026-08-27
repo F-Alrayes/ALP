@@ -85,7 +85,7 @@ def run(p):
     check("answers who owns a process", "Rania Khoury" in ask("Who owns invoice approval?"))
     check("answers who is away", "Layla Mansour" in ask("Is anyone out of office?"))
     check("answers about a person", "Financial Controller" in ask("Who is Huda Al-Najjar?"))
-    check("answers for help", "raise a request" in ask("help").lower())
+    check("answers for help", "who owns what" in ask("help").lower())
     check("password requests route to IT access",
           "IT Access Provisioning" in ask("I am locked out of my account"))
 
@@ -220,6 +220,34 @@ def run(p):
     else:
         check("explains when they own nothing", "doesn" in log.lower())
 
+    # ------------------------------------------------------------- chrome
+    section("layout")
+    check("the left panel is gone", p.locator(".rail").count() == 0)
+    check("identity lives in the header", p.locator(".topbar .who select").count() == 1)
+    check("no clock controls outside the demo page",
+          p.locator('.topbar [data-act="adv"]').count() == 0)
+
+    section("hover card matches the zoom")
+    tab(p, "People"); p.wait_for_timeout(700)
+    p.get_by_role("button", name="Expand all").click(); p.wait_for_timeout(900)
+    def ratio():
+        p.locator('g[data-act="treeselect"]').nth(5).hover(); p.wait_for_timeout(650)
+        r = p.evaluate("""() => { const c=document.getElementById('hovercard').getBoundingClientRect();
+            const n=document.querySelectorAll('.onode .obox')[5].getBoundingClientRect();
+            return c.width / n.width; }""")
+        p.mouse.move(4, 4); p.wait_for_timeout(350)
+        return r
+    r_start = ratio()
+    for _ in range(4):
+        p.get_by_role("button", name="Zoom out").click(); p.wait_for_timeout(110)
+    r_out = ratio()
+    for _ in range(9):
+        p.get_by_role("button", name="Zoom in").click(); p.wait_for_timeout(110)
+    r_in = ratio()
+    check("card stays proportional to the nodes", max(r_start, r_out, r_in) -
+          min(r_start, r_out, r_in) < 0.1,
+          f"ratios {r_start:.2f} / {r_out:.2f} / {r_in:.2f}")
+
     # ---------------------------------------------------------- other pages
     section("other pages")
     tab(p, "People"); p.wait_for_timeout(500)
@@ -232,11 +260,12 @@ def run(p):
         "[...document.querySelectorAll('.tabs')][0].querySelectorAll('.tab:not(.more)').length")
     check("only three primary tabs", n_primary == 3, f"{n_primary} tabs")
     p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(450)
-    check("More opens a menu", p.locator(".moremenu button").count() == 4)
+    check("More opens a menu", p.locator(".moremenu button").count() == 5)
     for label, probe in [("What you can ask for", "What you can ask for"),
-                         ("Dashboard", "Where work is actually stuck"),
+                         ("Dashboard", "Where work is stuck"),
                          ("Agent log", "What the agent did"),
-                         ("Guide", "How to drive Atlas")]:
+                         ("Demo controls", "Demo controls"),
+                         ("Guide", "How Atlas works")]:
         if p.locator(".moremenu").count() == 0:
             p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(400)
         p.locator(".moremenu button", has_text=label).first.click(); p.wait_for_timeout(900)
@@ -254,7 +283,7 @@ def run(p):
     section("persistence")
     p.reload(wait_until="load"); p.wait_for_timeout(1900)
     check("the guide does not reopen", p.locator(".modal").count() == 0)
-    tab(p, "Ask Atlas")
+    tab(p, "Ask")
     check("chat history survives a reload", "Data Room Access" in p.inner_text("#chatlog"))
 
 

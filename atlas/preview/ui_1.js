@@ -120,86 +120,72 @@
   }
   const unreadFor = id => S.messages.filter(m => m.recipient_id === id && !m.read).length;
 
-  /* --------------------------------- rail ------------------------------- */
+  /* ------------------------------ demo controls -------------------------- */
 
-  function railHTML() {
+  function pageDemo() {
     const at = now();
     const people = S.people.slice().sort((a, b) => a.name.localeCompare(b.name));
-    const opt = p => `<option value="${p.id}"${p.id === UI.actor ? " selected" : ""}>` +
-      `${esc(p.name)} — ${esc(p.title)}${E.isOutOfOffice(p, at) ? "  (OOO)" : ""}</option>`;
-    const unread = unreadFor(UI.actor);
-    const oooTarget = person(UI.oooPerson) || people[0];
-    const oooOpt = p => `<option value="${p.id}"${p.id === oooTarget.id ? " selected" : ""}>` +
-      `${esc(p.name)}${E.isOutOfOffice(p, at) ? "  (OOO)" : ""}</option>`;
-    const isOoo = E.isOutOfOffice(oooTarget, at);
+    const target = person(UI.oooPerson) || people[0];
+    const away = E.isOutOfOffice(target, at);
+    const opt = p => `<option value="${p.id}"${p.id === target.id ? " selected" : ""}>` +
+      `${esc(p.name)}${E.isOutOfOffice(p, at) ? " (away)" : ""}</option>`;
 
-    return `
-    <div class="brand"><span class="mark">A</span>
-      <span><span class="name">ATLAS</span><br><span class="tag">Responsibility, routed</span></span></div>
+    return phead("Demo", "Demo controls", "None of this exists in a real deployment.") +
+      `<div class="grid2">
+        <div class="card">
+          <div class="card-t">Simulated clock</div>
+          <p class="mono" style="margin:7px 0 2px">${esc(fmtTime(at))}</p>
+          <p class="muted">${E.offsetHours(S) >= 0 ? "+" : ""}${E.offsetHours(S)}h from real time</p>
+          <p class="sub small" style="margin-top:9px">Move it forward and the agent's
+            48-hour rules fire now.</p>
+          <div class="acts">
+            <button class="btn" data-act="adv" data-h="1">+1h</button>
+            <button class="btn" data-act="adv" data-h="24">+24h</button>
+            <button class="btn primary" data-act="adv" data-h="48">+48h</button>
+            <button class="btn" data-act="clockreset">Reset</button>
+          </div>
+        </div>
 
-    <div class="rail-sec">
-      <span class="rail-label">You are</span>
-      <select data-act="actor" aria-label="Acting as">${people.map(opt).join("")}</select>
-      <span class="rail-note">${unread ? unread + " unread message" + (unread === 1 ? "" : "s") +
-        " in your inbox." : "Inbox clear."}</span>
-      <button data-act="guide">Open the guide</button>
-    </div>
+        <div class="card">
+          <div class="card-t">Out of office</div>
+          <p class="sub small" style="margin-top:7px">The agent reroutes their open work
+            to a delegate.</p>
+          <div class="acts">
+            <select class="field slim" data-act="oooperson" aria-label="Person">${
+              people.map(opt).join("")}</select>
+            <button class="btn" data-act="ooo">${away ? "Bring back" : "Mark away"}</button>
+          </div>
+        </div>
 
-    <div class="rail-sec">
-      <span class="rail-label">Demo controls</span>
-      <span class="rail-note">None of this exists in a real deployment — it is how the
-        prototype is driven.</span>
-    </div>
+        <div class="card">
+          <div class="card-t"><span class="agent-dot live"></span>Agent</div>
+          <p class="sub small" style="margin-top:7px">Every 2s · last pass ${
+            esc(S.lastTickAt ? fmtTime(S.lastTickAt) : "—")}</p>
+          <div class="acts"><button class="btn" data-act="tick">Run it now</button></div>
+        </div>
 
-    <div class="rail-sec">
-      <span class="rail-label">Simulated clock</span>
-      <span class="clock-read mono">${esc(fmtTime(at))}</span>
-      <span class="clock-off mono">offset ${E.offsetHours(S) >= 0 ? "+" : ""}${E.offsetHours(S)}h from real time</span>
-      <div class="btn-row">
-        <button data-act="adv" data-h="1">+1h</button>
-        <button data-act="adv" data-h="24">+24h</button>
-        <button data-act="adv" data-h="48">+48h</button>
-      </div>
-      <label class="sr" for="advh">Advance by hours</label>
-      <input id="advh" type="number" min="1" max="720" value="${UI.advH || 24}" data-act="advh">
-      <button data-act="advcustom">Advance clock</button>
-      <button data-act="clockreset">Reset clock to real time</button>
-    </div>
-
-    <div class="rail-sec">
-      <span class="rail-label">Out of office</span>
-      <select data-act="oooperson" aria-label="Person">${people.map(oooOpt).join("")}</select>
-      <label class="sr" for="oood">Away for days</label>
-      <input id="oood" type="number" min="1" max="60" value="${UI.oooDays || 5}" data-act="oood">
-      <button data-act="ooo">${isOoo ? "Mark back in office" : "Mark out of office"}</button>
-    </div>
-
-    <div class="rail-sec">
-      <span class="rail-label"><span class="agent-dot live"></span>Agent</span>
-      <span class="rail-note">Evaluating its rules every 2s<br>
-        last pass ${esc(S.lastTickAt ? fmtTime(S.lastTickAt) : "—")}</span>
-      <button data-act="tick">Run agent now</button>
-    </div>
-
-    <div class="rail-sec">
-      <span class="rail-label">Database</span>
-      <button class="danger" data-act="reseed">Reset &amp; reseed</button>
-    </div>`;
+        <div class="card">
+          <div class="card-t">Start over</div>
+          <p class="sub small" style="margin-top:7px">Back to the starting state.</p>
+          <div class="acts"><button class="btn" data-act="reseed">Reset &amp; reseed</button></div>
+        </div>
+      </div>`;
   }
 
   /* --------------------------------- shell ------------------------------ */
 
   // Everyday work stays on the bar; the pitch and admin surfaces sit behind
   // "More", so a first-time employee sees three choices, not six.
-  const PRIMARY = [["chat", "Ask Atlas"], ["people", "People"], ["requests", "Requests"]];
+  const PRIMARY = [["chat", "Ask"], ["people", "People"], ["requests", "Requests"]];
   const MORE = [["processes", "What you can ask for"], ["dashboard", "Dashboard"],
-                ["agentlog", "Agent log"], ["guide", "Guide"]];
+                ["agentlog", "Agent log"], ["demo", "Demo controls"], ["guide", "Guide"]];
   const LABELS = Object.fromEntries(PRIMARY.concat(MORE));
 
   function render() {
     const root = document.getElementById("root");
     const orgMode = UI.page === "people" && (UI.tab.people || "org") === "org";
     const inMore = MORE.some(([k]) => k === UI.page);
+    const me = actor();
 
     const tabs = PRIMARY.map(([k, label]) => {
       const unread = k === "requests" ? unreadFor(UI.actor) : 0;
@@ -217,11 +203,19 @@
           class="${UI.page === k ? "on" : ""}">${esc(label)}</button>`).join("")}</div>` : ""}
     </div>`;
 
+    const whoOpts = S.people.slice().sort((a, b) => a.name.localeCompare(b.name)).map(p =>
+      `<option value="${p.id}"${p.id === UI.actor ? " selected" : ""}>${esc(p.name)}</option>`
+    ).join("");
+
     root.innerHTML = `<div class="app${UI.page === "chat" ? " chatmode" : ""}${
       orgMode ? " orgmode" : ""}">
-      <aside class="rail">${railHTML()}</aside>
+      <header class="topbar">
+        <span class="brand"><span class="mark">A</span><span class="name">ATLAS</span></span>
+        <nav class="tabs" role="tablist">${tabs}${moreMenu}</nav>
+        <label class="who"><span class="sr">You are</span>
+          <select data-act="actor">${whoOpts}</select></label>
+      </header>
       <main class="canvas"><div class="wrap">
-        <div class="tabs" role="tablist">${tabs}${moreMenu}</div>
         <div id="page">${pageHTML()}</div>
       </div></main></div>` +
       (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "") +
@@ -237,6 +231,7 @@
     switch (UI.page) {
       case "people":    return pagePeople();
       case "processes": return pageProcesses();
+      case "demo":      return pageDemo();
       case "requests":  return pageRequests();
       case "agentlog":  return pageAgentLog();
       case "dashboard": return pageDashboard();

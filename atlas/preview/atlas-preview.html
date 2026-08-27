@@ -12,8 +12,6 @@
   --green:#0F8A5F; --green-deep:#123528; --green-soft:#E3F0E9;
   --critical:#C0392F; --critical-soft:#FAE7E4;
   --warn:#B4761C; --warn-soft:#FBF0DB;
-  --rail:#0C2A21; --rail-2:#123528; --rail-ink:#EDE7D6; --rail-ink-2:#9FB3A8;
-  --rail-line:rgba(237,231,214,.16); --rail-fill:rgba(237,231,214,.08);
   --s1:#0F8A5F;  /* chart series 1 - validated */
   --s2:#B98B0A;  /* chart series 2 - validated */
   /* Org-chart team stripes. These label a node, never encode a quantity, and
@@ -32,8 +30,6 @@
     --green:#25A075; --green-deep:#B7DCC9; --green-soft:#152E25;
     --critical:#E8756F; --critical-soft:#33201E;
     --warn:#D8A34B; --warn-soft:#2E2617;
-    --rail:#091410; --rail-2:#0F1F19; --rail-ink:#E9E4D6; --rail-ink-2:#93A79B;
-    --rail-line:rgba(233,228,214,.14); --rail-fill:rgba(233,228,214,.07);
     --s1:#25A075; --s2:#B08E2A;
     --dept-b:#5C9BD8; --dept-c:#B183CC; --dept-d:#3FB0B0; --dept-e:#DE8B63;
     --grid:#263B31;
@@ -48,8 +44,6 @@
   --green:#25A075; --green-deep:#B7DCC9; --green-soft:#152E25;
   --critical:#E8756F; --critical-soft:#33201E;
   --warn:#D8A34B; --warn-soft:#2E2617;
-  --rail:#091410; --rail-2:#0F1F19; --rail-ink:#E9E4D6; --rail-ink-2:#93A79B;
-  --rail-line:rgba(233,228,214,.14); --rail-fill:rgba(233,228,214,.07);
   --s1:#25A075; --s2:#B08E2A;
   --dept-b:#5C9BD8; --dept-c:#B183CC; --dept-d:#3FB0B0; --dept-e:#DE8B63;
   --grid:#263B31;
@@ -79,55 +73,34 @@ a { color:var(--gold-ink); }
   clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 
 /* ------------------------------------------------------------------ shell */
-.app { display:grid; grid-template-columns:288px minmax(0,1fr); min-height:100vh; }
-.rail { background:var(--rail); color:var(--rail-ink); padding:22px 20px 40px;
-  border-right:1px solid var(--rail-line); display:flex; flex-direction:column; gap:20px; }
-.canvas { min-width:0; padding:26px 30px 72px; }
+.app { display:flex; flex-direction:column; min-height:100vh; }
+.topbar { display:flex; align-items:center; gap:20px; padding:0 24px;
+  border-bottom:1px solid var(--line); background:var(--surface); position:sticky; top:0; z-index:35; }
+.topbar .brand { padding:11px 0; flex:none; }
+.topbar .brand .mark { width:27px; height:27px; border-radius:7px; font-size:.86rem; margin-right:8px; }
+.topbar .brand .name { font-size:1rem; letter-spacing:.06em; color:var(--ink); }
+.topbar .tabs { flex:1; margin:0; border-bottom:none; }
+.topbar .who { flex:none; }
+.topbar .who select { background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+  padding:6px 10px; font-size:.84rem; max-width:190px; color:var(--ink); }
+@media (max-width:760px) {
+  .topbar { flex-wrap:wrap; gap:9px; padding:9px 14px; }
+  .topbar .tabs { order:3; width:100%; }
+}
+.canvas { min-width:0; padding:24px 30px 64px; flex:1; }
 .wrap { max-width:1120px; margin:0 auto; }
 .wrap.wide { max-width:1500px; }
 .app.chatmode .canvas { padding-bottom:0; }
-@media (max-width:900px) {
-  .app { grid-template-columns:minmax(0,1fr); }
-  .rail { border-right:none; border-bottom:1px solid var(--rail-line); }
-  .canvas { padding:20px 16px 60px; }
-}
+@media (max-width:900px) { .canvas { padding:18px 16px 56px; } }
 
-/* ------------------------------------------------------------- rail parts */
-.brand { display:flex; align-items:center; gap:11px; }
-.brand .mark { width:34px; height:34px; border-radius:9px; background:var(--gold);
-  color:#12211A; display:grid; place-items:center; font-weight:700; font-size:1.05rem;
+/* --------------------------------------------------------------- brand */
+.brand { display:inline-flex; align-items:center; }
+.brand .mark { display:inline-flex; align-items:center; justify-content:center;
+  border-radius:8px; background:var(--gold); color:#12211A; font-weight:800;
   font-family:"Source Serif 4", serif; flex:none; }
-.brand .name { font-family:"Source Serif 4", serif; font-size:1.22rem; font-weight:600;
-  letter-spacing:.02em; color:var(--rail-ink); line-height:1.1; }
-.brand .tag { font-size:.66rem; letter-spacing:.15em; text-transform:uppercase;
-  color:var(--rail-ink-2); }
-.rail-sec { display:flex; flex-direction:column; gap:9px; }
-.rail-sec + .rail-sec { border-top:1px solid var(--rail-line); padding-top:18px; }
-.rail-label { font-size:.66rem; letter-spacing:.15em; text-transform:uppercase;
-  color:var(--rail-ink-2); font-weight:600; }
-.rail-note { font-size:.79rem; color:var(--rail-ink-2); line-height:1.45; }
-.rail select, .rail input {
-  width:100%; background:var(--rail-fill); color:var(--rail-ink);
-  border:1px solid var(--rail-line); border-radius:8px; padding:8px 10px; font-size:.86rem;
-}
-.rail select { appearance:none; background-image:
-  linear-gradient(45deg,transparent 50%,var(--rail-ink-2) 50%),
-  linear-gradient(135deg,var(--rail-ink-2) 50%,transparent 50%);
-  background-position:calc(100% - 15px) 52%, calc(100% - 10px) 52%;
-  background-size:5px 5px,5px 5px; background-repeat:no-repeat; padding-right:28px; }
-.rail select option { background:var(--rail-2); color:var(--rail-ink); }
-.btn-row { display:flex; gap:6px; }
-.rail button {
-  background:var(--rail-fill); color:var(--rail-ink); border:1px solid var(--rail-line);
-  border-radius:8px; padding:8px 10px; font-size:.84rem; font-weight:500; cursor:pointer;
-  flex:1; transition:background .12s ease, border-color .12s ease, color .12s ease;
-}
-.rail button:hover { background:var(--gold); border-color:var(--gold); color:#12211A; }
-.rail button.danger:hover { background:var(--critical); border-color:var(--critical); color:#fff; }
-.clock-read { font-size:.95rem; font-weight:500; }
-.clock-off { font-size:.76rem; color:var(--rail-ink-2); }
+.brand .name { font-family:"Source Serif 4", serif; font-weight:600; letter-spacing:.05em; }
 .agent-dot { width:8px; height:8px; border-radius:50%; background:var(--gold);
-  display:inline-block; margin-right:6px; }
+  display:inline-block; margin-right:7px; vertical-align:1px; }
 @media (prefers-reduced-motion: no-preference) {
   .agent-dot.live { animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
@@ -282,8 +255,8 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
 .chart .cat { fill:var(--ink-2); font-size:11.5px; }
 .bar { transition:opacity .12s ease; }
 .bar:hover { opacity:.78; }
-.tip { position:fixed; z-index:50; pointer-events:none; background:var(--rail);
-  color:var(--rail-ink); font-size:.79rem; padding:7px 10px; border-radius:7px;
+.tip { position:fixed; z-index:50; pointer-events:none; background:var(--ink);
+  color:var(--surface); font-size:.79rem; padding:7px 10px; border-radius:7px;
   box-shadow:0 8px 24px -8px rgba(0,0,0,.5); max-width:250px; }
 .tip .tt { font-weight:600; }
 .gnode { cursor:default; }
@@ -295,8 +268,8 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
 .focusbar .chips { gap:5px; }
 
 /* --------------------------------------------------- full-bleed org chart */
-.app.orgmode .canvas { display:flex; flex-direction:column; height:100vh;
-  padding:20px 24px 0; }
+.app.orgmode .canvas { display:flex; flex-direction:column; height:calc(100vh - 50px);
+  padding:16px 24px 0; }
 /* margin:0 auto on the cross axis beats align-items:stretch, so clear it. */
 .app.orgmode .wrap { display:flex; flex-direction:column; flex:1; min-height:0;
   max-width:none; width:100%; margin:0; }
@@ -316,8 +289,11 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
 .sug .sug-n { display:block; font-weight:600; font-size:.9rem; color:var(--ink); }
 .sug .sug-t { display:block; font-size:.78rem; color:var(--ink-3); }
 
-.orgstage { position:relative; flex:1; min-height:340px; margin-bottom:16px; }
-.orgstage .orgscroll { height:100%; border-radius:var(--r); padding:26px;
+/* A flex chain rather than height:100% — a percentage height against a parent
+   that is itself stretched by flex resolves to auto in Chromium. */
+.orgstage { position:relative; flex:1; min-height:340px; margin-bottom:16px;
+  display:flex; flex-direction:column; }
+.orgstage .orgscroll { flex:1; min-height:0; border-radius:var(--r); padding:26px;
   display:flex; justify-content:safe center; align-items:safe center; }
 /* The chart is a flex item: without this it shrinks back to the container and
    zooming changes nothing but the label. */
@@ -326,7 +302,8 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
   background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
   padding:14px 16px; box-shadow:0 14px 36px -14px rgba(0,0,0,.4); }
 /* -------------------------------------------------- node hover card */
-.hovercard { position:absolute; z-index:20; width:286px; background:var(--surface);
+.hovercard { position:absolute; z-index:20; width:286px; transform-origin:top left;
+  background:var(--surface);
   border:1px solid var(--line); border-radius:12px; padding:13px 15px;
   box-shadow:0 18px 44px -16px rgba(0,0,0,.45); font-size:.87rem; }
 .hovercard .hc-head { display:flex; gap:10px; align-items:center; margin-bottom:9px; }
@@ -370,7 +347,7 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
 
 <style>
 /* ------------------------------------------------------------------ chat */
-.chatpage { display:flex; flex-direction:column; height:calc(100vh - 150px); min-height:440px; }
+.chatpage { display:flex; flex-direction:column; height:calc(100vh - 150px); min-height:420px; }
 .chatlog { flex:1; overflow-y:auto; padding:4px 2px 16px; scroll-behavior:smooth; }
 .msg { display:flex; gap:11px; margin-bottom:16px; max-width:760px; }
 .msg.user { margin-left:auto; justify-content:flex-end; }
@@ -1748,86 +1725,72 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
   }
   const unreadFor = id => S.messages.filter(m => m.recipient_id === id && !m.read).length;
 
-  /* --------------------------------- rail ------------------------------- */
+  /* ------------------------------ demo controls -------------------------- */
 
-  function railHTML() {
+  function pageDemo() {
     const at = now();
     const people = S.people.slice().sort((a, b) => a.name.localeCompare(b.name));
-    const opt = p => `<option value="${p.id}"${p.id === UI.actor ? " selected" : ""}>` +
-      `${esc(p.name)} — ${esc(p.title)}${E.isOutOfOffice(p, at) ? "  (OOO)" : ""}</option>`;
-    const unread = unreadFor(UI.actor);
-    const oooTarget = person(UI.oooPerson) || people[0];
-    const oooOpt = p => `<option value="${p.id}"${p.id === oooTarget.id ? " selected" : ""}>` +
-      `${esc(p.name)}${E.isOutOfOffice(p, at) ? "  (OOO)" : ""}</option>`;
-    const isOoo = E.isOutOfOffice(oooTarget, at);
+    const target = person(UI.oooPerson) || people[0];
+    const away = E.isOutOfOffice(target, at);
+    const opt = p => `<option value="${p.id}"${p.id === target.id ? " selected" : ""}>` +
+      `${esc(p.name)}${E.isOutOfOffice(p, at) ? " (away)" : ""}</option>`;
 
-    return `
-    <div class="brand"><span class="mark">A</span>
-      <span><span class="name">ATLAS</span><br><span class="tag">Responsibility, routed</span></span></div>
+    return phead("Demo", "Demo controls", "None of this exists in a real deployment.") +
+      `<div class="grid2">
+        <div class="card">
+          <div class="card-t">Simulated clock</div>
+          <p class="mono" style="margin:7px 0 2px">${esc(fmtTime(at))}</p>
+          <p class="muted">${E.offsetHours(S) >= 0 ? "+" : ""}${E.offsetHours(S)}h from real time</p>
+          <p class="sub small" style="margin-top:9px">Move it forward and the agent's
+            48-hour rules fire now.</p>
+          <div class="acts">
+            <button class="btn" data-act="adv" data-h="1">+1h</button>
+            <button class="btn" data-act="adv" data-h="24">+24h</button>
+            <button class="btn primary" data-act="adv" data-h="48">+48h</button>
+            <button class="btn" data-act="clockreset">Reset</button>
+          </div>
+        </div>
 
-    <div class="rail-sec">
-      <span class="rail-label">You are</span>
-      <select data-act="actor" aria-label="Acting as">${people.map(opt).join("")}</select>
-      <span class="rail-note">${unread ? unread + " unread message" + (unread === 1 ? "" : "s") +
-        " in your inbox." : "Inbox clear."}</span>
-      <button data-act="guide">Open the guide</button>
-    </div>
+        <div class="card">
+          <div class="card-t">Out of office</div>
+          <p class="sub small" style="margin-top:7px">The agent reroutes their open work
+            to a delegate.</p>
+          <div class="acts">
+            <select class="field slim" data-act="oooperson" aria-label="Person">${
+              people.map(opt).join("")}</select>
+            <button class="btn" data-act="ooo">${away ? "Bring back" : "Mark away"}</button>
+          </div>
+        </div>
 
-    <div class="rail-sec">
-      <span class="rail-label">Demo controls</span>
-      <span class="rail-note">None of this exists in a real deployment — it is how the
-        prototype is driven.</span>
-    </div>
+        <div class="card">
+          <div class="card-t"><span class="agent-dot live"></span>Agent</div>
+          <p class="sub small" style="margin-top:7px">Every 2s · last pass ${
+            esc(S.lastTickAt ? fmtTime(S.lastTickAt) : "—")}</p>
+          <div class="acts"><button class="btn" data-act="tick">Run it now</button></div>
+        </div>
 
-    <div class="rail-sec">
-      <span class="rail-label">Simulated clock</span>
-      <span class="clock-read mono">${esc(fmtTime(at))}</span>
-      <span class="clock-off mono">offset ${E.offsetHours(S) >= 0 ? "+" : ""}${E.offsetHours(S)}h from real time</span>
-      <div class="btn-row">
-        <button data-act="adv" data-h="1">+1h</button>
-        <button data-act="adv" data-h="24">+24h</button>
-        <button data-act="adv" data-h="48">+48h</button>
-      </div>
-      <label class="sr" for="advh">Advance by hours</label>
-      <input id="advh" type="number" min="1" max="720" value="${UI.advH || 24}" data-act="advh">
-      <button data-act="advcustom">Advance clock</button>
-      <button data-act="clockreset">Reset clock to real time</button>
-    </div>
-
-    <div class="rail-sec">
-      <span class="rail-label">Out of office</span>
-      <select data-act="oooperson" aria-label="Person">${people.map(oooOpt).join("")}</select>
-      <label class="sr" for="oood">Away for days</label>
-      <input id="oood" type="number" min="1" max="60" value="${UI.oooDays || 5}" data-act="oood">
-      <button data-act="ooo">${isOoo ? "Mark back in office" : "Mark out of office"}</button>
-    </div>
-
-    <div class="rail-sec">
-      <span class="rail-label"><span class="agent-dot live"></span>Agent</span>
-      <span class="rail-note">Evaluating its rules every 2s<br>
-        last pass ${esc(S.lastTickAt ? fmtTime(S.lastTickAt) : "—")}</span>
-      <button data-act="tick">Run agent now</button>
-    </div>
-
-    <div class="rail-sec">
-      <span class="rail-label">Database</span>
-      <button class="danger" data-act="reseed">Reset &amp; reseed</button>
-    </div>`;
+        <div class="card">
+          <div class="card-t">Start over</div>
+          <p class="sub small" style="margin-top:7px">Back to the starting state.</p>
+          <div class="acts"><button class="btn" data-act="reseed">Reset &amp; reseed</button></div>
+        </div>
+      </div>`;
   }
 
   /* --------------------------------- shell ------------------------------ */
 
   // Everyday work stays on the bar; the pitch and admin surfaces sit behind
   // "More", so a first-time employee sees three choices, not six.
-  const PRIMARY = [["chat", "Ask Atlas"], ["people", "People"], ["requests", "Requests"]];
+  const PRIMARY = [["chat", "Ask"], ["people", "People"], ["requests", "Requests"]];
   const MORE = [["processes", "What you can ask for"], ["dashboard", "Dashboard"],
-                ["agentlog", "Agent log"], ["guide", "Guide"]];
+                ["agentlog", "Agent log"], ["demo", "Demo controls"], ["guide", "Guide"]];
   const LABELS = Object.fromEntries(PRIMARY.concat(MORE));
 
   function render() {
     const root = document.getElementById("root");
     const orgMode = UI.page === "people" && (UI.tab.people || "org") === "org";
     const inMore = MORE.some(([k]) => k === UI.page);
+    const me = actor();
 
     const tabs = PRIMARY.map(([k, label]) => {
       const unread = k === "requests" ? unreadFor(UI.actor) : 0;
@@ -1845,11 +1808,19 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
           class="${UI.page === k ? "on" : ""}">${esc(label)}</button>`).join("")}</div>` : ""}
     </div>`;
 
+    const whoOpts = S.people.slice().sort((a, b) => a.name.localeCompare(b.name)).map(p =>
+      `<option value="${p.id}"${p.id === UI.actor ? " selected" : ""}>${esc(p.name)}</option>`
+    ).join("");
+
     root.innerHTML = `<div class="app${UI.page === "chat" ? " chatmode" : ""}${
       orgMode ? " orgmode" : ""}">
-      <aside class="rail">${railHTML()}</aside>
+      <header class="topbar">
+        <span class="brand"><span class="mark">A</span><span class="name">ATLAS</span></span>
+        <nav class="tabs" role="tablist">${tabs}${moreMenu}</nav>
+        <label class="who"><span class="sr">You are</span>
+          <select data-act="actor">${whoOpts}</select></label>
+      </header>
       <main class="canvas"><div class="wrap">
-        <div class="tabs" role="tablist">${tabs}${moreMenu}</div>
         <div id="page">${pageHTML()}</div>
       </div></main></div>` +
       (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "") +
@@ -1865,6 +1836,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     switch (UI.page) {
       case "people":    return pagePeople();
       case "processes": return pageProcesses();
+      case "demo":      return pageDemo();
       case "requests":  return pageRequests();
       case "agentlog":  return pageAgentLog();
       case "dashboard": return pageDashboard();
@@ -1893,8 +1865,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
   function greet() {
     UI.chat = [];
     pushMsg("bot", "text", { text:
-      "I'm Atlas. Tell me what you need in plain English and I'll work out who is " +
-      "accountable for it right now, and send it to them." });
+      "Tell me what you need. I'll find who's accountable and send it to them." });
     pushMsg("bot", "suggest", { items: SUGGESTIONS.slice(0, 3) });
   }
 
@@ -1905,8 +1876,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     const top = matches[0];
     if (!top || top.confidence < 25) {
       pushMsg("bot", "text", { text:
-        "I couldn't match that to a process I know about. Pick the closest one and " +
-        "I'll route it, or rephrase and I'll try again." });
+        "I couldn't match that. Pick the closest one, or rephrase it." });
       pushMsg("bot", "pick", { query: text, options: matches.map(m => m.process_id) });
       return;
     }
@@ -1932,8 +1902,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     const proc = E.findProcess(S, text);
     if (!proc) {
       pushMsg("bot", "text", { text:
-        "I'm not sure which process you mean. Name it — invoice approval, KYC refresh, " +
-        "NDA review, data room access — and I'll tell you who is accountable." });
+        "Which one? Try invoice approval, data room access, travel approval." });
       return;
     }
     pushMsg("bot", "owners", { processId: proc.id });
@@ -1968,8 +1937,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     const p = E.findPerson(S, text);
     if (!p) {
       pushMsg("bot", "text", { text:
-        "I couldn't find that person. Try their full name, or browse the org chart " +
-        "under People." });
+        "I couldn't find them. Try their full name, or browse People." });
       return;
     }
     pushMsg("bot", "person", { id: p.id });
@@ -1982,15 +1950,9 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
   function botHelp() {
     pushMsg("bot", "text", { text:
-      "Here's what I can do:\n\n" +
-      "• Raise a request — just describe it. I'll find the process, work out who is " +
-      "accountable right now, show you my reasoning, and draft the message.\n" +
-      "• Answer \"who owns invoice approval?\" or \"who approves valuation sign-off?\"\n" +
-      "• Tell you who is out of office.\n" +
-      "• Show your inbox, or where your requests have got to.\n\n" +
-      "Once something is sent, the agent takes over: it chases after 48 hours, hands " +
-      "over to a cover, then escalates to a manager. Use the clock buttons on the left " +
-      "to watch that happen in seconds." });
+      "Ask me for something, or ask who owns what, who's away, or where your " +
+      "requests got to.\n\n" +
+      "Once sent, I chase after 48h, hand over to a cover, then escalate." });
     pushMsg("bot", "suggest", { items: SUGGESTIONS });
   }
 
@@ -2071,9 +2033,10 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
       <p>That looks like <strong>${esc(proc.name)}</strong>${top ?
         ` — ${badge(top.confidence.toFixed(0) + "% · " + top.confidence_label,
           top.confidence >= 70 ? "gold" : "mute")}` : ""}</p>
-      ${top ? `<p class="sub small">${esc(E.why(top))}</p>` : ""}
       ${kw ? `<div class="chips tight">${kw}</div>` : ""}
-      <div class="who-now"><span class="lbl">Who is accountable right now</span>${steps}
+      ${top ? `<details class="why"><summary>Why this match?</summary>
+        <p class="sub small">${esc(E.why(top))}</p></details>` : ""}
+      <div class="who-now"><span class="lbl">Who it goes to</span>${steps}
         <div class="note ${res.needs_admin ? "bad" : "info"} tight">${esc(E.resolutionSummary(res))}</div>
       </div>
       ${dupeBlock}
@@ -2092,10 +2055,10 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
         <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
           <span class="mono">raised ${esc(human(now() - r.created_at))} ago</span></div>
       </div>
-      <p class="sub small">I'll chase it automatically if it isn't acknowledged within 48 hours.</p>
+      <p class="sub small">I'll chase it if it isn't picked up in 48h.</p>
       <div class="acts">
-        <button class="btn sm" data-act="open" data-id="${r.id}">View the timeline</button>
-        <button class="btn sm" data-act="adv" data-h="48">Skip forward 48h and watch me chase it</button>
+        <button class="btn sm" data-act="open" data-id="${r.id}">Timeline</button>
+        <button class="btn sm" data-act="adv" data-h="48">Skip 48h</button>
       </div>`);
   }
 
@@ -2134,7 +2097,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
             ${covers.length ? `<span>owns ${esc(covers.join(", "))}</span>` : ""}</div>
         </div>`;
       }).join("")}</div>
-      <p class="sub small">Requests for anything they own are routed to a delegate automatically.</p>`);
+      `);
   }
 
   function renderReqList(m) {
@@ -2182,19 +2145,16 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
     if (!owns.length) {
       return botWrap(`
-        <p><strong>${esc(p.name)}</strong> doesn't own any request type directly, so there is
-          nothing to send them through Atlas.</p>
-        <p class="sub small">Tell me what you need and I'll find whoever is accountable for it.</p>
+        <p><strong>${esc(p.name)}</strong> doesn't own anything you can request directly.</p>
+        <p class="sub small">Tell me what you need instead.</p>
         <div class="chips tight">${SUGGESTIONS.slice(0, 2).map(q =>
           `<button class="chip sm" data-act="say" data-text="${esc(q)}">${esc(q)}</button>`).join("")}</div>`);
     }
 
     return botWrap(`
       <p>What do you need from <strong>${esc(p.name)}</strong>?</p>
-      <p class="sub small">${esc(p.title)} · owns ${owns.length}
-        request type${owns.length === 1 ? "" : "s"}${
-        away ? ` · away until ${E.fmtDate(p.ooo_until)}, so this may be routed to their cover`
-             : ""}</p>
+      ${away ? `<p class="sub small">Away until ${E.fmtDate(p.ooo_until)} — this may go
+        to their cover.</p>` : ""}
       <div class="chips tight">${owns.map(proc =>
         `<button class="chip" data-act="askproc" data-id="${proc.id}"
           data-who="${p.id}">${esc(proc.name)}</button>`).join("")}</div>`);
@@ -2231,7 +2191,6 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
   }
 
   function pageChat() {
-    const me = actor();
     return `<div class="chatpage">
       <div class="chatlog" id="chatlog">
         ${UI.chat.map(renderMsg).join("")}
@@ -2242,8 +2201,6 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
           data-act="composer"></textarea>
         <button class="btn primary" type="submit" data-act="chatsubmit">Send</button>
       </form>
-      <p class="muted composer-note">Acting as ${esc(me.name)} · everything runs locally,
-        nothing leaves your browser</p>
     </div>`;
   }
 
@@ -2416,9 +2373,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
         data-k="${k}" aria-selected="${which === k}">${esc(t)}</button>`).join("");
     const tabsBar = `<div class="tabs" role="tablist">${tabs}</div>`;
     if (which === "org") return tabsBar + orgPanel();
-    const head = phead("People", "Who works here, and who they answer to",
-      "Search anyone, expand a team, and see what each person is actually accountable for.") +
-      tabsBar;
+    const head = phead("People", "Teams", "") + tabsBar;
     return head + teamsPanel();
   }
 
@@ -2514,9 +2469,8 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
   function pageProcesses() {
     if (UI.process) return processProfile(UI.process);
-    return phead("Requests", "What you can ask for",
-      "The eight things Atlas routes today. Ask for any of them in plain English — you do " +
-      "not need to know which one it is.") + processList();
+    return phead("Catalogue", "What you can ask for",
+      "Ask for any of these in plain English.") + processList();
   }
 
   function processList() {
@@ -2628,16 +2582,13 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
       `<button class="tab" role="tab" data-act="subtab" data-group="requests" data-k="${k}"
         aria-selected="${which === k}">${esc(t)}</button>`).join("");
 
-    const caption = which === "inbox" ? "Work Atlas has routed to you, newest activity first."
-      : which === "mine" ? "Everything you have raised, including what the agent has done with it."
-      : "Requests you have closed.";
+    const caption = "";
 
     return phead("Requests", `${me.name}'s desk`,
-      `${open.length} open with you · ${mine.length} raised by you · ${unreadFor(UI.actor)} unread`) +
-      `<div class="tabs" role="tablist">${tabs}</div>
-       <p class="sub" style="margin-bottom:11px">${esc(caption)}</p>` +
+      `${open.length} with you · ${mine.length} raised by you`) +
+      `<div class="tabs" role="tablist">${tabs}</div>` +
       (rows.length ? `<div class="stack">${rows.map(r => requestRow(r, cp(r), label)).join("")}</div>`
-        : empty("Nothing here.", "Ask Atlas for something and it will show up on the other side."));
+        : empty("Nothing here."));
   }
 
   function requestDetail(id) {
@@ -2668,8 +2619,8 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
           <input id="note" class="field" data-act="note" value="${esc(UI.note || "")}">
           <button class="btn" data-act="sendnote" data-id="${id}">Send note</button>
         </div>`
-      : `<p class="sub">You are watching this request. Switch to
-         <strong>${esc(a ? a.name : "the assignee")}</strong> on the left to act on it.</p>`;
+      : `<p class="sub">Switch to <strong>${esc(a ? a.name : "the assignee")}</strong>
+         to act on it.</p>`;
 
     return `<button class="btn sm" data-act="back">← Back to the list</button>
       <div class="card flag" style="margin-top:13px">
@@ -2743,25 +2694,20 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     const opts = Object.keys(LOG_FILTERS).map(k =>
       `<option${k === UI.filter ? " selected" : ""}>${esc(k)}</option>`).join("");
 
-    return phead("Agent Log", "What the agent did, and why",
-      "The agent evaluates its rules against simulated time every couple of seconds. " +
-      "Nothing here was triggered by a human.") +
+    return phead("Agent", "What the agent did", "Nobody triggered any of this.") +
       `<div class="tiles">
-        ${tile("Agent", "Running", "last pass " + (S.lastTickAt ? fmtTime(S.lastTickAt) : "—"), "good")}
-        ${tile("Chases sent", String(counts.chase), "unacknowledged after 48h")}
-        ${tile("Reroutes", String(counts.reroute), "cover picked up the work")}
-        ${tile("Escalations", String(counts.esc), "handed to a manager", counts.esc ? "bad" : "")}
+        ${tile("Chases sent", String(counts.chase), "after 48h")}
+        ${tile("Reroutes", String(counts.reroute), "to a cover")}
+        ${tile("Escalations", String(counts.esc), "to a manager", counts.esc ? "bad" : "")}
       </div>
       <div class="toolbar">
         <div class="grow"><label class="lbl" for="lf">Show</label>
           <select id="lf" class="field" data-act="logfilter">${opts}</select></div>
         <button class="btn" data-act="tick">Run the agent now</button>
       </div>
-      <p class="muted" style="margin-bottom:9px">${rows.length} entries · simulated time
-        <span class="mono">${esc(fmtTime(at))}</span></p>` +
+      <p class="muted" style="margin-bottom:9px">${rows.length} entries</p>` +
       (rows.length ? `<div class="stack">${cards}</div>`
-        : empty("The agent has not needed to act yet.",
-                "Advance the simulated clock on the left to make chases and escalations fire."));
+        : empty("Nothing yet.", "Move the clock forward in Demo controls."));
   }
 
   /* ================================ charts ============================== */
@@ -2910,11 +2856,8 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
     const charts = `<div class="charts">
       <div class="chart"><h3>Requests by status</h3>
-        <div class="csub">Every request ever raised. Escalated is marked in the critical colour
-          and named on the axis.</div>
         ${hbar(statusRows, { aria: "Requests by status" })}</div>
-      <div class="chart"><h3>Open requests by department</h3>
-        <div class="csub">Where the open queue sits right now.</div>
+      <div class="chart"><h3>Open by department</h3>
         ${deptRows.length ? hbar(deptRows, { aria: "Open requests by department" })
           : empty("Nothing open right now.")}</div>
       <div class="chart"><h3>Turnaround by department</h3>
@@ -2923,8 +2866,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
         ${turnRows.length ? groupedBar(turnRows, { aLabel: "Time to acknowledge",
           bLabel: "Time to complete", aria: "Turnaround by department" })
           : empty("No completed requests yet.")}</div>
-      <div class="chart"><h3>How long open items have been waiting</h3>
-        <div class="csub">Age of every open request, in simulated hours.</div>
+      <div class="chart"><h3>How long things have waited</h3>
         ${ages.length ? histogram(ages.map(a => a.age_hours), { aria: "Queue age distribution" })
           : empty("Nothing is waiting.")}</div>
     </div>`;
@@ -2961,29 +2903,23 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     }).join("") : `<div class="note info">No individual carries enough uncovered processes
       to be a concern.</div>`;
 
-    return phead("Dashboard", "Where work is actually stuck",
-      "Queue times, bottlenecks, orphaned processes and single points of failure — computed live " +
-      "against simulated time.") +
-      `<p class="muted" style="margin-bottom:11px">Simulated time
-        <span class="mono">${esc(fmtTime(at))}</span></p>
+    return phead("Dashboard", "Where work is stuck", "") + `
       <div class="tiles">
-        ${tile("Open requests", String(h.open_requests), "of " + h.total_requests + " raised")}
-        ${tile("Avg time to acknowledge", h.avg_ack_hours.toFixed(1) + "h", "first response")}
-        ${tile("Avg time to complete", h.avg_cycle_hours.toFixed(1) + "h", "raised to closed")}
-        ${tile("Escalation rate", Math.round(h.escalation_rate) + "%",
-               h.escalated_requests + " escalated", h.escalation_rate >= 20 ? "bad" : "")}
-        ${tile("Oldest open item", Math.round(h.oldest_open_hours) + "h", "still waiting",
+        ${tile("Open", String(h.open_requests), "of " + h.total_requests)}
+        ${tile("To acknowledge", h.avg_ack_hours.toFixed(1) + "h", "average")}
+        ${tile("To complete", h.avg_cycle_hours.toFixed(1) + "h", "average")}
+        ${tile("Escalated", Math.round(h.escalation_rate) + "%",
+               h.escalated_requests + " requests", h.escalation_rate >= 20 ? "bad" : "")}
+        ${tile("Oldest", Math.round(h.oldest_open_hours) + "h", "still waiting",
                h.oldest_open_hours >= 48 ? "warn" : "")}
       </div>
       <div class="sect"><h2>Queue</h2></div>${charts}
-      <div class="sect"><h2>Bottlenecks</h2><p>Who the open queue is piling up behind.</p></div>
+      <div class="sect"><h2>Bottlenecks</h2></div>
       ${neckTable}
-      <div class="sect"><h2>Orphaned processes</h2>
-        <p>Requests matched to these have no owner to route to — they park for the admin.</p></div>
+      <div class="sect"><h2>Nobody owns these</h2></div>
       <div class="stack">${orphanCards}</div>
       <div class="sect"><h2>Single points of failure</h2>
-        <p>People carrying several processes. “Uncovered” means the process has no available
-          delegate or backup behind them.</p></div>
+        <p>“Uncovered” means no delegate or backup behind them.</p></div>
       <div class="stack">${spofCards}</div>`;
   }
 
@@ -2991,21 +2927,14 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
 
   // A real sequence, so numbering it is honest.
   const TOUR = [
-    { t: "Ask for something in plain English",
-      d: "Type what you need into the chat — “I need access to the data room for Project " +
-         "Falcon”. Atlas works out which of the firm's 14 processes that is, and shows you " +
-         "how confident it is and which words it matched on." },
-    { t: "Watch it find the accountable person",
-      d: "The org chart says who reports to whom. Atlas answers a harder question: who can " +
-         "action this today. It checks the owner, notices they're out of office, and falls " +
-         "through to their delegate — showing every step of the reasoning." },
-    { t: "Let the agent chase it for you",
-      d: "Once sent, nobody has to remember it. The agent chases after 48 hours, hands over " +
-         "to a cover, then escalates to a manager. Use the clock buttons on the left to skip " +
-         "forward and watch it happen in seconds instead of days." },
-    { t: "Explore who does what",
-      d: "The People tab has the whole firm as an interactive org chart — search anyone, fold " +
-         "teams away, click a card to see what they own and who covers for them." },
+    { t: "Ask in plain English",
+      d: "Type what you need. Atlas works out which request type it is." },
+    { t: "It finds who can actually act",
+      d: "Owner away? It falls through to their delegate, and shows you why." },
+    { t: "The agent chases for you",
+      d: "Unanswered after 48h it chases, then hands over, then escalates." },
+    { t: "Browse the whole firm",
+      d: "People has every employee as an org chart you can search and request from." },
   ];
 
   function guideOverlay() {
@@ -3033,54 +2962,33 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
   }
 
   function pageGuide() {
-    const rows = TOUR.map((s, i) => `<div class="node ok">
-      <div class="k">${i + 1}. ${esc(s.t)}</div><div class="d">${esc(s.d)}</div></div>`).join("");
-    return phead("Guide", "How to drive Atlas",
-      "Atlas turns a sentence into a routed, chased, escalated piece of work. Here is the " +
-      "whole loop, and what every control on the left does.") +
+    const rows = TOUR.map((step, i) => `<div class="node ok">
+      <div class="k">${i + 1}. ${esc(step.t)}</div><div class="d">${esc(step.d)}</div></div>`).join("");
+    return phead("Guide", "How Atlas works", "") +
       `<div class="grid2">
         <div>
           <h2>The loop</h2>
           <div class="trail" style="margin-top:11px">${rows}</div>
           <div class="acts" style="margin-top:13px">
-            <button class="btn primary" data-act="guidetry">Run the example for me</button>
+            <button class="btn primary" data-act="guidetry">Run the example</button>
             <button class="btn" data-act="guide">Replay the tour</button>
           </div>
         </div>
         <div>
-          <h2>The controls on the left</h2>
-          <div style="margin-top:11px">
-            <div class="kv"><span class="k">You are</span>Switches whose eyes you are seeing
-              through. There is no login in a prototype — this replaces it, and lets you look at
-              both sides of the same request.</div>
-            <div class="kv"><span class="k">Simulated clock</span>Every timestamp in Atlas is read
-              through one clock that you control. Advancing it makes the agent's 48-hour rules
-              fire immediately, which is the only way to demo them.</div>
-            <div class="kv"><span class="k">Out of office</span>Mark anyone away and the agent
-              reroutes their live work to a delegate within a couple of seconds.</div>
-            <div class="kv"><span class="k">Run agent now</span>Forces an evaluation instead of
-              waiting for the next two-second tick.</div>
-            <div class="kv"><span class="k">Reset &amp; reseed</span>Puts the firm back to its
-              starting state. Yours only — nobody else sees your copy.</div>
-          </div>
-
-          <h2 style="margin-top:22px">What's real and what isn't</h2>
-          <p class="sub" style="margin-top:9px">The routing, the agent, the matching and the
-            analytics are real code. The firm is invented: 40 people, 5 departments and 14
-            processes of seeded data. Nothing leaves your browser, and your changes are private
-            to you.</p>
-
-          <h2 style="margin-top:22px">Things worth trying</h2>
-          <div class="chips tight" style="margin-top:9px">
+          <h2>Try these</h2>
+          <div class="chips tight" style="margin-top:11px">
             ${["I need access to the data room for Project Falcon",
                "Who owns invoice approval?",
                "Is anyone out of office?",
-               "I need the quarterly NAV marks signed off",
-               "Raise a purchase order for new laptops"].map(q =>
+               "I need the quarterly NAV marks signed off"].map(q =>
               `<button class="chip" data-act="say" data-text="${esc(q)}">${esc(q)}</button>`).join("")}
           </div>
-          <p class="muted" style="margin-top:9px">The last two are deliberately awkward: one has
-            no delegate behind an absent owner, the other is a process nobody owns.</p>
+          <p class="muted" style="margin-top:11px">The last one has no delegate behind an
+            absent owner.</p>
+
+          <h2 style="margin-top:22px">What's real</h2>
+          <p class="sub small" style="margin-top:9px">The routing, agent, matching and analytics
+            are real code. The firm is invented. Nothing leaves your browser.</p>
         </div>
       </div>`;
   }
@@ -3552,11 +3460,15 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team"},{"id":2,"
     if (!card || !stage || !p) return;
     card.innerHTML = hoverCardHTML(p);
     card.hidden = false;
+    // Scale 1:1 with the chart, so the card is always the same size relative to
+    // the cards it describes rather than dwarfing them when zoomed out.
+    const z = UI.tree.zoom;
+    card.style.transform = `scale(${z})`;
     const nb = nodeEl.getBoundingClientRect(), sb = stage.getBoundingClientRect();
     const cb = card.getBoundingClientRect();
     // Prefer below-right of the node, flip when that would leave the stage.
     let left = nb.left - sb.left + nb.width / 2 - cb.width / 2;
-    let top = nb.bottom - sb.top + 10;
+    let top = nb.bottom - sb.top + 10 * z;
     left = Math.max(8, Math.min(left, sb.width - cb.width - 8));
     if (top + cb.height > sb.height - 8) top = nb.top - sb.top - cb.height - 10;
     card.style.left = Math.round(left) + "px";

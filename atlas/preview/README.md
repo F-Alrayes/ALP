@@ -138,7 +138,8 @@ above, offers "↑ Up to <manager>" to climb back one level at a time, and "Show
 whole firm" to reset.
 
 **Nodes carry an avatar, a name and a title, and nothing else.** Everything else
-lives on a **hover card** — team, away date, who they report to, team size, what
+lives on a **hover card**, which scales 1:1 with the zoom level so it is always
+the same size relative to the cards it describes. It — team, away date, who they report to, team size, what
 they own, open load — with two actions: ask that person for something, or focus
 on their team. Hovering also lights the chain of command from that person up to
 the CEO and mutes everyone off it.
@@ -153,12 +154,22 @@ The **detail panel is deliberately short** — name, title, team, away status, w
 they report to, team size, and what they own. Anything deeper is a question for
 Ask Atlas rather than a wall of fields on first glance.
 
-### Navigation
+### Navigation and chrome
 
-Three primary tabs — Ask Atlas, People, Requests — carry everyday work. The
-pitch and admin surfaces (what you can ask for, dashboard, agent log, guide) sit
-behind a **More** menu, so a first-time employee sees three choices rather than
-six. Within People, the old Directory tab is gone: the search box does that job.
+There is no side panel. A single header bar carries the wordmark, three primary
+tabs — Ask, People, Requests — a **More** menu, and the "you are" switcher.
+Everything else (the request catalogue, dashboard, agent log, demo controls and
+guide) lives behind More, so a first-time employee sees three choices rather
+than a wall of controls.
+
+The demo rig — simulated clock, out-of-office toggle, agent, reset — is its own
+page under More rather than a permanent panel, so it stays out of the way while
+you are trying the product. The identity switcher stays in the header because
+you need it constantly to see both sides of a request.
+
+Copy throughout is deliberately terse: page subtitles are one short line or
+absent, chart descriptions are gone, and the match explanation sits behind a
+"Why this match?" disclosure rather than a paragraph under every reply.
 
 These follow established org-chart practice: an avatar as the hero element,
 details on demand rather than crammed into every node, hover-highlighting the

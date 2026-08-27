@@ -145,11 +145,8 @@
 
     const charts = `<div class="charts">
       <div class="chart"><h3>Requests by status</h3>
-        <div class="csub">Every request ever raised. Escalated is marked in the critical colour
-          and named on the axis.</div>
         ${hbar(statusRows, { aria: "Requests by status" })}</div>
-      <div class="chart"><h3>Open requests by department</h3>
-        <div class="csub">Where the open queue sits right now.</div>
+      <div class="chart"><h3>Open by department</h3>
         ${deptRows.length ? hbar(deptRows, { aria: "Open requests by department" })
           : empty("Nothing open right now.")}</div>
       <div class="chart"><h3>Turnaround by department</h3>
@@ -158,8 +155,7 @@
         ${turnRows.length ? groupedBar(turnRows, { aLabel: "Time to acknowledge",
           bLabel: "Time to complete", aria: "Turnaround by department" })
           : empty("No completed requests yet.")}</div>
-      <div class="chart"><h3>How long open items have been waiting</h3>
-        <div class="csub">Age of every open request, in simulated hours.</div>
+      <div class="chart"><h3>How long things have waited</h3>
         ${ages.length ? histogram(ages.map(a => a.age_hours), { aria: "Queue age distribution" })
           : empty("Nothing is waiting.")}</div>
     </div>`;
@@ -196,28 +192,22 @@
     }).join("") : `<div class="note info">No individual carries enough uncovered processes
       to be a concern.</div>`;
 
-    return phead("Dashboard", "Where work is actually stuck",
-      "Queue times, bottlenecks, orphaned processes and single points of failure — computed live " +
-      "against simulated time.") +
-      `<p class="muted" style="margin-bottom:11px">Simulated time
-        <span class="mono">${esc(fmtTime(at))}</span></p>
+    return phead("Dashboard", "Where work is stuck", "") + `
       <div class="tiles">
-        ${tile("Open requests", String(h.open_requests), "of " + h.total_requests + " raised")}
-        ${tile("Avg time to acknowledge", h.avg_ack_hours.toFixed(1) + "h", "first response")}
-        ${tile("Avg time to complete", h.avg_cycle_hours.toFixed(1) + "h", "raised to closed")}
-        ${tile("Escalation rate", Math.round(h.escalation_rate) + "%",
-               h.escalated_requests + " escalated", h.escalation_rate >= 20 ? "bad" : "")}
-        ${tile("Oldest open item", Math.round(h.oldest_open_hours) + "h", "still waiting",
+        ${tile("Open", String(h.open_requests), "of " + h.total_requests)}
+        ${tile("To acknowledge", h.avg_ack_hours.toFixed(1) + "h", "average")}
+        ${tile("To complete", h.avg_cycle_hours.toFixed(1) + "h", "average")}
+        ${tile("Escalated", Math.round(h.escalation_rate) + "%",
+               h.escalated_requests + " requests", h.escalation_rate >= 20 ? "bad" : "")}
+        ${tile("Oldest", Math.round(h.oldest_open_hours) + "h", "still waiting",
                h.oldest_open_hours >= 48 ? "warn" : "")}
       </div>
       <div class="sect"><h2>Queue</h2></div>${charts}
-      <div class="sect"><h2>Bottlenecks</h2><p>Who the open queue is piling up behind.</p></div>
+      <div class="sect"><h2>Bottlenecks</h2></div>
       ${neckTable}
-      <div class="sect"><h2>Orphaned processes</h2>
-        <p>Requests matched to these have no owner to route to — they park for the admin.</p></div>
+      <div class="sect"><h2>Nobody owns these</h2></div>
       <div class="stack">${orphanCards}</div>
       <div class="sect"><h2>Single points of failure</h2>
-        <p>People carrying several processes. “Uncovered” means the process has no available
-          delegate or backup behind them.</p></div>
+        <p>“Uncovered” means no delegate or backup behind them.</p></div>
       <div class="stack">${spofCards}</div>`;
   }

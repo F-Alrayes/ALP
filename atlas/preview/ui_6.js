@@ -3,21 +3,14 @@
 
   // A real sequence, so numbering it is honest.
   const TOUR = [
-    { t: "Ask for something in plain English",
-      d: "Type what you need into the chat — “I need access to the data room for Project " +
-         "Falcon”. Atlas works out which of the firm's 14 processes that is, and shows you " +
-         "how confident it is and which words it matched on." },
-    { t: "Watch it find the accountable person",
-      d: "The org chart says who reports to whom. Atlas answers a harder question: who can " +
-         "action this today. It checks the owner, notices they're out of office, and falls " +
-         "through to their delegate — showing every step of the reasoning." },
-    { t: "Let the agent chase it for you",
-      d: "Once sent, nobody has to remember it. The agent chases after 48 hours, hands over " +
-         "to a cover, then escalates to a manager. Use the clock buttons on the left to skip " +
-         "forward and watch it happen in seconds instead of days." },
-    { t: "Explore who does what",
-      d: "The People tab has the whole firm as an interactive org chart — search anyone, fold " +
-         "teams away, click a card to see what they own and who covers for them." },
+    { t: "Ask in plain English",
+      d: "Type what you need. Atlas works out which request type it is." },
+    { t: "It finds who can actually act",
+      d: "Owner away? It falls through to their delegate, and shows you why." },
+    { t: "The agent chases for you",
+      d: "Unanswered after 48h it chases, then hands over, then escalates." },
+    { t: "Browse the whole firm",
+      d: "People has every employee as an org chart you can search and request from." },
   ];
 
   function guideOverlay() {
@@ -45,54 +38,33 @@
   }
 
   function pageGuide() {
-    const rows = TOUR.map((s, i) => `<div class="node ok">
-      <div class="k">${i + 1}. ${esc(s.t)}</div><div class="d">${esc(s.d)}</div></div>`).join("");
-    return phead("Guide", "How to drive Atlas",
-      "Atlas turns a sentence into a routed, chased, escalated piece of work. Here is the " +
-      "whole loop, and what every control on the left does.") +
+    const rows = TOUR.map((step, i) => `<div class="node ok">
+      <div class="k">${i + 1}. ${esc(step.t)}</div><div class="d">${esc(step.d)}</div></div>`).join("");
+    return phead("Guide", "How Atlas works", "") +
       `<div class="grid2">
         <div>
           <h2>The loop</h2>
           <div class="trail" style="margin-top:11px">${rows}</div>
           <div class="acts" style="margin-top:13px">
-            <button class="btn primary" data-act="guidetry">Run the example for me</button>
+            <button class="btn primary" data-act="guidetry">Run the example</button>
             <button class="btn" data-act="guide">Replay the tour</button>
           </div>
         </div>
         <div>
-          <h2>The controls on the left</h2>
-          <div style="margin-top:11px">
-            <div class="kv"><span class="k">You are</span>Switches whose eyes you are seeing
-              through. There is no login in a prototype — this replaces it, and lets you look at
-              both sides of the same request.</div>
-            <div class="kv"><span class="k">Simulated clock</span>Every timestamp in Atlas is read
-              through one clock that you control. Advancing it makes the agent's 48-hour rules
-              fire immediately, which is the only way to demo them.</div>
-            <div class="kv"><span class="k">Out of office</span>Mark anyone away and the agent
-              reroutes their live work to a delegate within a couple of seconds.</div>
-            <div class="kv"><span class="k">Run agent now</span>Forces an evaluation instead of
-              waiting for the next two-second tick.</div>
-            <div class="kv"><span class="k">Reset &amp; reseed</span>Puts the firm back to its
-              starting state. Yours only — nobody else sees your copy.</div>
-          </div>
-
-          <h2 style="margin-top:22px">What's real and what isn't</h2>
-          <p class="sub" style="margin-top:9px">The routing, the agent, the matching and the
-            analytics are real code. The firm is invented: 40 people, 5 departments and 14
-            processes of seeded data. Nothing leaves your browser, and your changes are private
-            to you.</p>
-
-          <h2 style="margin-top:22px">Things worth trying</h2>
-          <div class="chips tight" style="margin-top:9px">
+          <h2>Try these</h2>
+          <div class="chips tight" style="margin-top:11px">
             ${["I need access to the data room for Project Falcon",
                "Who owns invoice approval?",
                "Is anyone out of office?",
-               "I need the quarterly NAV marks signed off",
-               "Raise a purchase order for new laptops"].map(q =>
+               "I need the quarterly NAV marks signed off"].map(q =>
               `<button class="chip" data-act="say" data-text="${esc(q)}">${esc(q)}</button>`).join("")}
           </div>
-          <p class="muted" style="margin-top:9px">The last two are deliberately awkward: one has
-            no delegate behind an absent owner, the other is a process nobody owns.</p>
+          <p class="muted" style="margin-top:11px">The last one has no delegate behind an
+            absent owner.</p>
+
+          <h2 style="margin-top:22px">What's real</h2>
+          <p class="sub small" style="margin-top:9px">The routing, agent, matching and analytics
+            are real code. The firm is invented. Nothing leaves your browser.</p>
         </div>
       </div>`;
   }
@@ -564,11 +536,15 @@
     if (!card || !stage || !p) return;
     card.innerHTML = hoverCardHTML(p);
     card.hidden = false;
+    // Scale 1:1 with the chart, so the card is always the same size relative to
+    // the cards it describes rather than dwarfing them when zoomed out.
+    const z = UI.tree.zoom;
+    card.style.transform = `scale(${z})`;
     const nb = nodeEl.getBoundingClientRect(), sb = stage.getBoundingClientRect();
     const cb = card.getBoundingClientRect();
     // Prefer below-right of the node, flip when that would leave the stage.
     let left = nb.left - sb.left + nb.width / 2 - cb.width / 2;
-    let top = nb.bottom - sb.top + 10;
+    let top = nb.bottom - sb.top + 10 * z;
     left = Math.max(8, Math.min(left, sb.width - cb.width - 8));
     if (top + cb.height > sb.height - 8) top = nb.top - sb.top - cb.height - 10;
     card.style.left = Math.round(left) + "px";
