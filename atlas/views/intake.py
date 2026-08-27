@@ -6,7 +6,7 @@ import streamlit as st
 
 from atlas import clock
 from atlas.db import session_scope, write_lock
-from atlas.matching import match_processes, suggest_title
+from atlas.matching import match_processes, matchable_text, suggest_title
 from atlas.models import Person, Process
 from atlas.routing import resolve
 from atlas.services import (
@@ -125,7 +125,9 @@ def render(actor_id: int) -> None:
         return
 
     with session_scope() as session:
-        matches = match_processes(session, query, limit=3)
+        # "Email whoever owns the data room and ask for access" — match on the
+        # subject and the ask, not the scaffolding around them.
+        matches = match_processes(session, matchable_text(query), limit=3)
         all_processes = session.query(Process).order_by(Process.name).all()
         process_options = {p.id: f"{p.name} — {p.category}" for p in all_processes}
 

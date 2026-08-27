@@ -92,7 +92,8 @@ PROCESSES: list[tuple[str, str, str, str]] = [
         "Grant a colleague or counterparty access to a project virtual data room, "
         "including folder-level permissions and NDA verification.",
         "data room, dataroom, virtual data room, vdr, deal documents, project access, "
-        "folder access, diligence documents, deal folder, project falcon",
+        "folder access, diligence documents, deal folder, project falcon, "
+        "data, data access, access to the data, data permissions, deal data",
     ),
     (
         "Invoice Approval",

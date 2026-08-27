@@ -14,9 +14,10 @@
   --warn:#B4761C; --warn-soft:#FBF0DB;
   --s1:#0F8A5F;  /* chart series 1 - validated */
   --s2:#B98B0A;  /* chart series 2 - validated */
-  /* Org-chart team stripes. These label a node, never encode a quantity, and
-     every node also carries its team name as text. */
-  --dept-b:#2A6FB0; --dept-c:#8A4FA8; --dept-d:#0E8C8C; --dept-e:#C4633A;
+  /* Team hues. Muted and close in chroma so six of them on screen read as one
+     family rather than a rainbow. They label a node, never encode a quantity. */
+  --dept-a:#8A6E1A; --dept-b:#37697F; --dept-c:#6E5580; --dept-d:#2F7D74;
+  --dept-e:#A0663F; --dept-f:#1F7A5A;
   --grid:#EDE6D4;
   --shadow:0 1px 2px rgba(18,53,40,.05), 0 8px 24px -18px rgba(18,53,40,.35);
   --r:10px;
@@ -31,7 +32,8 @@
     --critical:#E8756F; --critical-soft:#33201E;
     --warn:#D8A34B; --warn-soft:#2E2617;
     --s1:#25A075; --s2:#B08E2A;
-    --dept-b:#5C9BD8; --dept-c:#B183CC; --dept-d:#3FB0B0; --dept-e:#DE8B63;
+    --dept-a:#C4A44E; --dept-b:#7FAAC2; --dept-c:#AE93C0; --dept-d:#5FB3A8;
+    --dept-e:#D2966E; --dept-f:#4FB088;
     --grid:#263B31;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
   }
@@ -45,7 +47,8 @@
   --critical:#E8756F; --critical-soft:#33201E;
   --warn:#D8A34B; --warn-soft:#2E2617;
   --s1:#25A075; --s2:#B08E2A;
-  --dept-b:#5C9BD8; --dept-c:#B183CC; --dept-d:#3FB0B0; --dept-e:#DE8B63;
+  --dept-a:#C4A44E; --dept-b:#7FAAC2; --dept-c:#AE93C0; --dept-d:#5FB3A8;
+  --dept-e:#D2966E; --dept-f:#4FB088;
   --grid:#263B31;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
 }
@@ -307,8 +310,11 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
   border:1px solid var(--line); border-radius:12px; padding:13px 15px;
   box-shadow:0 18px 44px -16px rgba(0,0,0,.45); font-size:.87rem; }
 .hovercard .hc-head { display:flex; gap:10px; align-items:center; margin-bottom:9px; }
-.hovercard .hc-av { width:34px; height:34px; border-radius:50%; color:#fff; flex:none;
-  display:grid; place-items:center; font-weight:700; font-size:.8rem; }
+.hovercard .hc-av { width:34px; height:34px; border-radius:50%; flex:none;
+  display:grid; place-items:center; font-weight:700; font-size:.8rem;
+  color:var(--d); background:var(--surface-2);
+  background:color-mix(in srgb, var(--d) 15%, var(--surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--d) 32%, var(--surface)); }
 .hovercard .kv { gap:8px; }
 .hovercard .kv .k { min-width:78px; }
 .hovercard .acts { margin-top:10px; }
@@ -380,6 +386,14 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
 .draft { margin-top:12px; border-top:1px solid var(--line-soft); padding-top:11px; }
 .acts { display:flex; gap:8px; flex-wrap:wrap; margin-top:11px; align-items:center; }
 .picker { min-width:260px; }
+.pickrow { display:flex; align-items:baseline; justify-content:space-between; gap:14px;
+  width:100%; text-align:left; padding:10px 13px; border:1px solid var(--line);
+  border-radius:10px; background:var(--surface); cursor:pointer; font:inherit;
+  color:var(--ink); transition:border-color .12s, background .12s; }
+.pickrow:hover { border-color:var(--green); background:var(--surface-2); }
+.pickrow-t { font-weight:600; }
+.pickrow-s { color:var(--ink-2); font-size:12.5px; white-space:nowrap; }
+
 
 .composer { display:flex; gap:9px; align-items:flex-end; border-top:1px solid var(--line);
   padding-top:13px; background:var(--ground); }
@@ -403,7 +417,10 @@ td.n { text-align:right; font-variant-numeric:tabular-nums; }
 .onode.dim { opacity:.26; }
 .onode .oname { fill:var(--ink); font-size:13.5px; font-weight:600; }
 .onode .otitle { fill:var(--ink-2); font-size:11.5px; }
-.onode .oavt { fill:#fff; font-size:12px; font-weight:700; letter-spacing:.02em; }
+.onode .oav { fill:var(--surface-2); fill:color-mix(in srgb, var(--d) 15%, var(--surface)); }
+.onode .oavr { stroke:var(--line); stroke:color-mix(in srgb, var(--d) 32%, var(--surface)); }
+.onode .oavt { fill:var(--ink-2); fill:var(--d); font-size:11.5px; font-weight:700;
+  letter-spacing:.03em; }
 .onode .oaway { fill:var(--warn); stroke:var(--surface); stroke-width:2; }
 .onode .obox { transition:stroke .12s ease, filter .12s ease; }
 /* Hovering someone lights the chain of command above them and mutes the rest. */

@@ -531,6 +531,25 @@
     return req;
   }
 
+  // Undo for a request Atlas sent on the user's behalf. Only valid while it is
+  // untouched: the moment the assignee or the agent acts on it, it is real and
+  // has to be resolved in the open, not quietly deleted.
+  function canWithdraw(st, requestId, actorId) {
+    const req = C.request(st, requestId);
+    if (!req) return false;
+    return req.requester_id === actorId && req.status === "pending" &&
+           !req.acknowledged_at && req.chase_count === 0 &&
+           req.assignee_id === req.original_assignee_id;
+  }
+
+  function withdrawRequest(st, requestId, actorId) {
+    if (!canWithdraw(st, requestId, actorId)) return false;
+    st.requests = st.requests.filter(r => r.id !== requestId);
+    st.events = st.events.filter(e => e.request_id !== requestId);
+    st.messages = st.messages.filter(m => m.request_id !== requestId);
+    return true;
+  }
+
   function notifyRequester(st, req, body, at) {
     sendMessage(st, { request_id: req.id, sender_id: req.assignee_id,
       recipient_id: req.requester_id, type: "status_update", body, at });
@@ -776,6 +795,7 @@
 
   root.AtlasServices = {
     logEvent, sendMessage, draftBody, suggestTitle, findSimilarOpen, createRequest,
+    canWithdraw, withdrawRequest,
     acknowledge, startProgress, complete, addNote, followExisting, reassign, markRead, setOoo,
     tick, runUntilSettled, hoursSince,
   };
@@ -1091,6 +1111,8 @@
 
   /* --------------------------- conversation ----------------------------- */
 
+  // Questions Atlas answers about itself. Anything else is treated as a job to
+  // be routed, because that is what people actually come here to do.
   const PATTERNS = [
     ["help",      /\b(help|how does this work|what can you do|guide|tutorial|get started)\b/i],
     ["who_ooo",   /\b((who|anyone|anybody)('?s| is| are)? (out|away|off|on leave|on holiday)|out of office|\booo\b|who is away)\b/i],
@@ -1103,31 +1125,168 @@
   // Anything that reads as an action the firm performs for you.
   const REQUEST_HINT = /\b(i need|i want|can (someone|somebody|you)|please|could (someone|you)|requesting|request for|raise a|get me|help me (get|with)|i'?m locked|we need|need to)\b/i;
 
-  function classify(text) {
-    const t = String(text || "").trim();
-    if (!t) return { intent: "empty" };
-    for (const [intent, re] of PATTERNS) {
-      if (re.test(t)) {
-        // "who owns X" beats the generic request hint; a real ask wins over
-        // "who is" only when it also reads like an action.
-        if (intent === "about" && REQUEST_HINT.test(t)) break;
-        return { intent };
+  /* -- relay sentences ---------------------------------------------------
+     "Can you send an email to whoever is responsible for Data and ask them to
+     give me access to it?" names no one, asks no question, and is the single
+     most common way people phrase a request out loud. It has three parts:
+     an instruction to contact somebody (RELAY_VERB), a pointer at who that is
+     (OWNER_REF or a name), and the thing being asked for. Read all three and
+     it becomes a routed request instead of a trivia answer. */
+
+  const RELAY_VERB = /\b(ask|tell|email|e-?mail|mail|message|ping|chase|nudge|remind|notify|contact|forward|send|reach out|follow up|get)\b/i;
+
+  // People type "reposible" and "handels". The matcher already knows how to
+  // forgive that, so use it here too: snap near-misses back to the word they
+  // were reaching for and let the rest of the parse stay strict.
+  const OWNERSHIP_WORDS = ["responsible", "accountable", "handles", "approves", "oversees"];
+
+  function normalise(text) {
+    return String(text || "").replace(/[A-Za-z]{5,}/g, word => {
+      const lower = word.toLowerCase();
+      for (const canonical of OWNERSHIP_WORDS) {
+        if (lower === canonical) return word;
+        if (root.AtlasFuzz.ratio(lower, canonical) >= 85) return canonical;
       }
-    }
-    return { intent: "request" };
+      return word;
+    });
   }
 
-  // Pull a person out of free text by name or first name.
+  // Pointers at a responsibility rather than a person: "whoever owns X".
+  const OWNER_REF = new RegExp(
+    "\\b(?:whoever|whomever|whichever|the person|the people|someone|somebody|anyone|" +
+    "the team|the owner|the approver|the one)\\b[^.?!]{0,30}?" +
+    "\\b(?:owns?|responsible|handles?|in charge|looks? after|approves?|manages?|deals? with|runs?|covers?)\\b" +
+    "|\\b(?:responsible|accountable) for\\b|\\bin charge of\\b" +
+    "|\\b(?:owner|approver) (?:of|for)\\b" +
+    "|\\bwho(?:ever)? (?:owns?|handles?|approves?|runs?|manages?)\\b", "i");
+
+  // The word right before the thing being owned.
+  const OWNS_VERB = new RegExp(
+    "\\b(?:responsible|accountable) for\\b|\\bin charge of\\b" +
+    "|\\b(?:owner|approver) (?:of|for)\\b" +
+    "|\\b(?:owns?|handles?|approves?|manages?|runs?|looks? after|deals? with|covers?)\\b", "i");
+
+  // "ask them to …", "ask Layla for …", "get whoever owns it to …" — everything
+  // after the to/for is the payload; what sits between is who to hand it to.
+  const ASK_CLAUSE = new RegExp(
+    "\\b(?:ask|asking|asks|tell|telling|get|remind|reminding|request|requesting)\\s+" +
+    "(?:[a-z]+\\s+){0,4}?(?:to|for|if|whether)\\s+", "i");
+
+  // "tell me who owns this" is a question, not an instruction to contact anyone.
+  const SELF_ONLY = /\b(?:tell|show|remind|ask)\s+me\b/i;
+  const THIRD_PARTY = /\b(?:ask|tell|email|message|remind|chase|get|ping)\s+(?:them|him|her|whoever|somebody|someone|the owner|the team)\b/i;
+
+  const CLAUSE_END = /\b(?:and|then|so|please|because|but|plus|asking|telling|requesting)\b|[,;]/i;
+  const LEAD_ARTICLE = /^\s*(?:the|a|an|our|my|this|that)\s+/i;
+  const TRAIL_JOIN = /\s+(?:to|for|and|if|whether|so|that|about)\s*$/i;
+
+  // Split a relay sentence into what it points at and what it asks for.
+  function splitRelay(text) {
+    const t = normalise(text);
+    let subject = "", ask = "";
+
+    const am = ASK_CLAUSE.exec(t);
+    const payloadAt = am ? am.index + am[0].length : -1;
+    if (am) ask = t.slice(payloadAt).replace(/^to\s+/i, "").replace(/[.?!]+\s*$/, "").trim();
+
+    const om = OWNS_VERB.exec(t);
+    if (om) {
+      const from = om.index + om[0].length;
+      // The subject ends where the payload begins — "ask whoever approves
+      // expenses to sign off my claim" is about expenses, not the claim.
+      const to = payloadAt > from ? payloadAt : t.length;
+      subject = t.slice(from, to)
+        .split(CLAUSE_END)[0]
+        .replace(LEAD_ARTICLE, "")
+        .replace(TRAIL_JOIN, "")
+        .replace(/[.?!]+\s*$/, "").trim();
+    }
+
+    // "ask whoever is accountable for expenses to approve my claim" folds the
+    // subject into the ask object, leaving nothing between them. Split the
+    // payload instead of losing the subject.
+    if (om && !subject && ask) {
+      const cut = /\b(?:to|and|then|so)\b/i.exec(ask);
+      if (cut) {
+        subject = ask.slice(0, cut.index).replace(LEAD_ARTICLE, "").trim();
+        ask = ask.slice(cut.index + cut[0].length).trim();
+      } else {
+        subject = ask.replace(LEAD_ARTICLE, "").trim();
+      }
+    }
+
+    // "give me access to it" — "it" is the subject we just pulled out.
+    if (subject && ask) ask = ask.replace(/\bit\b/gi, subject);
+    return { subject, ask };
+  }
+
+  // What to run the matcher over: the meaningful half of the sentence, not the
+  // "can you send an email to whoever is" scaffolding around it.
+  function relayQuery(parts, fallback) {
+    const joined = [parts.subject, parts.ask].filter(Boolean).join(" ").trim();
+    return joined.length >= 3 ? joined : String(fallback || "").trim();
+  }
+
+  /* ------------------------------ reading ------------------------------- */
+
+  // One pass over a message: what kind of thing it is, who it points at, and
+  // what it is actually asking for.
+  function understand(st, text) {
+    const t = String(text || "").trim();
+    const out = { text: t, intent: "empty", relay: false, subject: "", ask: "", personId: null };
+    if (!t) return out;
+
+    const who = st ? findPerson(st, t) : null;
+    if (who) out.personId = who.id;
+
+    const clean = normalise(t);
+    const pointsAtOwner = OWNER_REF.test(clean);
+    const instructs = RELAY_VERB.test(clean) &&
+      !(SELF_ONLY.test(clean) && !THIRD_PARTY.test(clean));
+
+    if (instructs && (pointsAtOwner || out.personId)) {
+      const parts = splitRelay(t);
+      if (parts.ask || parts.subject) {
+        out.relay = true;
+        out.intent = "request";
+        out.subject = parts.subject;
+        out.ask = parts.ask;
+        out.query = relayQuery(parts, t);
+        return out;
+      }
+    }
+
+    for (const [intent, re] of PATTERNS) {
+      if (re.test(clean)) {
+        // A real ask wins over "who is …" only when it also reads like an action.
+        if (intent === "about" && REQUEST_HINT.test(clean)) break;
+        out.intent = intent;
+        return out;
+      }
+    }
+    out.intent = "request";
+    out.query = t;
+    return out;
+  }
+
+  // Kept for callers that only care about the label.
+  function classify(text) {
+    const st = root.AtlasState || null;
+    return { intent: understand(st, text).intent };
+  }
+
+  // Pull a person out of free text by name or first name. Whole words only —
+  // otherwise "Ali" matches "quality" and the wrong person gets the request.
   function findPerson(st, text) {
     const t = String(text || "").toLowerCase();
     let best = null, bestLen = 0;
     for (const p of st.people) {
       const full = p.name.toLowerCase();
-      const first = full.split(" ")[0];
-      const last = full.split(" ").slice(-1)[0];
-      for (const candidate of [full, first, last]) {
-        if (candidate.length < 3) continue;
-        if (t.includes(candidate) && candidate.length > bestLen) { best = p; bestLen = candidate.length; }
+      const parts = full.split(" ");
+      for (const candidate of [full, parts[0], parts[parts.length - 1]]) {
+        if (candidate.length < 3 || candidate.length <= bestLen) continue;
+        const re = new RegExp("\\b" + candidate.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&") + "\\b", "i");
+        if (re.test(t)) { best = p; bestLen = candidate.length; }
       }
     }
     return best;
@@ -1139,7 +1298,19 @@
     return null;
   }
 
-  root.AtlasOrg = { orgTree, teamSummary, pathToRoot, classify, findPerson, findProcess,
+  // Processes a named person is on the hook for, best first. Used when the
+  // message names someone: what they own beats what merely sounds similar.
+  function processesFor(st, personId) {
+    const rank = { owner: 0, approver: 1, delegate: 2, backup: 3 };
+    return st.responsibilities
+      .filter(r => r.person_id === personId)
+      .sort((a, b) => (rank[a.role] ?? 9) - (rank[b.role] ?? 9))
+      .map(r => ({ process: C.process_(st, r.process_id), role: r.role }))
+      .filter(x => x.process);
+  }
+
+  root.AtlasOrg = { orgTree, teamSummary, pathToRoot, classify, understand, splitRelay, normalise,
+                    findPerson, findProcess, processesFor,
                     REQUEST_HINT };
   if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, root.AtlasOrg);
   Object.assign(root, root.AtlasOrg);

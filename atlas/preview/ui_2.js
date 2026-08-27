@@ -2,9 +2,9 @@
   /* ================================= chat =============================== */
 
   const SUGGESTIONS = [
-    "I need access to the data room for Project Falcon",
+    "Email whoever owns the data room and ask them for access",
+    "Ask whoever approves expenses to sign off my claim",
     "Who owns invoice approval?",
-    "Is anyone out of office?",
     "What's in my inbox?",
   ];
 
@@ -16,31 +16,113 @@
   function greet() {
     UI.chat = [];
     pushMsg("bot", "text", { text:
-      "Tell me what you need. I'll find who's accountable and send it to them." });
+      "Say it how you'd say it out loud. I'll work out who's accountable and send it." });
     pushMsg("bot", "suggest", { items: SUGGESTIONS.slice(0, 3) });
   }
 
   /* ---------------------------- bot responses --------------------------- */
 
-  function botRequest(text) {
-    const matches = E.matchProcesses(S.processes, text, 3);
+  // Free text, one entry point. Everything below decides what to do with it;
+  // nothing here needs the user to have found anybody in the org chart first.
+  function botRequest(u) {
+    const query = (u && u.query) || (typeof u === "string" ? u : u.text);
+    const matches = E.matchProcesses(S.processes, query, 3);
     const top = matches[0];
     if (!top || top.confidence < 25) {
       pushMsg("bot", "text", { text:
         "I couldn't match that. Pick the closest one, or rephrase it." });
-      pushMsg("bot", "pick", { query: text, options: matches.map(m => m.process_id) });
+      pushMsg("bot", "pick", { query, options: matches.map(m => m.process_id) });
       return;
     }
-    openDraft(text, top.process_id, matches);
+    openDraft(query, top.process_id, matches);
   }
 
-  function openDraft(query, processId, matches) {
+  /* -- relays ------------------------------------------------------------
+     "Send an email to whoever is responsible for Data and ask them for
+     access." Nobody is named, no question is asked, and the user should not
+     have to go and look anyone up. Read the sentence, resolve the owner
+     through the responsibility graph, and send it. */
+
+  function botRelay(u) {
+    const named = u.personId ? person(u.personId) : null;
+    const query = u.query || u.text;
+    let matches = E.matchProcesses(S.processes, query, 3);
+
+    // A name in the message outranks a keyword hit: prefer what that person is
+    // actually on the hook for.
+    if (named) {
+      const theirs = new Set(E.processesFor(S, named.id).map(x => x.process.id));
+      const mine = matches.filter(m => theirs.has(m.process_id) && m.confidence >= 25);
+      if (mine.length) matches = mine.concat(matches.filter(m => !mine.includes(m)));
+    }
+
+    const top = matches[0];
+    if (!top || top.confidence < 25) {
+      // Understood the instruction, not the subject.
+      if (named) { pushMsg("bot", "askwho", { id: named.id }); return; }
+      pushMsg("bot", "text", { text:
+        "I can tell you want something raised — I just can't tell what. Pick one:" });
+      pushMsg("bot", "pick", { query, options: [] });
+      return;
+    }
+
+    // Two plausible readings, or one weak one: ask before sending anything.
+    const second = matches[1];
+    const tooClose = second && second.confidence >= 25 && top.confidence - second.confidence < 20;
+    if (tooClose || top.confidence < 55) {
+      pushMsg("bot", "choose", { query, text: u.text, subject: u.subject || "",
+        ids: matches.filter(m => m.confidence >= 15).slice(0, 3).map(m => m.process_id) });
+      return;
+    }
+
+    const proc = E.process_(S, top.process_id);
+    const res = E.resolve(S, proc);
+    const title = E.suggestTitle(u.ask || u.subject || u.text, proc.name);
+    const dupes = E.findSimilarOpen(S, { process_id: proc.id, requester_id: UI.actor, title });
+
+    // Anything Atlas can't route cleanly, or that looks like a repeat, goes
+    // back to the user before it is sent.
+    if (res.needs_admin || res.assignee_id === null || dupes.length) {
+      openDraft(u.text, proc.id, matches, title);
+      return;
+    }
+
+    sendRelay(u, proc, res, title);
+  }
+
+  function sendRelay(u, proc, res, title) {
+    const me = actor();
+    const r = E.createRequest(S, {
+      requester_id: UI.actor, process_id: proc.id, assignee_id: res.assignee_id,
+      title, body: E.draftBody(me, proc, res, u.text), resolution: res,
+    });
+    UI.draft = null;
+    pushMsg("bot", "sent", { id: r.id, subject: u.subject || "", auto: true });
+  }
+
+  // The user picked between two readings. Carry on as if the sentence had been
+  // unambiguous — they have already seen who each option would reach.
+  function commitChoice(text, processId) {
+    const u = E.understand(S, text);
+    const proc = E.process_(S, processId);
+    if (!proc) return;
+    const res = E.resolve(S, proc);
+    const title = E.suggestTitle(u.ask || u.subject || text, proc.name);
+    const dupes = E.findSimilarOpen(S, { process_id: proc.id, requester_id: UI.actor, title });
+    if (res.needs_admin || res.assignee_id === null || dupes.length) {
+      openDraft(text, proc.id, null, title);
+      return;
+    }
+    sendRelay(u, proc, res, title);
+  }
+
+  function openDraft(query, processId, matches, title) {
     const proc = E.process_(S, processId);
     const res = E.resolve(S, proc);
     const me = actor();
     UI.draft = {
       query, processId,
-      title: E.suggestTitle(query, proc ? proc.name : null),
+      title: title || E.suggestTitle(query, proc ? proc.name : null),
       body: E.draftBody(me, proc, res, query),
     };
     pushMsg("bot", "match", {
@@ -84,8 +166,8 @@
       empty: "You haven't raised anything yet. Tell me what you need and I'll route it." });
   }
 
-  function botAbout(text) {
-    const p = E.findPerson(S, text);
+  function botAbout(u) {
+    const p = u.personId ? person(u.personId) : E.findPerson(S, u.text);
     if (!p) {
       pushMsg("bot", "text", { text:
         "I couldn't find them. Try their full name, or browse People." });
@@ -101,8 +183,8 @@
 
   function botHelp() {
     pushMsg("bot", "text", { text:
-      "Ask me for something, or ask who owns what, who's away, or where your " +
-      "requests got to.\n\n" +
+      "Write it the way you'd say it. \"Email whoever owns the data room and ask " +
+      "for access\" is enough — I'll find them and send it.\n\n" +
       "Once sent, I chase after 48h, hand over to a cover, then escalate." });
     pushMsg("bot", "suggest", { items: SUGGESTIONS });
   }
@@ -112,15 +194,15 @@
     if (!text) return;
     pushMsg("user", "text", { text });
     UI.draft = null;
-    const { intent } = E.classify(text);
-    switch (intent) {
+    const u = E.understand(S, text);
+    switch (u.intent) {
       case "help":        botHelp(); break;
       case "who_ooo":     botOoo(); break;
       case "who_owns":    botWhoOwns(text); break;
       case "my_inbox":    botInbox(); break;
       case "my_requests": botMyRequests(); break;
-      case "about":       botAbout(text); break;
-      default:            botRequest(text);
+      case "about":       botAbout(u); break;
+      default:            u.relay ? botRelay(u) : botRequest(u);
     }
   }
 
@@ -195,12 +277,33 @@
   }
 
   function renderSent(m) {
+    if (m.data.withdrawn) return botWrap(`<p>Withdrawn — nothing was sent.</p>`);
     const r = E.request(S, m.data.id);
     if (!r) return botWrap(`<p>That request no longer exists.</p>`);
     const a = r.assignee_id ? person(r.assignee_id) : null;
     const proc = r.process_id ? E.process_(S, r.process_id) : null;
+    const res = proc ? E.resolve(S, proc) : null;
+    const owner = res && res.owner_id ? person(res.owner_id) : null;
+
+    // Show the lookup, not just the outcome: finding the right person is the
+    // work the user skipped by asking Atlas instead of guessing an address.
+    let trail = "";
+    if (m.data.auto && owner) {
+      const lead = m.data.subject
+        ? `Whoever owns <strong>${esc(m.data.subject)}</strong> is <strong>${esc(owner.name)}</strong>`
+        : `<strong>${esc(owner.name)}</strong> owns that`;
+      trail = `<p class="sub small">${lead}${
+        res.rerouted && a && a.id !== owner.id
+          ? ` — away until ${esc(E.fmtDate(owner.ooo_until))}, so it went to ${esc(a.name)}, their ${esc(res.assignee_role)}.`
+          : `.`}</p>`;
+    }
+
+    const undo = E.canWithdraw(S, r.id, UI.actor)
+      ? `<button class="btn sm" data-act="undo" data-id="${r.id}" data-mid="${m.id}">Undo</button>` : "";
+
     return botWrap(`
       <p>Sent. <strong>#${r.id}</strong> is with <strong>${esc(a ? a.name : "the Atlas admin")}</strong>.</p>
+      ${trail}
       <div class="card flag tight">
         <div class="card-t">#${r.id} — ${esc(r.title)}</div>
         <div class="card-m">${statusBadge(r.status)}<span>${esc(proc ? proc.name : "Unmatched")}</span>
@@ -210,7 +313,25 @@
       <div class="acts">
         <button class="btn sm" data-act="open" data-id="${r.id}">Timeline</button>
         <button class="btn sm" data-act="adv" data-h="48">Skip 48h</button>
+        ${undo}
       </div>`);
+  }
+
+  // Two readings of the same sentence. Name the person each would reach, so
+  // the choice is about who gets it rather than what it is filed under.
+  function renderChoose(m) {
+    const rows = m.data.ids.map(id => E.process_(S, id)).filter(Boolean);
+    return botWrap(`
+      <p>${m.data.subject
+        ? `More than one thing covers <strong>${esc(m.data.subject)}</strong>.`
+        : `That could be a couple of things.`} Which do you mean?</p>
+      <div class="stack tight">${rows.map(p => {
+        const res = E.resolve(S, p);
+        return `<button class="pickrow" data-act="chose" data-id="${p.id}"
+          data-q="${esc(m.data.text || m.data.query)}">
+          <span class="pickrow-t">${esc(p.name)}</span>
+          <span class="pickrow-s">${esc(res.assignee_name || "no owner set")}</span></button>`;
+      }).join("")}</div>`);
   }
 
   function renderOwners(m) {
@@ -331,6 +452,7 @@
       case "reqlist": return renderReqList(m);
       case "person":  return renderPersonMsg(m);
       case "pick":    return renderPick(m);
+      case "choose":  return renderChoose(m);
       case "askwho":  return renderAskWho(m);
       case "suggest":
         return `<div class="chips suggest">${m.data.items.map(s =>

@@ -246,6 +246,36 @@ def follow_existing(session: Session, request_id: int, follower_id: int) -> Requ
     return request
 
 
+def can_withdraw(session: Session, request_id: int, actor_id: int) -> bool:
+    """Can the requester still take this back?
+
+    Only while nobody has touched it. Once the assignee acknowledges it, or the
+    agent chases or reroutes it, the request is real: it has to be resolved in
+    the open rather than quietly deleted.
+    """
+    request = session.get(Request, request_id)
+    if request is None:
+        return False
+    return (
+        request.requester_id == actor_id
+        and request.status == "pending"
+        and request.acknowledged_at is None
+        and request.chase_count == 0
+        and request.assignee_id == request.original_assignee_id
+    )
+
+
+def withdraw_request(session: Session, request_id: int, actor_id: int) -> bool:
+    """Undo a request, taking its trail with it. Returns False if it is too late."""
+    if not can_withdraw(session, request_id, actor_id):
+        return False
+    session.query(Event).filter(Event.request_id == request_id).delete()
+    session.query(Message).filter(Message.request_id == request_id).delete()
+    session.query(Request).filter(Request.id == request_id).delete()
+    session.flush()
+    return True
+
+
 def _notify_requester(session: Session, request: Request, body: str, at: datetime) -> None:
     send_message(
         session,

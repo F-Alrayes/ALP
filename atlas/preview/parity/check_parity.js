@@ -2,6 +2,7 @@
  *
  *   cd atlas/preview/parity
  *   python3 ref_match.py > ref_match.json
+ *   python3 ref_relay.py > ref_relay.json
  *   python3 ref_agent.py > ref_agent.json
  *   python3 ref_analytics.py > ref_analytics.json
  *   node check_parity.js
@@ -38,6 +39,27 @@ console.log("\n[matching]");
   const TOL = 5e-4;
   ok(`confidence and signals agree within the reference's 4-decimal precision`,
      drift < TOL, `max drift ${drift.toExponential(2)} (tolerance ${TOL})`);
+}
+
+/* ---------------------------- reading requests --------------------------- */
+console.log("\n[reading plain English]");
+{
+  // Both apps split "email whoever owns X and ask them to Y" into the subject
+  // and the ask before matching. If they ever read a sentence differently, the
+  // same words would route to different people in the two front ends.
+  const ref = require("./ref_relay.json");
+  let bad = 0, first = "";
+  for (const row of ref) {
+    const p = E.splitRelay(row.s);
+    const joined = [p.subject, p.ask].filter(Boolean).join(" ").trim();
+    const query = joined.length >= 3 ? joined : row.s.trim();
+    if (p.subject !== row.subject || p.ask !== row.ask || query !== row.query) {
+      bad++;
+      if (!first) first = JSON.stringify(row.s);
+    }
+  }
+  ok(`subject and ask identical across ${ref.length} sentences`, bad === 0,
+     bad ? `${bad} differed, first ${first}` : "");
 }
 
 /* --------------------------- agent lifecycle ---------------------------- */

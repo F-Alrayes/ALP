@@ -43,7 +43,7 @@ through `ui_5.js` (the interface). Editing any of those and re-running
 | `seed.json` | The seeded database, timestamps stored as hours relative to seed time |
 | `atlas_engine.js` | Fuzzy matching, TF-IDF, routing, the agent rules, analytics |
 | `ui_1.js` | State, persistence, helpers, the sidebar, navigation |
-| `ui_2.js` | The chat surface — intents, bot replies, the draft flow |
+| `ui_2.js` | The chat surface — reading a message, bot replies, relay send, draft flow |
 | `ui_3.js` | People: interactive org chart, directory, teams, processes |
 | `ui_4.js` | Requests and the agent log |
 | `ui_5.js` | Charts (hand-built SVG) and the dashboard |
@@ -98,15 +98,51 @@ What it currently confirms:
 
 ## The chat
 
-`classify()` in the engine routes a message to one of a handful of intents —
-raise a request, who owns X, who is out of office, my inbox, my requests, who is
-this person, help — falling back to treating anything else as a request. It is
-keyword and fuzzy matching over the seeded data, not a language model: there is
-no network call, and the same input always produces the same answer.
+`understand()` in the engine reads one message and returns what kind of thing it
+is, who it points at, and what it is asking for. Intents are: raise a request,
+who owns X, who is out of office, my inbox, my requests, who is this person,
+help — anything else is treated as a request. It is keyword and fuzzy matching
+over the seeded data, not a language model: there is no network call, and the
+same input always produces the same answer.
 
-A request turns into a draft the user can edit before sending, with the process
-match, the confidence, the matched keywords and the full resolution trace shown
-inline so the routing is never a black box.
+### Relayed requests
+
+The most common way people ask for something out loud names nobody:
+
+> "Can you send an email to whoever is reposible for Data and ask them to give
+> me access to it if possible"
+
+That sentence has to be *acted on*, not answered. `understand()` recognises the
+three parts — an instruction to contact somebody, a pointer at a responsibility
+rather than a name, and the thing being asked for — and `splitRelay()` pulls out
+the subject (`Data`) and the ask (`give me access to it`), resolving `it` back to
+the subject. The matcher then sees the meaningful half of the sentence instead of
+`can you send an email to whoever is` scaffolding, which is the difference
+between a 53% match and a 100% one.
+
+Spelling is not assumed: `normalise()` snaps near-miss ownership words
+(`reposible`, `accountible`, `handels`) back to the word they were reaching for,
+using the same `fuzz.ratio` the matcher already relies on.
+
+From there Atlas resolves the owner through the responsibility graph, applies
+out-of-office failover, and **sends it** — no org chart, no form. The reply says
+who owns it and why it landed where it did ("Whoever owns Data is Layla Mansour —
+away until 02 Sep, so it went to James Okonkwo, their delegate"), and offers
+**Undo**, which withdraws the request outright while nobody has touched it yet.
+
+Two guards stop it firing blind. If the top two process matches are within 20
+points, or the best is below 55%, it asks which one first — naming the person
+each option would reach. If the match is confident but the process has no owner,
+or the request looks like a duplicate, it falls back to the editable draft.
+
+A plain (non-relayed) request still turns into a draft the user can edit before
+sending, with the process match, the confidence, the matched keywords and the
+full resolution trace shown inline so the routing is never a black box.
+
+The same reading runs in the Python app: `atlas/matching.py` carries
+`normalise()`, `split_relay()` and `matchable_text()`, and the Streamlit intake
+matches on `matchable_text(query)`. `parity/ref_relay.py` pins the two
+implementations to the same output for 16 sentences.
 
 ## The org chart
 

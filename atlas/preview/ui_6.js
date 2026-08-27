@@ -4,7 +4,7 @@
   // A real sequence, so numbering it is honest.
   const TOUR = [
     { t: "Ask in plain English",
-      d: "Type what you need. Atlas works out which request type it is." },
+      d: "\"Email whoever owns the data room and ask for access.\" No forms, no names." },
     { t: "It finds who can actually act",
       d: "Owner away? It falls through to their delegate, and shows you why." },
     { t: "The agent chases for you",
@@ -169,6 +169,8 @@
         UI.guideOpen = false; UI.guideSeen = true; return commit();
       case "guidetry":
         UI.guideOpen = false; UI.guideSeen = true; UI.page = "chat";
+        // A worked example, not a live send: the trace and the editable draft
+        // are the point, and nobody wants a tour button to fire a real request.
         submitChat("I need access to the data room for Project Falcon");
         return commit();
 
@@ -186,6 +188,20 @@
         if (!proc) return;
         pushMsg("user", "text", { text: proc.name });
         openDraft(`I need ${proc.name.toLowerCase()}`, proc.id);
+        return commit();
+      }
+      case "chose":
+        commitChoice(el.dataset.q, id);
+        return commit();
+      case "undo": {
+        if (!E.withdrawRequest(S, id, UI.actor)) {
+          pushMsg("bot", "text", { text:
+            "Too late to pull that one back — it's already been picked up. Open it and add a note instead." });
+          return commit();
+        }
+        const msg = UI.chat.find(m => m.id === Number(el.dataset.mid));
+        if (msg) msg.data.withdrawn = true;
+        if (UI.open === id) UI.open = null;
         return commit();
       }
       case "chatsend": sendDraft(); return commit();
@@ -511,7 +527,7 @@
       E.OPEN_STATUSES.includes(r.status)).length;
     const away = E.isOutOfOffice(p, at);
     return `<div class="hc-head">
-        <span class="hc-av" style="background:${deptColor(E.departmentName(S, p))}">${
+        <span class="hc-av" style="--d:${deptColor(E.departmentName(S, p))}">${
           esc(initials(p.name))}</span>
         <span><strong>${esc(p.name)}</strong><br><span class="sub">${esc(p.title)}</span></span>
       </div>

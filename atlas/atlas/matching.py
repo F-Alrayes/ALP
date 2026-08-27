@@ -220,3 +220,96 @@ def suggest_title(query: str, process_name: str | None) -> str:
     if len(text) <= 70:
         return text.rstrip(".!?")
     return text[:67].rsplit(" ", 1)[0] + "..."
+
+
+# --------------------------------------------------------------------------
+# Reading a request written the way people actually say it
+#
+# "Can you send an email to whoever is responsible for Data and ask them to
+# give me access?" is one sentence carrying two useful halves: what it points
+# at ("Data") and what it asks for ("give me access"). Everything between is
+# scaffolding that dilutes the match. Pull the halves out and match on those.
+# --------------------------------------------------------------------------
+
+OWNERSHIP_WORDS = ("responsible", "accountable", "handles", "approves", "oversees")
+
+_OWNS_VERB = re.compile(
+    r"\b(?:responsible|accountable) for\b|\bin charge of\b"
+    r"|\b(?:owner|approver) (?:of|for)\b"
+    r"|\b(?:owns?|handles?|approves?|manages?|runs?|looks? after|deals? with|covers?)\b",
+    re.I,
+)
+_ASK_CLAUSE = re.compile(
+    r"\b(?:ask|asking|asks|tell|telling|get|remind|reminding|request|requesting)\s+"
+    r"(?:[a-z]+\s+){0,4}?(?:to|for|if|whether)\s+",
+    re.I,
+)
+_CLAUSE_END = re.compile(
+    r"\b(?:and|then|so|please|because|but|plus|asking|telling|requesting)\b|[,;]", re.I
+)
+_LEAD_ARTICLE = re.compile(r"^\s*(?:the|a|an|our|my|this|that)\s+", re.I)
+_TRAIL_JOIN = re.compile(r"\s+(?:to|for|and|if|whether|so|that|about)\s*$", re.I)
+_INNER_SPLIT = re.compile(r"\b(?:to|and|then|so)\b", re.I)
+_WORD = re.compile(r"[A-Za-z]{5,}")
+
+
+def normalise(text: str) -> str:
+    """Snap misspelt ownership words back to the word they were reaching for.
+
+    People type "reposible". The fuzzy matcher already forgives that when
+    scoring keywords, so use it here too and let the parse below stay strict.
+    """
+
+    def fix(match: re.Match[str]) -> str:
+        word = match.group(0)
+        lower = word.lower()
+        for canonical in OWNERSHIP_WORDS:
+            if lower == canonical:
+                return word
+            if fuzz.ratio(lower, canonical) >= 85:
+                return canonical
+        return word
+
+    return _WORD.sub(fix, text or "")
+
+
+def split_relay(text: str) -> tuple[str, str]:
+    """Return (subject, ask) for a relayed request, or ("", "") if it isn't one."""
+    cleaned = normalise(text)
+    subject, ask = "", ""
+
+    ask_match = _ASK_CLAUSE.search(cleaned)
+    payload_at = ask_match.end() if ask_match else -1
+    if ask_match:
+        ask = re.sub(r"^to\s+", "", cleaned[payload_at:], flags=re.I).strip().rstrip(".!?")
+
+    owns = _OWNS_VERB.search(cleaned)
+    if owns:
+        start = owns.end()
+        # The subject ends where the payload begins: "ask whoever approves
+        # expenses to sign off my claim" is about expenses, not the claim.
+        end = payload_at if payload_at > start else len(cleaned)
+        subject = _CLAUSE_END.split(cleaned[start:end])[0]
+        subject = _LEAD_ARTICLE.sub("", subject)
+        subject = _TRAIL_JOIN.sub("", subject).strip().rstrip(".!?")
+
+    # "ask whoever is accountable for expenses to approve my claim" folds the
+    # subject into the ask object, leaving nothing between the two.
+    if owns and not subject and ask:
+        cut = _INNER_SPLIT.search(ask)
+        if cut:
+            subject = _LEAD_ARTICLE.sub("", ask[: cut.start()]).strip()
+            ask = ask[cut.end():].strip()
+        else:
+            subject = _LEAD_ARTICLE.sub("", ask).strip()
+
+    if subject and ask:
+        ask = re.sub(r"\bit\b", subject, ask, flags=re.I)
+    return subject, ask
+
+
+def matchable_text(query: str) -> str:
+    """The half of a sentence worth matching on. Falls back to the whole thing."""
+    subject, ask = split_relay(query)
+    joined = " ".join(part for part in (subject, ask) if part).strip()
+    return joined if len(joined) >= 3 else (query or "").strip()

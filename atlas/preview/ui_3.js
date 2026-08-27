@@ -4,9 +4,9 @@
   const NODE_W = 208, NODE_H = 66, H_GAP = 20, V_GAP = 62;
 
   const DEPT_HUE = {
-    "Executive": "var(--gold)", "Investments / Deal Team": "var(--s1)",
-    "Finance": "var(--dept-b)", "Legal & Compliance": "var(--dept-c)",
-    "IT": "var(--dept-d)", "Operations / HR": "var(--dept-e)",
+    "Executive": "var(--dept-a)", "Finance": "var(--dept-b)",
+    "Legal & Compliance": "var(--dept-c)", "IT": "var(--dept-d)",
+    "Operations / HR": "var(--dept-e)", "Investments / Deal Team": "var(--dept-f)",
   };
   const deptColor = d => DEPT_HUE[d] || "var(--ink-3)";
 
@@ -110,15 +110,14 @@
         </g>` : "";
       const title = n.title.length > 26 ? n.title.slice(0, 24) + "…" : n.title;
       return `<g class="onode${dim ? " dim" : ""}${selected ? " sel" : ""}"
-          data-node="${n.id}" transform="translate(${p.x},${p.y})">
+          data-node="${n.id}" style="--d:${hue}" transform="translate(${p.x},${p.y})">
         <g data-act="treeselect" data-id="${n.id}" tabindex="0" role="button"
            aria-label="${esc(n.name)}, ${esc(n.title)}, ${esc(n.department)}">
           <rect class="obox" width="${NODE_W}" height="${NODE_H}" rx="11"/>
-          <rect class="ostripe" width="4" height="${NODE_H}" rx="2" fill="${hue}"/>
-          <circle class="oav" cx="32" cy="${NODE_H / 2}" r="15" fill="${hue}"/>
-          <text class="oavt" x="32" y="${NODE_H / 2 + 4}" text-anchor="middle">${esc(initials(n.name))}</text>
-          <text class="oname" x="57" y="${NODE_H / 2 - 4}">${esc(n.name)}</text>
-          <text class="otitle" x="57" y="${NODE_H / 2 + 13}">${esc(title)}</text>
+          <circle class="oav oavr" cx="30" cy="${NODE_H / 2}" r="15" stroke-width="1"/>
+          <text class="oavt" x="30" y="${NODE_H / 2 + 4}" text-anchor="middle">${esc(initials(n.name))}</text>
+          <text class="oname" x="55" y="${NODE_H / 2 - 4}">${esc(n.name)}</text>
+          <text class="otitle" x="55" y="${NODE_H / 2 + 13}">${esc(title)}</text>
           ${ooo ? `<circle class="oaway" cx="${NODE_W - 15}" cy="17" r="5"/>` : ""}
         </g>${toggle}</g>`;
     }).join("");

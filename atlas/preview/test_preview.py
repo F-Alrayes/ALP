@@ -85,9 +85,52 @@ def run(p):
     check("answers who owns a process", "Rania Khoury" in ask("Who owns invoice approval?"))
     check("answers who is away", "Layla Mansour" in ask("Is anyone out of office?"))
     check("answers about a person", "Financial Controller" in ask("Who is Huda Al-Najjar?"))
-    check("answers for help", "who owns what" in ask("help").lower())
+    check("answers for help", "find them and send it" in ask("help").lower())
     check("password requests route to IT access",
           "IT Access Provisioning" in ask("I am locked out of my account"))
+
+    # --------------------------------------------------------- free text
+    section("chat — plain English, no org chart")
+    # A clean identity: the request above would otherwise be flagged as a
+    # duplicate, which is right, but hides the send path being tested here.
+    p.select_option('[data-act="actor"]', label="Marco Bianchi")
+    p.wait_for_timeout(700)
+
+    def reply(text):
+        """The bot's answer to one message, not the whole scrollback."""
+        box = p.locator('[data-act="composer"]')
+        box.click(); box.fill(text)
+        p.keyboard.press("Enter"); p.wait_for_timeout(900)
+        return p.locator("#chatlog .msg.bot").last.inner_text()
+
+    # The sentence a user actually typed, typos and all. Nobody is named, so
+    # Atlas has to read it, look the owner up and send it on its own.
+    log = reply("Can you send an email to whoever is reposible for Data and ask "
+                "them to to give me access to it if possible")
+    check("acts on it instead of answering a question", "Sent." in log, log[:160])
+    check("resolves the owner from the subject alone", "Layla Mansour" in log, log[:160])
+    check("fails over to the delegate", "James Okonkwo" in log, log[:160])
+    check("offers an undo", p.locator('[data-act="undo"]').count() >= 1)
+    p.locator('[data-act="undo"]').last.click(); p.wait_for_timeout(600)
+    check("undo withdraws it",
+          "Withdrawn" in p.locator("#chatlog .msg.bot").last.inner_text())
+
+    log = reply("Ask whoever approves expenses to sign off my claim")
+    check("reads an ask-first sentence", "Sent." in log or "Expense Reimbursement" in log,
+          log[:160])
+
+    log = reply("send a message to whoever is in charge of purchase orders "
+                "asking them to approve mine")
+    check("asks first when two readings are close",
+          p.locator('[data-act="chose"]').count() >= 2, log[:160])
+    check("names who each option would reach", "Rania Khoury" in log, log[:200])
+
+    log = reply("tell me about Layla Mansour")
+    check("a question about a person is still a question", "Senior Associate" in log,
+          log[:160])
+
+    p.select_option('[data-act="actor"]', label="Noura Al-Sabah")
+    p.wait_for_timeout(700)
 
     # ------------------------------------------------------------ org chart
     section("org chart — layout")

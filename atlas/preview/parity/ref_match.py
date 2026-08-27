@@ -28,6 +28,14 @@ QUERIES = [
  "urgent: data room access for cedarline",
  "renew msa",
  "sanctions screening on a new investor",
+ # What the relay reader hands the matcher: the subject and the ask, with the
+ # "can you send an email to whoever is" scaffolding stripped out.
+ "Data give me access to Data if possible",
+ "data room access",
+ "travel book my flights",
+ "expenses sign off my claim",
+ "purchase orders approve mine",
+ "valuations sign off Q3",
 ]
 out = []
 with session_scope() as s:
