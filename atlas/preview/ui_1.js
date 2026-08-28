@@ -83,7 +83,8 @@
     <div class="v">${esc(v)}</div><div class="s">${esc(s || "")}</div></div>`;
   const empty = (b, h2) => `<div class="empty"><div class="big">${esc(b)}</div>
     <div>${esc(h2 || "")}</div></div>`;
-  const phead = (e, t, s) => `<div class="phead"><div class="eyebrow">${esc(e)}</div>
+  // The heading carries its own weight; no kicker above it.
+  const phead = (e, t, s) => `<div class="phead">
     <h1>${esc(t)}</h1><p>${esc(s || "")}</p></div>`;
 
   const EVENT_LABELS = {

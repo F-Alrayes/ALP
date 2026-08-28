@@ -16,9 +16,13 @@ re-run the parity check — otherwise the two will drift apart.
 
 ## Open it
 
-Just open `atlas-preview.html` in a browser. No server, no build, no network
-(the only outbound request is Google Fonts, and the page falls back to system
-fonts without it).
+Just open `atlas-preview.html` in a browser. No server, no build, no network —
+the fonts (Fraunces, Instrument Sans, IBM Plex Mono; latin subsets from
+`fonts/`) are embedded into the file at build time, so the page makes zero
+outbound requests. The design system lives in `shell.html`: "The Private
+Ledger" — warm paper, evergreen ink, one gold accent, film grain, and a small
+set of motion tokens (strong ease-out curves, scale-on-press, sub-300ms
+entrances).
 
 State lives in `localStorage`, so each visitor gets their own private copy —
 advancing the clock or resetting the database affects nobody else. **Reset &
