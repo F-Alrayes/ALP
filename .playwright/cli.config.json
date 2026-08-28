@@ -1,0 +1,9 @@
+{
+  "allowUnrestrictedFileAccess": true,
+  "browser": {
+    "launchOptions": {
+      "executablePath": "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
+      "chromiumSandbox": false
+    }
+  }
+}
