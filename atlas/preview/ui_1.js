@@ -182,17 +182,25 @@
                 ["agentlog", "Agent log"], ["demo", "Demo controls"], ["guide", "Guide"]];
   const LABELS = Object.fromEntries(PRIMARY.concat(MORE));
 
+  // Arrival motion fires once, on the render right after a change — never on
+  // the re-renders that follow every click.
+  let lastPage = null, lastUnread = 0;
+
   function render() {
     const root = document.getElementById("root");
     const orgMode = UI.page === "people" && (UI.tab.people || "org") === "org";
     const inMore = MORE.some(([k]) => k === UI.page);
     const me = actor();
+    const entering = lastPage !== UI.page;
+    lastPage = UI.page;
 
     const tabs = PRIMARY.map(([k, label]) => {
       const unread = k === "requests" ? unreadFor(UI.actor) : 0;
+      const bump = k === "requests" && unread > lastUnread;
+      if (k === "requests") lastUnread = unread;
       return `<button class="tab" role="tab" data-act="page" data-page="${k}"
         aria-selected="${UI.page === k}">${esc(label)}${
-          unread ? ` <span class="pip">${unread}</span>` : ""}</button>`;
+          unread ? ` <span class="pip${bump ? " bump" : ""}">${unread}</span>` : ""}</button>`;
     }).join("");
 
     const moreMenu = `<div class="morewrap">
@@ -217,7 +225,7 @@
           <select data-act="actor">${whoOpts}</select></label>
       </header>
       <main class="canvas"><div class="wrap">
-        <div id="page">${pageHTML()}</div>
+        <div id="page"${entering ? ' class="page-enter"' : ""}>${pageHTML()}</div>
       </div></main></div>` +
       (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "") +
       (UI.guideOpen ? guideOverlay() : "");

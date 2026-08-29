@@ -12,9 +12,11 @@
   const tipAttr = (title, body) =>
     `data-tip="${esc(title)}" data-tipb="${esc(body)}" tabindex="0"`;
 
-  function barTrack(x, y, w, h) {
+  // dir: "h" grows from the left axis, "v" from the baseline; the row index
+  // staggers the growth so the chart assembles rather than appears.
+  function barTrack(x, y, w, h, dir, i) {
     return `<rect x="${x}" y="${y}" width="${Math.max(w, 0)}" height="${h}" rx="4" ry="4"
-      class="bar" />`;
+      class="bar ${dir || "h"}" style="animation-delay:${(i || 0) * 50}ms" />`;
   }
 
   // Horizontal category bars, one series. Identity comes from the axis label,
@@ -36,7 +38,7 @@
       const fill = r.color || "var(--s1)";
       return `<g ${tipAttr(r.label, r.tip || (r.value + " requests"))}>
         <text class="cat" x="${CH.pad.l - 10}" y="${y + CH.rowH / 2 + 4}" text-anchor="end">${esc(shortLabel(r.label))}</text>
-        <g fill="${fill}">${barTrack(CH.pad.l, y, w, CH.rowH)}</g>
+        <g fill="${fill}">${barTrack(CH.pad.l, y, w, CH.rowH, "h", i)}</g>
         <text class="vl" x="${CH.pad.l + w + 7}" y="${y + CH.rowH / 2 + 4}">${r.value}</text>
       </g>`;
     }).join("");
@@ -63,10 +65,10 @@
       return `<g>
         <text class="cat" x="${pad.l - 10}" y="${y + groupH / 2 + 4}" text-anchor="end">${esc(shortLabel(r.label))}</text>
         <g fill="var(--s2)" ${tipAttr(r.label, opts.aLabel + ": " + r.a + "h")}>
-          ${barTrack(pad.l, y, wa, barH)}</g>
+          ${barTrack(pad.l, y, wa, barH, "h", i)}</g>
         <text class="vl" x="${pad.l + wa + 6}" y="${y + barH - 2}">${r.a}h</text>
         <g fill="var(--s1)" ${tipAttr(r.label, opts.bLabel + ": " + r.b + "h")}>
-          ${barTrack(pad.l, y + barH + inner, wb, barH)}</g>
+          ${barTrack(pad.l, y + barH + inner, wb, barH, "h", i)}</g>
         <text class="vl" x="${pad.l + wb + 6}" y="${y + barH + inner + barH - 2}">${r.b}h</text>
       </g>`;
     }).join("");
@@ -97,7 +99,7 @@
       const lo = i * size, hi = (i + 1) * size;
       return `<g fill="var(--s1)" ${tipAttr(`${lo}–${hi}h old`,
         `${c} open request${c === 1 ? "" : "s"}`)}>
-        ${barTrack(x, y, Math.max(bw - 4, 1), Math.max(bh, c ? 3 : 0))}</g>`;
+        ${barTrack(x, y, Math.max(bw - 4, 1), Math.max(bh, c ? 3 : 0), "v", i)}</g>`;
     }).join("");
     const labels = [0, Math.floor(bins / 2), bins].map(i => {
       const x = pad.l + i * bw;

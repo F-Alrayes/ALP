@@ -243,6 +243,60 @@ input, textarea { caret-color:var(--gold); }
 .b.mute{background:var(--surface-2);color:var(--ink-3);border-color:var(--line)}
 .dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex:none; }
 
+/* ------------------------------------------------------- arrival motion */
+/* A page you just opened assembles: content rises in, cards and tiles cascade
+   with a short stagger, chart bars grow from their axis. All of it is scoped
+   to .page-enter, which exists only on the render after a page switch — the
+   re-renders that follow every click stay perfectly still. */
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter { animation:pagein .28s var(--ease) both; }
+  @keyframes pagein { from { opacity:0; transform:translateY(7px); filter:blur(2px); } }
+
+  .page-enter .tiles > .tile,
+  .page-enter .charts > .chart,
+  .page-enter .grid2 > *,
+  .page-enter .stack > .card,
+  .page-enter .rowline,
+  .page-enter .tblwrap { animation:cardin .34s var(--ease) both; }
+  @keyframes cardin { from { opacity:0; transform:translateY(9px); } }
+  .page-enter .tiles > :nth-child(1), .page-enter .stack > :nth-child(1),
+  .page-enter .grid2 > :nth-child(1), .page-enter .rowline:nth-of-type(1) { animation-delay:.03s; }
+  .page-enter .tiles > :nth-child(2), .page-enter .stack > :nth-child(2),
+  .page-enter .grid2 > :nth-child(2), .page-enter .rowline:nth-of-type(2) { animation-delay:.07s; }
+  .page-enter .tiles > :nth-child(3), .page-enter .stack > :nth-child(3),
+  .page-enter .grid2 > :nth-child(3), .page-enter .rowline:nth-of-type(3) { animation-delay:.11s; }
+  .page-enter .tiles > :nth-child(4), .page-enter .stack > :nth-child(4),
+  .page-enter .grid2 > :nth-child(4), .page-enter .rowline:nth-of-type(4) { animation-delay:.15s; }
+  .page-enter .tiles > :nth-child(5), .page-enter .stack > :nth-child(5),
+  .page-enter .rowline:nth-of-type(5) { animation-delay:.19s; }
+  .page-enter .tiles > :nth-child(n+6), .page-enter .stack > :nth-child(n+6),
+  .page-enter .rowline:nth-of-type(n+6) { animation-delay:.22s; }
+
+  /* Bars grow out of their axis; the delay is set per-row inline. */
+  .page-enter .bar { transform-box:fill-box; }
+  .page-enter .bar.h { transform-origin:left center; animation:growx .55s var(--ease) both; }
+  .page-enter .bar.v { transform-origin:center bottom; animation:growy .55s var(--ease) both; }
+  @keyframes growx { from { transform:scaleX(0); } }
+  @keyframes growy { from { transform:scaleY(0); } }
+
+  /* The routing trace tells its story step by step. */
+  .chatlog .msg:nth-last-child(-n+2) .trail .node { animation:stepin .3s var(--ease) both; }
+  @keyframes stepin { from { opacity:0; transform:translateX(-5px); } }
+  .chatlog .msg:nth-last-child(-n+2) .trail .node:nth-child(1) { animation-delay:.05s; }
+  .chatlog .msg:nth-last-child(-n+2) .trail .node:nth-child(2) { animation-delay:.13s; }
+  .chatlog .msg:nth-last-child(-n+2) .trail .node:nth-child(3) { animation-delay:.21s; }
+  .chatlog .msg:nth-last-child(-n+2) .trail .node:nth-child(4) { animation-delay:.29s; }
+  .chatlog .msg:nth-last-child(-n+2) .trail .node:nth-child(n+5) { animation-delay:.37s; }
+
+  /* The unread pip pops only when the number goes up. */
+  .pip.bump { animation:pipbump .45s var(--ease-io); }
+  @keyframes pipbump { 30% { transform:scale(1.35); } }
+
+  /* A small hello from the brand mark. */
+  .brand .mark { transition:transform .25s var(--ease); }
+  .brand:hover .mark { transform:rotate(-5deg) scale(1.06); }
+}
+
 /* ------------------------------------------------ progressive disclosure */
 /* details/summary ships with browser-default markers and spacing — the one
    surface on the page that wasn't ours. Make it quiet, and make it respond. */
@@ -502,7 +556,10 @@ td.n { text-align:right; font-family:var(--mono); font-size:.82rem;
   padding:13px 16px; box-shadow:var(--edge), var(--shadow); flex:1; min-width:0; }
 .msg.bot .bub > p + p { margin-top:9px; }
 .msg .bub .small { font-size:.85rem; }
-@media (prefers-reduced-motion: no-preference) { .msg { animation:msgin .22s var(--ease); } }
+@media (prefers-reduced-motion: no-preference) {
+  .chatlog .msg:nth-last-child(-n+2), .chatlog .msg:nth-last-child(-n+2) + .chips.suggest {
+    animation:msgin .24s var(--ease) both; }
+}
 @keyframes msgin { from { opacity:0; transform:translateY(6px); filter:blur(2px); } }
 
 .chips.suggest { margin:0 0 16px 40px; max-width:760px; }
@@ -2325,17 +2382,25 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team","topics":"
                 ["agentlog", "Agent log"], ["demo", "Demo controls"], ["guide", "Guide"]];
   const LABELS = Object.fromEntries(PRIMARY.concat(MORE));
 
+  // Arrival motion fires once, on the render right after a change — never on
+  // the re-renders that follow every click.
+  let lastPage = null, lastUnread = 0;
+
   function render() {
     const root = document.getElementById("root");
     const orgMode = UI.page === "people" && (UI.tab.people || "org") === "org";
     const inMore = MORE.some(([k]) => k === UI.page);
     const me = actor();
+    const entering = lastPage !== UI.page;
+    lastPage = UI.page;
 
     const tabs = PRIMARY.map(([k, label]) => {
       const unread = k === "requests" ? unreadFor(UI.actor) : 0;
+      const bump = k === "requests" && unread > lastUnread;
+      if (k === "requests") lastUnread = unread;
       return `<button class="tab" role="tab" data-act="page" data-page="${k}"
         aria-selected="${UI.page === k}">${esc(label)}${
-          unread ? ` <span class="pip">${unread}</span>` : ""}</button>`;
+          unread ? ` <span class="pip${bump ? " bump" : ""}">${unread}</span>` : ""}</button>`;
     }).join("");
 
     const moreMenu = `<div class="morewrap">
@@ -2360,7 +2425,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team","topics":"
           <select data-act="actor">${whoOpts}</select></label>
       </header>
       <main class="canvas"><div class="wrap">
-        <div id="page">${pageHTML()}</div>
+        <div id="page"${entering ? ' class="page-enter"' : ""}>${pageHTML()}</div>
       </div></main></div>` +
       (UI.flash ? `<div class="flash">${esc(UI.flash)}</div>` : "") +
       (UI.guideOpen ? guideOverlay() : "");
@@ -3492,9 +3557,11 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team","topics":"
   const tipAttr = (title, body) =>
     `data-tip="${esc(title)}" data-tipb="${esc(body)}" tabindex="0"`;
 
-  function barTrack(x, y, w, h) {
+  // dir: "h" grows from the left axis, "v" from the baseline; the row index
+  // staggers the growth so the chart assembles rather than appears.
+  function barTrack(x, y, w, h, dir, i) {
     return `<rect x="${x}" y="${y}" width="${Math.max(w, 0)}" height="${h}" rx="4" ry="4"
-      class="bar" />`;
+      class="bar ${dir || "h"}" style="animation-delay:${(i || 0) * 50}ms" />`;
   }
 
   // Horizontal category bars, one series. Identity comes from the axis label,
@@ -3516,7 +3583,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team","topics":"
       const fill = r.color || "var(--s1)";
       return `<g ${tipAttr(r.label, r.tip || (r.value + " requests"))}>
         <text class="cat" x="${CH.pad.l - 10}" y="${y + CH.rowH / 2 + 4}" text-anchor="end">${esc(shortLabel(r.label))}</text>
-        <g fill="${fill}">${barTrack(CH.pad.l, y, w, CH.rowH)}</g>
+        <g fill="${fill}">${barTrack(CH.pad.l, y, w, CH.rowH, "h", i)}</g>
         <text class="vl" x="${CH.pad.l + w + 7}" y="${y + CH.rowH / 2 + 4}">${r.value}</text>
       </g>`;
     }).join("");
@@ -3543,10 +3610,10 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team","topics":"
       return `<g>
         <text class="cat" x="${pad.l - 10}" y="${y + groupH / 2 + 4}" text-anchor="end">${esc(shortLabel(r.label))}</text>
         <g fill="var(--s2)" ${tipAttr(r.label, opts.aLabel + ": " + r.a + "h")}>
-          ${barTrack(pad.l, y, wa, barH)}</g>
+          ${barTrack(pad.l, y, wa, barH, "h", i)}</g>
         <text class="vl" x="${pad.l + wa + 6}" y="${y + barH - 2}">${r.a}h</text>
         <g fill="var(--s1)" ${tipAttr(r.label, opts.bLabel + ": " + r.b + "h")}>
-          ${barTrack(pad.l, y + barH + inner, wb, barH)}</g>
+          ${barTrack(pad.l, y + barH + inner, wb, barH, "h", i)}</g>
         <text class="vl" x="${pad.l + wb + 6}" y="${y + barH + inner + barH - 2}">${r.b}h</text>
       </g>`;
     }).join("");
@@ -3577,7 +3644,7 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team","topics":"
       const lo = i * size, hi = (i + 1) * size;
       return `<g fill="var(--s1)" ${tipAttr(`${lo}–${hi}h old`,
         `${c} open request${c === 1 ? "" : "s"}`)}>
-        ${barTrack(x, y, Math.max(bw - 4, 1), Math.max(bh, c ? 3 : 0))}</g>`;
+        ${barTrack(x, y, Math.max(bw - 4, 1), Math.max(bh, c ? 3 : 0), "v", i)}</g>`;
     }).join("");
     const labels = [0, Math.floor(bins / 2), bins].map(i => {
       const x = pad.l + i * bw;
