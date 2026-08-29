@@ -7,7 +7,7 @@ from datetime import timedelta
 import streamlit as st
 
 from .. import agent, clock
-from ..config import APP_NAME, APP_TAGLINE
+from ..config import APP_NAME, APP_TAGLINE, UI_BUILD
 from ..db import session_scope
 from ..models import Person
 from ..routing import is_out_of_office
@@ -41,7 +41,8 @@ def _brand() -> None:
         f"""<div class="atlas-brand">
               <span class="mark">A</span>
               <span class="name">{esc(APP_NAME.upper())}</span><br/>
-              <span class="tag">{esc(APP_TAGLINE)}</span>
+              <span class="tag">{esc(APP_TAGLINE)}</span><br/>
+              <span class="tag" style="opacity:.55">{esc(UI_BUILD)}</span>
             </div>""",
         unsafe_allow_html=True,
     )
