@@ -309,6 +309,33 @@ def run(p):
     else:
         check("explains when they own nothing", "doesn" in log.lower())
 
+    # --------------------------------------------------- momentum pan
+    section("org chart — a flick keeps coasting")
+    tab(p, "People")
+    p.wait_for_timeout(700)
+    for _ in range(7):
+        p.locator('[data-act="zoom"][data-d="1"]').click(); p.wait_for_timeout(100)
+    start = p.evaluate("""() => {
+      const b = document.getElementById('orgscroll').getBoundingClientRect();
+      for (let y = b.top+30; y < b.bottom-40; y += 40)
+        for (let x = b.left+260; x < b.right-260; x += 60) {
+          const el = document.elementFromPoint(x, y);
+          if (el && el.closest('#orgscroll') && !el.closest('g[data-act]')) return [x, y];
+        }
+      return [b.left+b.width/2, b.top+40];
+    }""")
+    before = p.evaluate("() => document.getElementById('orgscroll').scrollLeft")
+    p.mouse.move(start[0]+180, start[1]); p.mouse.down()
+    for i in range(6):
+        p.mouse.move(start[0]+180-i*55, start[1], steps=1); p.wait_for_timeout(12)
+    p.mouse.up()
+    released = p.evaluate("() => document.getElementById('orgscroll').scrollLeft")
+    p.wait_for_timeout(700)
+    settled = p.evaluate("() => document.getElementById('orgscroll').scrollLeft")
+    check("drag tracks the pointer", released > before, f"{before} -> {released}")
+    check("release hands velocity to a glide", settled > released + 20,
+          f"{released} -> {settled}")
+
     # ------------------------------------------------------------- chrome
     section("layout")
     check("the left panel is gone", p.locator(".rail").count() == 0)

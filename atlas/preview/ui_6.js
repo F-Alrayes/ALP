@@ -497,21 +497,60 @@
     const box = document.getElementById("orgscroll");
     if (!box) return;
     let down = false, sx = 0, sy = 0, sl = 0, st2 = 0;
+    // Velocity needs a short history, not the last event: the final move
+    // before release is often a near-stationary settle.
+    let hist = [];
+    let glide = null;
+    const stopGlide = () => { if (glide) { cancelAnimationFrame(glide); glide = null; } };
+
     box.addEventListener("pointerdown", ev => {
+      stopGlide();                               // grabbing mid-glide takes over
       if (ev.target.closest("[data-act]") !== box && ev.target.closest("g[data-act]")) return;
       down = true; sx = ev.clientX; sy = ev.clientY; sl = box.scrollLeft; st2 = box.scrollTop;
+      hist = [{ x: ev.clientX, y: ev.clientY, t: performance.now() }];
+      // Capture keeps the drag alive outside the box — losing the chart the
+      // moment the pointer crosses its edge reads as the app letting go.
+      box.setPointerCapture(ev.pointerId);
       box.classList.add("grabbing");
     });
-    const stop = () => { down = false; box.classList.remove("grabbing"); };
+
     box.addEventListener("pointermove", ev => {
       if (!down) return;
       box.scrollLeft = sl - (ev.clientX - sx);
       box.scrollTop = st2 - (ev.clientY - sy);
+      const now = performance.now();
+      hist.push({ x: ev.clientX, y: ev.clientY, t: now });
+      while (hist.length > 2 && now - hist[0].t > 90) hist.shift();
     });
+
+    const stop = () => {
+      if (!down) return;
+      down = false; box.classList.remove("grabbing");
+      // Hand the release velocity to a decaying glide, so the seam between
+      // dragging and coasting disappears. Exponential decay at ~0.998/ms is
+      // the same feel as scroll deceleration.
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const a = hist[0], b = hist[hist.length - 1];
+      if (!a || !b || b.t - a.t < 10) return;
+      let vx = -(b.x - a.x) / (b.t - a.t);       // px/ms, in scroll direction
+      let vy = -(b.y - a.y) / (b.t - a.t);
+      if (Math.hypot(vx, vy) < 0.08) return;     // a settle, not a flick
+      let last = performance.now();
+      const tick = () => {
+        const now = performance.now(), dt = now - last; last = now;
+        box.scrollLeft += vx * dt;
+        box.scrollTop += vy * dt;
+        const decay = Math.pow(0.998, dt);
+        vx *= decay; vy *= decay;
+        glide = Math.hypot(vx, vy) > 0.02 ? requestAnimationFrame(tick) : null;
+      };
+      glide = requestAnimationFrame(tick);
+    };
     box.addEventListener("pointerup", stop);
-    box.addEventListener("pointerleave", stop);
+    box.addEventListener("pointercancel", stop);
 
     box.addEventListener("wheel", ev => {
+      stopGlide();
       // The chart owns the wheel: this is a canvas, not a scrolling document.
       ev.preventDefault();
       const rect = box.getBoundingClientRect();
@@ -690,6 +729,13 @@
   }
 
   /* -------------------------------- boot -------------------------------- */
+
+  // Scroll-edge: the topbar's divider only exists while content is under it.
+  const edgeBar = () => {
+    const bar = document.querySelector(".topbar");
+    if (bar) bar.classList.toggle("edged", window.scrollY > 2);
+  };
+  window.addEventListener("scroll", edgeBar, { passive: true });
 
   if (!load()) reseed(false);
   if (!E.person(S, UI.actor)) UI.actor = S.people[0].id;
