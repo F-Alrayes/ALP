@@ -28,23 +28,25 @@ DEFAULT_SETTINGS = {
 }
 
 # --- Brand palette ----------------------------------------------------------
+# "The Private Ledger" — the same tokens the browser preview commits to, so
+# the two front ends read as one product. Warm paper, evergreen ink, one gold.
 PALETTE = {
-    "green_900": "#0C2A21",
-    "green_800": "#123528",
-    "green_700": "#1B4D3E",
-    "green_600": "#26654F",
-    "green_100": "#DCE8E1",
-    "gold_600": "#B08A1E",
-    "gold_500": "#C9A227",
-    "gold_300": "#E3C765",
-    "cream_100": "#FBF8F0",
-    "cream_200": "#F4EEE0",
-    "cream_300": "#E8DFC9",
-    "ink": "#1E2A25",
-    "muted": "#6B7A72",
-    "danger": "#A3332B",
-    "warn": "#B4761C",
-    "ok": "#2E6B4F",
+    "green_900": "#122A20",
+    "green_800": "#0F2B21",
+    "green_700": "#14382A",
+    "green_600": "#128A5E",
+    "green_100": "#E4F0E8",
+    "gold_600": "#83660A",
+    "gold_500": "#A8820F",
+    "gold_300": "#D9BC5C",
+    "cream_100": "#FAF6EB",
+    "cream_200": "#F4EEDD",
+    "cream_300": "#E3DAC2",
+    "ink": "#1B2721",
+    "muted": "#566158",
+    "danger": "#BE3E2F",
+    "warn": "#B0741B",
+    "ok": "#128A5E",
 }
 
 STATUS_COLORS = {
