@@ -238,6 +238,23 @@ input, textarea { caret-color:var(--gold); }
 .b.mute{background:var(--surface-2);color:var(--ink-3);border-color:var(--line)}
 .dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex:none; }
 
+/* ------------------------------------------------ progressive disclosure */
+/* details/summary ships with browser-default markers and spacing — the one
+   surface on the page that wasn't ours. Make it quiet, and make it respond. */
+.why > summary { list-style:none; cursor:pointer; display:inline-flex;
+  align-items:center; gap:6px; font-size:.82rem; color:var(--ink-3);
+  border-radius:6px; padding:2px 4px; margin:2px -4px 0; user-select:none;
+  transition:color .15s var(--ease); }
+.why > summary::-webkit-details-marker { display:none; }
+.why > summary::before { content:""; width:0; height:0; flex:none;
+  border-left:5px solid currentColor; border-top:4px solid transparent;
+  border-bottom:4px solid transparent;
+  transition:transform .18s var(--ease); }
+.why[open] > summary::before { transform:rotate(90deg); }
+.why > summary:hover { color:var(--gold-ink); }
+.why[open] > summary { color:var(--ink-2); }
+.why > :not(summary) { margin-top:6px; }
+
 /* ------------------------------------------------- the audit-trail motif */
 .trail { position:relative; margin:4px 0 4px 7px; padding-left:19px;
   border-left:1px solid var(--line); }
