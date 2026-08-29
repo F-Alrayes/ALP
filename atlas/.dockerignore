@@ -1,8 +1,0 @@
-data/*.db
-data/*.db-wal
-data/*.db-shm
-docs/
-__pycache__/
-*.pyc
-.venv/
-.git/
