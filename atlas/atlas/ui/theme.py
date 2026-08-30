@@ -83,7 +83,7 @@ html, body, [class*="css"], .stApp { font-family: var(--sans); }
   background-image: url("data:image/svg+xml,%%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%%3E%%3Cfilter id='n'%%3E%%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%%3E%%3C/filter%%3E%%3Crect width='160' height='160' filter='url(%%23n)'/%%3E%%3C/svg%%3E");
 }
 
-.block-container { padding-top: 2.2rem; padding-bottom: 4rem; max-width: 1240px; }
+.block-container { padding-top: 0.4rem; padding-bottom: 4rem; max-width: 1240px; }
 
 /* Streamlit's own theme sets heading fonts with higher specificity, so the
    display face has to insist. */
@@ -104,57 +104,94 @@ input, textarea { caret-color: var(--gold-500); }
 * { scrollbar-width: thin; scrollbar-color: var(--cream-300) transparent; }
 :focus-visible { outline: 2px solid var(--gold-500); outline-offset: 2px; }
 
-/* ---------- sidebar: the after-hours study ---------- */
-[data-testid="stSidebar"] { background: var(--green-900); border-right: 1px solid var(--green-800); }
-[data-testid="stSidebar"] * { color: %(cream_200)s !important; }
-[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-  color: var(--cream-100) !important; letter-spacing: 0.01em;
+/* ---------- topbar: the preview's glass bar ---------- */
+/* No sidebar. Navigation lives in a sticky translucent bar, exactly like
+   the preview's .topbar: brand left, tabs beside it, identity right. */
+[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"] { display: none !important; }
+[data-testid="stHeader"] { display: none; }
+
+.st-key-atlas_topbar {
+  position: sticky; top: 0; z-index: 99;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  border-bottom: 1px solid var(--cream-300);
+  /* Full-bleed inside the centred block container: Streamlit pins the block's
+     width, so take the viewport width explicitly and offset back to x=0. */
+  width: 100vw !important; max-width: 100vw !important;
+  margin: 0 0 1.3rem calc(50% - 50vw);
+  padding: 0.5rem max(1.5rem, calc(50vw - 596px));
 }
-[data-testid="stSidebar"] hr { border-color: rgba(233,223,201,0.18); }
-[data-testid="stSidebar"] .stButton > button {
-  background: rgba(233,223,201,0.08); border: 1px solid rgba(233,223,201,0.28);
-  color: var(--cream-100) !important; font-weight: 550;
+.st-key-atlas_topbar .stButton > button {
+  background: transparent !important; border: none !important; color: var(--muted);
+  box-shadow: none; font-weight: 550; border-radius: 999px;
+  padding: 0.3rem 0.85rem; min-height: 0;
+  transition: background .15s var(--ease), color .15s var(--ease);
 }
-[data-testid="stSidebar"] .stButton > button:hover {
-  background: var(--gold-500); border-color: var(--gold-500); color: var(--green-900) !important;
+/* Streamlit paints button labels on a nested node; keep them with the button. */
+.st-key-atlas_topbar .stButton > button p,
+.st-key-atlas_topbar [data-testid="stPopover"] button p,
+[data-testid="stPopoverBody"] .stButton > button p {
+  color: inherit !important; font-size: 0.9rem; white-space: nowrap;
 }
-/* Form controls on the dark sidebar: the widget internals carry the light
-   theme's own background, so blank them out and put one tinted shell around
-   each control. Selectors stick to stable data-testids. */
-[data-testid="stSidebar"] [data-testid="stSelectbox"] div,
-[data-testid="stSidebar"] [data-testid="stSelectbox"] input,
-[data-testid="stSidebar"] [data-testid="stNumberInput"] div,
-[data-testid="stSidebar"] [data-testid="stNumberInput"] input,
-[data-testid="stSidebar"] [data-testid="stTextInput"] div,
-[data-testid="stSidebar"] [data-testid="stTextInput"] input,
-[data-testid="stSidebar"] [data-baseweb="select"] div {
-  background-color: transparent !important;
-  color: var(--cream-100) !important;
-  -webkit-text-fill-color: var(--cream-100) !important;
+.st-key-atlas_topbar .stButton > button:hover,
+.st-key-atlas_topbar [data-testid="stPopover"] > button:hover {
+  color: var(--ink); background: %(cream_200)s; border: none;
 }
-[data-testid="stSidebar"] [data-testid="stSelectbox"] > div,
-[data-testid="stSidebar"] [data-testid="stNumberInput"] > div,
-[data-testid="stSidebar"] [data-testid="stTextInput"] > div {
-  background-color: rgba(233,223,201,0.12) !important;
-  border: 1px solid rgba(233,223,201,0.30) !important;
-  border-radius: 8px !important;
+.st-key-atlas_topbar .stButton > button:active { transform: scale(.97); }
+/* The active tab is pressed into the paper, not painted green — and its
+   label keeps the ink (the global primary rule paints labels cream). */
+.st-key-atlas_topbar .stButton > button[kind="primary"] {
+  background: %(cream_200)s !important; border: none !important;
+  box-shadow: inset 0 1px 3px rgba(27,53,40,.12), inset 0 0 0 1px var(--cream-300);
 }
-[data-testid="stSidebar"] svg { fill: %(cream_200)s; }
-/* The dropdown itself renders on the light body, so keep it readable there. */
+.st-key-atlas_topbar .stButton > button[kind="primary"],
+.st-key-atlas_topbar .stButton > button[kind="primary"] *,
+[data-testid="stPopoverBody"] .stButton > button[kind="primary"],
+[data-testid="stPopoverBody"] .stButton > button[kind="primary"] * {
+  color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important;
+}
+.st-key-atlas_topbar .stButton > button:hover { transform: none; box-shadow: none; }
+.st-key-atlas_topbar [data-testid="stPopover"] button {
+  background: transparent !important; border: none !important; color: var(--muted);
+  font-weight: 550; border-radius: 999px; padding: 0.3rem 0.85rem; min-height: 0;
+  white-space: nowrap;
+}
+.st-key-atlas_topbar [data-testid="stPopover"] button:hover { color: var(--ink); background: %(cream_200)s !important; }
+.st-key-atlas_topbar [data-testid="stSelectbox"] > div {
+  background: var(--surface); border-radius: 9px;
+}
+[data-testid="stPopoverBody"] {
+  background: var(--surface); border: 1px solid var(--cream-300);
+  border-radius: 12px; box-shadow: var(--edge), var(--shadow); min-width: 230px;
+}
+[data-testid="stPopoverBody"] .stButton > button {
+  background: transparent !important; border: none !important; justify-content: flex-start;
+  text-align: left; color: var(--ink); border-radius: 8px; min-height: 0;
+  padding: 0.42rem 0.7rem; box-shadow: none;
+}
+[data-testid="stPopoverBody"] .stButton > button:hover {
+  background: %(cream_200)s !important; transform: none;
+}
+[data-testid="stPopoverBody"] .stButton > button[kind="primary"] {
+  background: %(cream_200)s !important; box-shadow: none;
+}
 [role="listbox"], [data-baseweb="popover"] { color: var(--ink); }
-[data-testid="stSidebarNav"] { padding-top: 0.4rem; }
 
 /* ---------- brand block ---------- */
-.atlas-brand { padding: 0.2rem 0 1.0rem 0; }
+.atlas-brand { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;
+  padding: 0; overflow: hidden; min-width: 0; }
 .atlas-brand .mark {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: 9px; background: var(--gold-500);
-  color: var(--green-900) !important; font-weight: 640; font-size: 1.05rem;
-  font-family: var(--serif); margin-right: 0.6rem;
+  width: 27px; height: 27px; border-radius: 8px; background: var(--gold-500);
+  color: var(--green-900); font-weight: 640; font-size: 0.95rem;
+  font-family: var(--serif); flex: none;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 2px rgba(27,53,40,.18);
 }
-.atlas-brand .name { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; letter-spacing: 0.04em; }
-.atlas-brand .tag { font-size: 0.74rem; opacity: 0.72; letter-spacing: 0.12em; text-transform: uppercase; }
+.atlas-brand .name { font-family: var(--serif); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.12em; }
+.atlas-brand .build { font-size: 0.58rem; color: var(--muted); letter-spacing: 0.06em;
+  text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- page header ---------- */
 .page-head { border-bottom: 1px solid var(--cream-300); padding-bottom: 0.9rem; margin-bottom: 1.4rem; }
@@ -298,6 +335,26 @@ input, textarea { caret-color: var(--gold-500); }
 .kv .k { color: var(--muted); display: inline-block; min-width: 120px; }
 hr { border-color: var(--cream-300); }
 footer, #MainMenu { visibility: hidden; }
+
+/* ---------- flash: the preview's bottom-right pill ---------- */
+.flash {
+  position: fixed; right: 22px; bottom: 20px; z-index: 98;
+  background: var(--green-700); color: #F3EEE0;
+  padding: 0.6rem 1.15rem; border-radius: 999px; font-size: 0.88rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 12px 30px -12px rgba(20,56,42,.55);
+  animation: flashin .3s var(--ease) both;
+}
+@keyframes flashin { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- bordered containers read as ledger cards ---------- */
+[data-testid="stVerticalBlockBorderWrapper"] {
+  background: var(--surface); border: 1px solid var(--line-soft) !important;
+  border-radius: 14px; box-shadow: var(--edge), var(--shadow);
+  padding: 0.35rem 0.45rem;
+}
+[data-testid="stPopoverBody"] [data-testid="stVerticalBlockBorderWrapper"] {
+  background: transparent; border: none !important; box-shadow: none; padding: 0;
+}
 
 /* ---------- assignment toast ---------- */
 /* The preview's #notify banner, in Streamlit's clothing: same material,

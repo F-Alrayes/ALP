@@ -16,14 +16,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from atlas import agent  # noqa: E402
 from atlas.config import APP_NAME, APP_TAGLINE  # noqa: E402
 from atlas.db import create_all, database_is_seeded  # noqa: E402
-from atlas.ui import notify, sidebar, theme  # noqa: E402
-from views import agent_log, dashboard, directory, inbox, intake  # noqa: E402
+from atlas.ui import chrome, notify, theme  # noqa: E402
+from views import agent_log, dashboard, demo, directory, inbox, intake  # noqa: E402
 
 st.set_page_config(
     page_title=f"{APP_NAME} — {APP_TAGLINE}",
     page_icon="🧭",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 
@@ -47,33 +47,18 @@ def main() -> None:
         st.error("The database is not seeded. Run `python run.py` from the atlas/ directory.")
         return
 
-    actor_id = sidebar.render()
+    actor_id, choice = chrome.render()
     notify.check(actor_id)
-    sidebar.flash()
+    chrome.flash()
 
     pages = {
-        "Intake": intake.render,
+        "Ask": intake.render,
+        "People": directory.render,
         "Requests": inbox.render,
-        "Directory & Graph": directory.render,
-        "Agent Log": agent_log.render,
         "Dashboard": dashboard.render,
+        "Agent log": agent_log.render,
+        "Demo controls": demo.render,
     }
-    choice = st.session_state.get("atlas_page", "Intake")
-    if choice not in pages:
-        choice = "Intake"
-
-    columns = st.columns(len(pages))
-    for column, name in zip(columns, pages):
-        if column.button(
-            name,
-            key=f"nav_{name}",
-            width="stretch",
-            type="primary" if name == choice else "secondary",
-        ):
-            st.session_state["atlas_page"] = name
-            st.rerun()
-
-    st.markdown("")
     pages[choice](actor_id)
 
 
