@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from atlas import agent  # noqa: E402
 from atlas.config import APP_NAME, APP_TAGLINE  # noqa: E402
 from atlas.db import create_all, database_is_seeded  # noqa: E402
-from atlas.ui import sidebar, theme  # noqa: E402
+from atlas.ui import notify, sidebar, theme  # noqa: E402
 from views import agent_log, dashboard, directory, inbox, intake  # noqa: E402
 
 st.set_page_config(
@@ -48,6 +48,7 @@ def main() -> None:
         return
 
     actor_id = sidebar.render()
+    notify.check(actor_id)
     sidebar.flash()
 
     pages = {

@@ -298,6 +298,21 @@ input, textarea { caret-color: var(--gold-500); }
 .kv .k { color: var(--muted); display: inline-block; min-width: 120px; }
 hr { border-color: var(--cream-300); }
 footer, #MainMenu { visibility: hidden; }
+
+/* ---------- assignment toast ---------- */
+/* The preview's #notify banner, in Streamlit's clothing: same material,
+   same gold signal, serif first line. */
+[data-testid="stToast"] {
+  background: var(--surface) !important; color: var(--ink) !important;
+  border: 1px solid var(--cream-300); border-radius: 15px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8),
+    0 2px 4px rgba(27,53,40,.06), 0 24px 56px -22px rgba(27,53,40,.45);
+  padding: 0.85rem 1rem;
+}
+[data-testid="stToast"] [data-testid="stMarkdownContainer"] p { color: var(--ink); }
+[data-testid="stToast"] [data-testid="stMarkdownContainer"] p strong {
+  font-family: var(--serif); font-weight: 560; font-size: 1.02rem; color: var(--ink);
+}
 </style>
 """
 
