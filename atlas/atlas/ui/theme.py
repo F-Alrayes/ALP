@@ -83,7 +83,8 @@ html, body, [class*="css"], .stApp { font-family: var(--sans); }
   background-image: url("data:image/svg+xml,%%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%%3E%%3Cfilter id='n'%%3E%%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%%3E%%3C/filter%%3E%%3Crect width='160' height='160' filter='url(%%23n)'/%%3E%%3C/svg%%3E");
 }
 
-.block-container { padding-top: 0.4rem; padding-bottom: 4rem; max-width: 1240px; }
+.block-container { padding-top: 0; padding-bottom: 4rem; max-width: 1240px; }
+[data-testid="stMainBlockContainer"] { padding-top: 0; }
 
 /* Streamlit's own theme sets heading fonts with higher specificity, so the
    display face has to insist. */
@@ -111,8 +112,18 @@ input, textarea { caret-color: var(--gold-500); }
 [data-testid="stSidebarCollapseButton"] { display: none !important; }
 [data-testid="stHeader"] { display: none; }
 
-.st-key-atlas_topbar {
+/* Sticky must live on the wrapper Streamlit puts around the keyed container:
+   the wrapper is exactly as tall as the bar, so sticky on the bar itself has
+   no room to stick. Browsers without :has simply get a non-sticky bar. */
+div[data-testid="stLayoutWrapper"]:has(> .st-key-atlas_topbar) {
   position: sticky; top: 0; z-index: 99;
+  /* The zero-height element carrying this stylesheet sits above the bar and
+     still claims the block's 1rem flex gap; pull the bar up over it. */
+  margin-top: -1rem;
+}
+section[data-testid="stMain"] { overflow-x: clip; }
+.st-key-atlas_topbar {
+  background: rgba(255, 253, 246, 0.92);  /* fallback where color-mix is unsupported */
   background: color-mix(in srgb, var(--surface) 84%, transparent);
   backdrop-filter: blur(14px) saturate(1.15);
   -webkit-backdrop-filter: blur(14px) saturate(1.15);
@@ -122,6 +133,24 @@ input, textarea { caret-color: var(--gold-500); }
   width: 100vw !important; max-width: 100vw !important;
   margin: 0 0 1.3rem calc(50% - 50vw);
   padding: 0.5rem max(1.5rem, calc(50vw - 596px));
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .st-key-atlas_topbar { background: var(--surface); }
+}
+/* The brand, tabs and More keep their natural width; the spacer and the
+   identity select absorb any squeeze on narrower windows. */
+.st-key-atlas_topbar [data-testid="stColumn"]:nth-child(-n+5) { min-width: max-content; }
+@media (max-width: 1180px) {
+  .st-key-atlas_topbar .stButton > button { padding: 0.3rem 0.55rem; }
+  .atlas-brand .build { display: none; }
+}
+/* Below Streamlit's 640px column breakpoint the columns would stack into a
+   full-screen sticky wall; force the bar to stay one row instead. */
+@media (max-width: 640px) {
+  .st-key-atlas_topbar [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
+  .st-key-atlas_topbar [data-testid="stColumn"] { min-width: 0 !important; }
+  .st-key-atlas_topbar [data-testid="stColumn"]:nth-child(-n+5) { min-width: max-content !important; }
+  .atlas-brand .name, .atlas-brand .build { display: none; }
 }
 .st-key-atlas_topbar .stButton > button {
   background: transparent !important; border: none !important; color: var(--muted);
@@ -177,7 +206,7 @@ input, textarea { caret-color: var(--gold-500); }
 [data-testid="stPopoverBody"] .stButton > button[kind="primary"] {
   background: %(cream_200)s !important; box-shadow: none;
 }
-[role="listbox"], [data-baseweb="popover"] { color: var(--ink); }
+[role="listbox"], [data-baseweb="popover"] { color: var(--ink); background: var(--surface); }
 
 /* ---------- brand block ---------- */
 .atlas-brand { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;
@@ -334,11 +363,10 @@ input, textarea { caret-color: var(--gold-500); }
 .kv { font-size: 0.88rem; padding: 0.16rem 0; }
 .kv .k { color: var(--muted); display: inline-block; min-width: 120px; }
 hr { border-color: var(--cream-300); }
-footer, #MainMenu { visibility: hidden; }
 
 /* ---------- flash: the preview's bottom-right pill ---------- */
 .flash {
-  position: fixed; right: 22px; bottom: 20px; z-index: 98;
+  position: fixed; right: 22px; bottom: 84px; z-index: 98;
   background: var(--green-700); color: #F3EEE0;
   padding: 0.6rem 1.15rem; border-radius: 999px; font-size: 0.88rem;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 12px 30px -12px rgba(20,56,42,.55);
@@ -347,13 +375,10 @@ footer, #MainMenu { visibility: hidden; }
 @keyframes flashin { from { opacity: 0; transform: translateY(8px); } }
 
 /* ---------- bordered containers read as ledger cards ---------- */
-[data-testid="stVerticalBlockBorderWrapper"] {
+[class*="st-key-demo_"] {
   background: var(--surface); border: 1px solid var(--line-soft) !important;
-  border-radius: 14px; box-shadow: var(--edge), var(--shadow);
-  padding: 0.35rem 0.45rem;
-}
-[data-testid="stPopoverBody"] [data-testid="stVerticalBlockBorderWrapper"] {
-  background: transparent; border: none !important; box-shadow: none; padding: 0;
+  border-radius: 14px !important; box-shadow: var(--edge), var(--shadow);
+  padding: 1.0rem 1.05rem !important;
 }
 
 /* ---------- assignment toast ---------- */

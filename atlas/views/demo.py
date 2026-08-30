@@ -22,7 +22,7 @@ def _flash(message: str) -> None:
 
 
 def _clock_card() -> None:
-    with st.container(border=True):
+    with st.container(border=True, key="demo_clock"):
         st.markdown("**Simulated clock**")
         with session_scope() as session:
             simulated = clock.now(session)
@@ -62,7 +62,7 @@ def _clock_card() -> None:
 
 
 def _ooo_card() -> None:
-    with st.container(border=True):
+    with st.container(border=True, key="demo_ooo"):
         st.markdown("**Out of office**")
         st.caption("The agent reroutes their open work to a delegate.")
         people = all_people()
@@ -94,7 +94,7 @@ def _ooo_card() -> None:
 
 
 def _agent_card() -> None:
-    with st.container(border=True):
+    with st.container(border=True, key="demo_agent"):
         state = agent.status()
         dot = "🟢" if state["running"] else "⚪"
         st.markdown(f"**Agent** {dot}")
@@ -114,7 +114,7 @@ def _agent_card() -> None:
 
 
 def _reset_card() -> None:
-    with st.container(border=True):
+    with st.container(border=True, key="demo_reset"):
         st.markdown("**Start over**")
         st.caption("Back to the starting state.")
         if st.session_state.get("atlas_confirm_reset"):
