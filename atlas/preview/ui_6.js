@@ -689,17 +689,188 @@
     });
   }
 
+  /* --------------------- assignment notifications ---------------------- */
+  // A toast the moment a request lands on the person you're acting as. It
+  // lives in #notify, outside #root, so re-renders never kill an in-flight
+  // gesture. All motion is one spring per card driven from the current
+  // position and velocity, so a card can be grabbed mid-flight, thrown, or
+  // released and it always continues from where it is.
+
+  const CALM = matchMedia("(prefers-reduced-motion: reduce)");
+  let notifSeen = null, notifActor = null;
+
+  const assignedNow = () => new Set(S.requests
+    .filter(r => E.OPEN_STATUSES.includes(r.status) && r.assignee_id === UI.actor)
+    .map(r => r.id));
+
+  function syncNotify() {
+    const ids = assignedNow();
+    if (notifActor !== UI.actor || notifSeen === null) {
+      // Switching people (or booting) re-baselines silently: the toast is for
+      // things that happen while you watch, not a recap of your inbox.
+      notifActor = UI.actor;
+      notifSeen = ids;
+      return;
+    }
+    for (const id of ids) {
+      if (notifSeen.has(id)) continue;
+      const req = S.requests.find(r => r.id === id);
+      if (req && req.requester_id !== UI.actor) showNotify(req);
+    }
+    notifSeen = ids;
+  }
+
+  function showNotify(req) {
+    const host = document.getElementById("notify");
+    if (!host) return;
+    while (host.children.length >= 3) host.firstChild.remove();
+
+    const from = person(req.requester_id);
+    const card = document.createElement("div");
+    card.className = "notif";
+    card.setAttribute("role", "status");
+    card.innerHTML = `
+      <button class="n-x" aria-label="Dismiss">✕</button>
+      <div class="n-eyebrow"><span class="dot"></span>New request for you</div>
+      <div class="n-title">${esc(req.title)}</div>
+      <div class="n-meta">#${req.id} · from ${esc(from ? from.name : "the agent")}${
+        req.process_name ? ` · ${esc(req.process_name)}` : ""}</div>
+      <div class="n-row">
+        <button class="n-open" data-act="open" data-id="${req.id}">Open</button>
+        <button class="n-later">Later</button>
+      </div>`;
+    host.appendChild(card);
+
+    const width = card.getBoundingClientRect().width + 26;   // + the offscreen gap
+    const m = { x: 0, v: 0, target: 0, raf: 0, gone: false };
+
+    const apply = () => {
+      card.style.transform = m.x ? `translateX(${m.x}px)` : "";
+      card.style.opacity = m.gone ? String(Math.max(0, 1 - m.x / width)) : "";
+    };
+
+    // Critically damped spring (damping 1.0, response ~0.34s). No fixed
+    // duration: retargeting mid-flight just changes `target` and the motion
+    // stays continuous.
+    function settleTo(target, gone) {
+      cancelAnimationFrame(m.raf);
+      m.target = target; m.gone = !!gone;
+      let last = performance.now();
+      const tickSpring = () => {
+        m.raf = requestAnimationFrame(() => {
+          const t = performance.now(), dt = Math.min(0.048, (t - last) / 1000);
+          last = t;
+          const w = 2 * Math.PI / 0.34;
+          const acc = -w * w * (m.x - m.target) - 2 * w * m.v;
+          m.v += acc * dt; m.x += m.v * dt;
+          if (Math.abs(m.x - m.target) < 0.5 && Math.abs(m.v) < 25) {
+            m.x = m.target; m.v = 0; apply();
+            if (m.gone) card.remove();
+          } else { apply(); tickSpring(); }
+        });
+      };
+      tickSpring();
+    }
+
+    const dismiss = () => {
+      if (m.gone) return;
+      pause();
+      if (CALM.matches) {
+        card.style.transition = "opacity .18s ease";
+        card.style.opacity = "0";
+        m.gone = true;
+        setTimeout(() => card.remove(), 200);
+      } else {
+        settleTo(width, true);
+      }
+    };
+
+    // Auto-dismiss, but never under the pointer: hovering or holding the card
+    // stops the clock; it resumes with whatever time was left.
+    let timer = 0, left = 8000, mark = 0;
+    const pause = () => {
+      if (timer) { clearTimeout(timer); timer = 0; left -= performance.now() - mark; }
+    };
+    const resume = () => {
+      if (!timer && !m.gone) {
+        mark = performance.now();
+        timer = setTimeout(dismiss, Math.max(1200, left));
+      }
+    };
+    card.addEventListener("pointerenter", pause);
+    card.addEventListener("pointerleave", resume);
+
+    card.querySelector(".n-x").addEventListener("click", dismiss);
+    card.querySelector(".n-later").addEventListener("click", dismiss);
+    // "Open" also navigates via the global data-act dispatcher; the card only
+    // needs to get out of the way.
+    card.querySelector(".n-open").addEventListener("click", dismiss);
+
+    // Direct manipulation: the card tracks the pointer 1:1 from wherever it
+    // was grabbed — including mid-animation. Left of home it rubber-bands
+    // (there is nothing over there); released, the projected resting point
+    // decides between dismissal and spring-back, and the spring inherits the
+    // finger's velocity so there is no seam.
+    card.addEventListener("pointerdown", ev => {
+      if (ev.target.closest("button")) return;
+      card.setPointerCapture(ev.pointerId);
+      cancelAnimationFrame(m.raf);
+      pause();
+      const grab = ev.clientX - m.x;
+      let hist = [[performance.now(), m.x]];
+      const move = e => {
+        let x = e.clientX - grab;
+        if (x < 0) x = (x * width * 0.55) / (width + 0.55 * Math.abs(x));
+        m.x = x; apply();
+        const t = performance.now();
+        hist.push([t, x]);
+        while (hist.length > 2 && hist[0][0] < t - 90) hist.shift();
+      };
+      const up = () => {
+        card.removeEventListener("pointermove", move);
+        const [t0, x0] = hist[0], [t1, x1] = hist[hist.length - 1];
+        m.v = t1 > t0 ? (x1 - x0) / ((t1 - t0) / 1000) : 0;
+        const projected = m.x + (m.v / 1000) * 0.998 / (1 - 0.998);
+        if (projected > width * 0.5 && !CALM.matches) { m.gone = true; settleTo(width, true); }
+        else { resume(); settleTo(0); }
+      };
+      card.addEventListener("pointermove", move);
+      card.addEventListener("pointerup", up, { once: true });
+      card.addEventListener("pointercancel", up, { once: true });
+    });
+
+    // Arrive from the right — the same edge a dismissal leaves by.
+    if (CALM.matches) {
+      card.style.opacity = "0";
+      card.style.transition = "opacity .2s ease";
+      requestAnimationFrame(() => { card.style.opacity = "1"; });
+    } else {
+      m.x = width; apply();
+      settleTo(0);
+    }
+    resume();
+  }
+
+  // The chat log jumps to the newest message only when the conversation itself
+  // grew (or on arrival) — never on the re-render that follows every unrelated
+  // click. -1 means "not on the chat page".
+  let chatLen = -1;
+
   function afterRender() {
     bindCharts();
     bindPan();
     bindHover();
+    syncNotify();
     if (UI.page === "chat") {
       const log = document.getElementById("chatlog");
-      if (log) log.scrollTop = log.scrollHeight;
+      if (log && chatLen !== UI.chat.length) log.scrollTop = log.scrollHeight;
+      chatLen = UI.chat.length;
       const box = document.querySelector('[data-act="composer"]');
       if (box && !UI.guideOpen && !document.querySelector('[data-act="dbody"]:focus')) {
-        box.focus(); autoGrow(box);
+        box.focus({ preventScroll: true }); autoGrow(box);
       }
+    } else {
+      chatLen = -1;
     }
     if (UI.tree.center && UI.page === "people") {
       const box = document.getElementById("orgscroll");

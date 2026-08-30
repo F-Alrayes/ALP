@@ -539,13 +539,100 @@ td.n { text-align:right; font-family:var(--mono); font-size:.82rem;
   .orgpanel { position:static; width:auto; margin-top:11px; }
 }
 </style>
-<div id="root"></div>
+<div id="root">
+  <!-- Boot skeleton: on screen only while the page's script is still parsing.
+       The first render() replaces it; nothing ever puts it back. -->
+  <div class="skel" aria-hidden="true">
+    <div class="skel-top">
+      <span class="skel-block" style="width:92px; height:26px;"></span>
+      <span class="skel-block" style="width:210px; height:22px;"></span>
+      <span class="skel-block" style="width:150px; height:26px; margin-left:auto;"></span>
+    </div>
+    <div class="skel-body">
+      <div class="skel-msg"><span class="skel-ava"></span>
+        <span class="skel-block bub" style="width:min(430px,72%); height:74px;"></span></div>
+      <div class="skel-msg"><span class="skel-ava"></span>
+        <span class="skel-block bub" style="width:min(310px,56%); height:46px;"></span></div>
+      <div class="skel-chips">
+        <span class="skel-block" style="width:120px; height:24px;"></span>
+        <span class="skel-block" style="width:150px; height:24px;"></span>
+        <span class="skel-block" style="width:100px; height:24px;"></span>
+      </div>
+      <span class="skel-block composer" style="height:56px;"></span>
+    </div>
+  </div>
+</div>
 <div id="tip" class="tip" hidden></div>
+<div id="notify" aria-live="polite"></div>
+
+<style>
+/* ------------------------------------------------------- boot skeleton */
+.skel { max-width:1060px; margin:0 auto; padding:14px clamp(16px,4vw,36px); }
+.skel-top { display:flex; align-items:center; gap:14px; padding:6px 0 26px; }
+.skel-body { max-width:760px; padding-top:8vh; }
+.skel-msg { display:flex; gap:11px; margin-bottom:16px; }
+.skel-ava { width:29px; height:29px; border-radius:9px; flex:none; }
+.skel-block.bub { border-radius:5px 16px 16px 16px; }
+.skel-chips { display:flex; gap:8px; margin:0 0 26px 40px; }
+.skel-chips .skel-block { border-radius:999px; }
+.skel-block.composer { display:block; margin-top:10vh; border-radius:17px; }
+.skel-block, .skel-ava { display:inline-block; border-radius:9px;
+  background:linear-gradient(100deg, var(--surface-2) 38%, var(--surface) 50%, var(--surface-2) 62%);
+  background-size:220% 100%; border:1px solid var(--line-soft); }
+@media (prefers-reduced-motion: no-preference) {
+  .skel-block, .skel-ava { animation:skelsheen 1.4s linear infinite; }
+}
+@keyframes skelsheen { from { background-position:120% 0; } to { background-position:-100% 0; } }
+
+/* --------------------------------------------- assignment notification */
+#notify { position:fixed; top:64px; right:18px; z-index:70; display:flex;
+  flex-direction:column; gap:10px; width:min(360px, calc(100vw - 28px));
+  pointer-events:none; }
+.notif { pointer-events:auto; touch-action:pan-y; cursor:grab; position:relative;
+  background:color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter:blur(18px) saturate(160%); -webkit-backdrop-filter:blur(18px) saturate(160%);
+  border:1px solid var(--line); border-radius:15px; padding:13px 15px 12px;
+  box-shadow:var(--edge-strong), var(--shadow-lg); will-change:transform, opacity; }
+.notif:active { cursor:grabbing; }
+.notif .n-eyebrow { display:flex; align-items:center; gap:7px; font-size:.72rem;
+  font-weight:640; letter-spacing:.08em; text-transform:uppercase; color:var(--gold-ink);
+  margin-bottom:5px; }
+.notif .n-eyebrow .dot { width:7px; height:7px; border-radius:50%; background:var(--gold);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
+.notif .n-title { font-family:var(--serif); font-weight:560; font-size:1.02rem;
+  line-height:1.3; margin-bottom:3px; }
+.notif .n-meta { font-size:.83rem; color:var(--ink-2); line-height:1.45; }
+.notif .n-row { display:flex; align-items:center; gap:8px; margin-top:10px; }
+.notif .n-open { font:inherit; font-size:.83rem; font-weight:600; cursor:pointer;
+  padding:5px 13px; border-radius:999px; border:1px solid transparent;
+  background:var(--green-deep); color:#F3EEE0;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 2px 7px -2px rgba(20,56,42,.5);
+  transition:transform .1s ease-out; }
+.notif .n-open:active { transform:scale(.96); }
+.notif .n-later { font:inherit; font-size:.83rem; cursor:pointer; color:var(--ink-2);
+  background:none; border:none; padding:5px 9px; border-radius:999px; }
+.notif .n-later:hover { color:var(--ink); background:var(--surface-2); }
+.notif .n-x { position:absolute; top:9px; right:9px; width:24px; height:24px;
+  display:grid; place-items:center; border:none; background:none; cursor:pointer;
+  color:var(--ink-2); border-radius:8px; font-size:.9rem; line-height:1; }
+.notif .n-x:hover { color:var(--ink); background:var(--surface-2); }
+:root[data-theme="dark"] .notif { background:color-mix(in srgb, var(--surface-2) 84%, transparent); }
+:root[data-theme="dark"] .notif .n-open { background:var(--surface-3); color:var(--ink); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .notif {
+    background:color-mix(in srgb, var(--surface-2) 84%, transparent); }
+  :root:not([data-theme="light"]) .notif .n-open { background:var(--surface-3); color:var(--ink); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .notif { background:var(--surface); backdrop-filter:none; -webkit-backdrop-filter:none; }
+}
+@media (max-width:640px) { #notify { top:auto; bottom:14px; } }
+</style>
 
 <style>
 /* ------------------------------------------------------------------ chat */
 .chatpage { display:flex; flex-direction:column; height:calc(100vh - 158px); min-height:420px; }
-.chatlog { flex:1; overflow-y:auto; padding:8px 2px 18px; scroll-behavior:smooth; }
+.chatlog { flex:1; overflow-y:auto; padding:8px 2px 18px; }
 .msg { display:flex; gap:11px; margin-bottom:16px; max-width:760px; }
 .msg.user { margin-left:auto; justify-content:flex-end; }
 .msg.user .bub { background:var(--green-deep); color:#F3EEE0; border-radius:16px 16px 5px 16px;
@@ -4457,17 +4544,188 @@ const SEED = {"departments":[{"id":1,"name":"Investments / Deal Team","topics":"
     });
   }
 
+  /* --------------------- assignment notifications ---------------------- */
+  // A toast the moment a request lands on the person you're acting as. It
+  // lives in #notify, outside #root, so re-renders never kill an in-flight
+  // gesture. All motion is one spring per card driven from the current
+  // position and velocity, so a card can be grabbed mid-flight, thrown, or
+  // released and it always continues from where it is.
+
+  const CALM = matchMedia("(prefers-reduced-motion: reduce)");
+  let notifSeen = null, notifActor = null;
+
+  const assignedNow = () => new Set(S.requests
+    .filter(r => E.OPEN_STATUSES.includes(r.status) && r.assignee_id === UI.actor)
+    .map(r => r.id));
+
+  function syncNotify() {
+    const ids = assignedNow();
+    if (notifActor !== UI.actor || notifSeen === null) {
+      // Switching people (or booting) re-baselines silently: the toast is for
+      // things that happen while you watch, not a recap of your inbox.
+      notifActor = UI.actor;
+      notifSeen = ids;
+      return;
+    }
+    for (const id of ids) {
+      if (notifSeen.has(id)) continue;
+      const req = S.requests.find(r => r.id === id);
+      if (req && req.requester_id !== UI.actor) showNotify(req);
+    }
+    notifSeen = ids;
+  }
+
+  function showNotify(req) {
+    const host = document.getElementById("notify");
+    if (!host) return;
+    while (host.children.length >= 3) host.firstChild.remove();
+
+    const from = person(req.requester_id);
+    const card = document.createElement("div");
+    card.className = "notif";
+    card.setAttribute("role", "status");
+    card.innerHTML = `
+      <button class="n-x" aria-label="Dismiss">✕</button>
+      <div class="n-eyebrow"><span class="dot"></span>New request for you</div>
+      <div class="n-title">${esc(req.title)}</div>
+      <div class="n-meta">#${req.id} · from ${esc(from ? from.name : "the agent")}${
+        req.process_name ? ` · ${esc(req.process_name)}` : ""}</div>
+      <div class="n-row">
+        <button class="n-open" data-act="open" data-id="${req.id}">Open</button>
+        <button class="n-later">Later</button>
+      </div>`;
+    host.appendChild(card);
+
+    const width = card.getBoundingClientRect().width + 26;   // + the offscreen gap
+    const m = { x: 0, v: 0, target: 0, raf: 0, gone: false };
+
+    const apply = () => {
+      card.style.transform = m.x ? `translateX(${m.x}px)` : "";
+      card.style.opacity = m.gone ? String(Math.max(0, 1 - m.x / width)) : "";
+    };
+
+    // Critically damped spring (damping 1.0, response ~0.34s). No fixed
+    // duration: retargeting mid-flight just changes `target` and the motion
+    // stays continuous.
+    function settleTo(target, gone) {
+      cancelAnimationFrame(m.raf);
+      m.target = target; m.gone = !!gone;
+      let last = performance.now();
+      const tickSpring = () => {
+        m.raf = requestAnimationFrame(() => {
+          const t = performance.now(), dt = Math.min(0.048, (t - last) / 1000);
+          last = t;
+          const w = 2 * Math.PI / 0.34;
+          const acc = -w * w * (m.x - m.target) - 2 * w * m.v;
+          m.v += acc * dt; m.x += m.v * dt;
+          if (Math.abs(m.x - m.target) < 0.5 && Math.abs(m.v) < 25) {
+            m.x = m.target; m.v = 0; apply();
+            if (m.gone) card.remove();
+          } else { apply(); tickSpring(); }
+        });
+      };
+      tickSpring();
+    }
+
+    const dismiss = () => {
+      if (m.gone) return;
+      pause();
+      if (CALM.matches) {
+        card.style.transition = "opacity .18s ease";
+        card.style.opacity = "0";
+        m.gone = true;
+        setTimeout(() => card.remove(), 200);
+      } else {
+        settleTo(width, true);
+      }
+    };
+
+    // Auto-dismiss, but never under the pointer: hovering or holding the card
+    // stops the clock; it resumes with whatever time was left.
+    let timer = 0, left = 8000, mark = 0;
+    const pause = () => {
+      if (timer) { clearTimeout(timer); timer = 0; left -= performance.now() - mark; }
+    };
+    const resume = () => {
+      if (!timer && !m.gone) {
+        mark = performance.now();
+        timer = setTimeout(dismiss, Math.max(1200, left));
+      }
+    };
+    card.addEventListener("pointerenter", pause);
+    card.addEventListener("pointerleave", resume);
+
+    card.querySelector(".n-x").addEventListener("click", dismiss);
+    card.querySelector(".n-later").addEventListener("click", dismiss);
+    // "Open" also navigates via the global data-act dispatcher; the card only
+    // needs to get out of the way.
+    card.querySelector(".n-open").addEventListener("click", dismiss);
+
+    // Direct manipulation: the card tracks the pointer 1:1 from wherever it
+    // was grabbed — including mid-animation. Left of home it rubber-bands
+    // (there is nothing over there); released, the projected resting point
+    // decides between dismissal and spring-back, and the spring inherits the
+    // finger's velocity so there is no seam.
+    card.addEventListener("pointerdown", ev => {
+      if (ev.target.closest("button")) return;
+      card.setPointerCapture(ev.pointerId);
+      cancelAnimationFrame(m.raf);
+      pause();
+      const grab = ev.clientX - m.x;
+      let hist = [[performance.now(), m.x]];
+      const move = e => {
+        let x = e.clientX - grab;
+        if (x < 0) x = (x * width * 0.55) / (width + 0.55 * Math.abs(x));
+        m.x = x; apply();
+        const t = performance.now();
+        hist.push([t, x]);
+        while (hist.length > 2 && hist[0][0] < t - 90) hist.shift();
+      };
+      const up = () => {
+        card.removeEventListener("pointermove", move);
+        const [t0, x0] = hist[0], [t1, x1] = hist[hist.length - 1];
+        m.v = t1 > t0 ? (x1 - x0) / ((t1 - t0) / 1000) : 0;
+        const projected = m.x + (m.v / 1000) * 0.998 / (1 - 0.998);
+        if (projected > width * 0.5 && !CALM.matches) { m.gone = true; settleTo(width, true); }
+        else { resume(); settleTo(0); }
+      };
+      card.addEventListener("pointermove", move);
+      card.addEventListener("pointerup", up, { once: true });
+      card.addEventListener("pointercancel", up, { once: true });
+    });
+
+    // Arrive from the right — the same edge a dismissal leaves by.
+    if (CALM.matches) {
+      card.style.opacity = "0";
+      card.style.transition = "opacity .2s ease";
+      requestAnimationFrame(() => { card.style.opacity = "1"; });
+    } else {
+      m.x = width; apply();
+      settleTo(0);
+    }
+    resume();
+  }
+
+  // The chat log jumps to the newest message only when the conversation itself
+  // grew (or on arrival) — never on the re-render that follows every unrelated
+  // click. -1 means "not on the chat page".
+  let chatLen = -1;
+
   function afterRender() {
     bindCharts();
     bindPan();
     bindHover();
+    syncNotify();
     if (UI.page === "chat") {
       const log = document.getElementById("chatlog");
-      if (log) log.scrollTop = log.scrollHeight;
+      if (log && chatLen !== UI.chat.length) log.scrollTop = log.scrollHeight;
+      chatLen = UI.chat.length;
       const box = document.querySelector('[data-act="composer"]');
       if (box && !UI.guideOpen && !document.querySelector('[data-act="dbody"]:focus')) {
-        box.focus(); autoGrow(box);
+        box.focus({ preventScroll: true }); autoGrow(box);
       }
+    } else {
+      chatLen = -1;
     }
     if (UI.tree.center && UI.page === "people") {
       const box = document.getElementById("orgscroll");

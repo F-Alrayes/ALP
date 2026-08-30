@@ -9,6 +9,7 @@ the first-run guide, the chat flow, the org chart (full-bleed layout, search
 suggestions, focus, zoom, collapse), the other pages, persistence across a
 reload, and dark mode. Exits non-zero on any failure.
 """
+import re
 import sys
 from pathlib import Path
 
@@ -394,6 +395,43 @@ def run(p):
     p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(400)
     p.locator(".moremenu button", has_text="Dashboard").first.click(); p.wait_for_timeout(900)
     check("dashboard charts draw", p.locator(".chart svg").count() >= 4)
+
+    # ------------------------------------------- chat scroll is not animated
+    section("chat scroll stays put")
+    tab(p, "Ask"); p.wait_for_timeout(500)
+    log = p.locator(".chatlog")
+    check("no smooth-scroll on the chat log",
+          log.evaluate("el => getComputedStyle(el).scrollBehavior") == "auto")
+    log.evaluate("el => el.scrollTop = 0"); p.wait_for_timeout(150)
+    p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(500)
+    kept = p.locator(".chatlog").evaluate("el => el.scrollTop")
+    check("an unrelated click leaves the scroll position alone", kept < 10, f"scrollTop={kept}")
+    p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(300)
+
+    # ------------------------------------------------------ assignment toast
+    section("assignment toast")
+    check("boot skeleton shipped and was replaced",
+          p.evaluate("document.querySelector('.skel')") is None)
+    p.locator('select[data-act="actor"]').select_option(label="Anna Sorenson")
+    p.wait_for_timeout(400)
+    p.locator('[data-act="moretoggle"]').click(); p.wait_for_timeout(400)
+    p.locator(".moremenu button", has_text="Demo controls").first.click(); p.wait_for_timeout(700)
+    got = False
+    for _ in range(8):
+        p.locator('[data-act="adv"][data-h="48"]').click(); p.wait_for_timeout(500)
+        if p.locator("#notify .notif").count():
+            got = True; break
+    check("a request routed to you raises a toast", got)
+    if got:
+        body = p.locator("#notify .notif").first.inner_text().lower()
+        check("the toast announces itself", "new request for you" in body)
+        rid = re.search(r"#(\d+)", p.locator("#notify .notif").first.inner_text())
+        check("the toast names the request", rid is not None)
+        p.locator("#notify .notif .n-open").first.click(); p.wait_for_timeout(800)
+        check("Open lands on the request",
+              p.locator('.tab[data-page="requests"][aria-selected="true"]').count() == 1
+              and (rid is None or f"#{rid.group(1)}" in p.inner_text("#page")))
+        check("Open clears the toast", p.locator("#notify .notif").count() == 0)
 
     # --------------------------------------------------------- persistence
     section("persistence")
