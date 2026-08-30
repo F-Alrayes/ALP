@@ -1,44 +1,66 @@
-"""Dashboard — queue health, bottlenecks, orphans and single points of failure."""
+"""Dashboard — queue health, bottlenecks, orphans and single points of failure.
+
+Charts follow the ledger's dataviz rules: thin marks with surface gaps, one
+axis, recessive grid, status colors reserved for status, direct labels where
+they earn their place, and a styled hover layer on every plot.
+"""
 
 from __future__ import annotations
 
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
 from atlas import analytics, clock
 from atlas.config import PALETTE, STATUS_COLORS
 from atlas.db import session_scope
+from atlas.services import STATUS_LABELS
 from atlas.ui.components import badge, empty_state, esc, page_header, stat
 
-CHART_LAYOUT = {
-    "paper_bgcolor": "rgba(0,0,0,0)",
-    "plot_bgcolor": "rgba(0,0,0,0)",
-    "font": {"color": PALETTE["ink"], "size": 12},
-    "margin": {"l": 10, "r": 10, "t": 46, "b": 10},
-    # Above the plot: angled department labels below would otherwise run into it.
-    "legend": {"orientation": "h", "y": 1.06, "yanchor": "bottom", "x": 0, "title": None},
+SURFACE = "#FFFDF6"
+INK = PALETTE["ink"]
+MUTED = PALETTE["muted"]
+GRID = PALETTE["cream_300"]
+SERIES_ACK = PALETTE["gold_500"]       # time to acknowledge
+SERIES_DONE = PALETTE["green_600"]     # time to complete
+AGE_RAMP = ["#B9D6C5", "#7FB99A", "#3FA173", "#128A5E"]  # light → dark, one hue
+
+STATUS_ORDER = ["pending", "acknowledged", "in_progress", "escalated", "completed"]
+
+HOVER = {
+    "bgcolor": SURFACE,
+    "bordercolor": PALETTE["cream_300"],
+    "font": {"color": INK, "size": 12, "family": "Instrument Sans, sans-serif"},
 }
 
-STATUS_LABEL_COLORS = {
-    "Pending": STATUS_COLORS["pending"],
-    "Acknowledged": STATUS_COLORS["acknowledged"],
-    "In progress": STATUS_COLORS["in_progress"],
-    "Escalated": STATUS_COLORS["escalated"],
-    "Completed": STATUS_COLORS["completed"],
-}
 
-
-def _style(figure: go.Figure, height: int = 320, tickangle: int | None = None) -> go.Figure:
-    figure.update_layout(height=height, **CHART_LAYOUT)
-    figure.update_xaxes(gridcolor=PALETTE["cream_300"], zeroline=False)
-    figure.update_yaxes(gridcolor=PALETTE["cream_300"], zeroline=False)
-    if tickangle is not None:
-        # Department names are long; angling them keeps them off the legend.
-        figure.update_layout(margin={"l": 10, "r": 10, "t": 46, "b": 96})
-        figure.update_xaxes(tickangle=tickangle)
+def _style(figure: go.Figure, height: int = 300) -> go.Figure:
+    figure.update_layout(
+        height=height,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": INK, "size": 12, "family": "Instrument Sans, sans-serif"},
+        margin={"l": 4, "r": 8, "t": 8, "b": 4},
+        hoverlabel=HOVER,
+        bargap=0.45,
+    )
+    figure.update_xaxes(gridcolor=GRID, zeroline=False, showline=False,
+                        tickfont={"color": MUTED, "size": 11})
+    figure.update_yaxes(gridcolor=GRID, zeroline=False, showline=False,
+                        tickfont={"color": MUTED, "size": 11})
     return figure
+
+
+def _legend_top(figure: go.Figure) -> go.Figure:
+    figure.update_layout(legend={
+        "orientation": "h", "y": 1.04, "yanchor": "bottom", "x": 0,
+        "title": None, "font": {"color": MUTED, "size": 11},
+    })
+    return figure
+
+
+def _plot(figure: go.Figure) -> None:
+    st.plotly_chart(figure, width="stretch", config={"displayModeBar": False})
 
 
 def render(actor_id: int) -> None:
@@ -87,105 +109,125 @@ def render(actor_id: int) -> None:
     st.markdown("## Queue")
     left, right = st.columns(2)
 
-    with left:
-        st.markdown("#### Requests by status")
+    with left, st.container(border=True, key="card_status"):
+        st.markdown("<div class='chart-head'>Requests by status</div>",
+                    unsafe_allow_html=True)
         frame = pd.DataFrame(status_rows)
-        if frame["count"].sum() == 0:
+        if frame.empty or frame["count"].sum() == 0:
             empty_state("No requests yet.")
         else:
-            figure = px.bar(
-                frame,
-                x="count",
-                y="status",
-                orientation="h",
-                color="status",
-                color_discrete_map=STATUS_LABEL_COLORS,
-                text="count",
-            )
-            figure.update_traces(showlegend=False, textposition="outside", cliponaxis=False)
-            figure.update_layout(xaxis_title=None, yaxis_title=None)
-            st.plotly_chart(_style(figure), width="stretch",
-                            config={"displayModeBar": False})
+            order = [STATUS_LABELS[s] for s in STATUS_ORDER]
+            frame["order"] = frame["status"].apply(
+                lambda s: order.index(s) if s in order else 99)
+            frame = frame.sort_values("order", ascending=False)
+            colors = [STATUS_COLORS.get(row["key"], SERIES_DONE)
+                      for _, row in frame.iterrows()]
+            figure = go.Figure(go.Bar(
+                x=frame["count"], y=frame["status"], orientation="h",
+                marker={"color": colors,
+                        "line": {"color": SURFACE, "width": 2}},
+                text=frame["count"], textposition="outside", cliponaxis=False,
+                textfont={"color": INK, "size": 12},
+                hovertemplate="%{y}: %{x} request(s)<extra></extra>",
+            ))
+            figure.update_xaxes(showticklabels=False, showgrid=False)
+            _plot(_style(figure, height=280))
 
-    with right:
-        st.markdown("#### Open requests by department")
+    with right, st.container(border=True, key="card_dept"):
+        st.markdown("<div class='chart-head'>Open requests by department</div>",
+                    unsafe_allow_html=True)
         if not dept_rows:
             empty_state("Nothing open right now.", "Every queue is clear.")
         else:
             frame = pd.DataFrame(dept_rows)
-            figure = px.bar(
-                frame,
-                x="department",
-                y="count",
-                color="status",
-                color_discrete_map=STATUS_LABEL_COLORS,
-                barmode="stack",
-            )
-            figure.update_layout(xaxis_title=None, yaxis_title="open requests")
-            st.plotly_chart(_style(figure, tickangle=-25), width="stretch",
-                            config={"displayModeBar": False})
+            figure = go.Figure()
+            for key in STATUS_ORDER:
+                label = STATUS_LABELS[key]
+                sub = frame[frame["status"] == label]
+                if sub.empty:
+                    continue
+                figure.add_bar(
+                    x=sub["department"], y=sub["count"], name=label,
+                    marker={"color": STATUS_COLORS[key],
+                            "line": {"color": SURFACE, "width": 2}},
+                    hovertemplate="%{x} · " + label + ": %{y}<extra></extra>",
+                )
+            figure.update_layout(barmode="stack")
+            figure.update_xaxes(tickangle=-20, showgrid=False)
+            _plot(_legend_top(_style(figure, height=280)))
 
     left, right = st.columns(2)
-    with left:
-        st.markdown("#### Turnaround by department")
+    with left, st.container(border=True, key="card_turnaround"):
+        st.markdown("<div class='chart-head'>Turnaround by department"
+                    "<span class='chart-note'>simulated hours</span></div>",
+                    unsafe_allow_html=True)
         if not turnaround_rows:
             empty_state("No completed requests yet.")
         else:
             frame = pd.DataFrame(turnaround_rows)
-            melted = frame.melt(
-                id_vars="department",
-                value_vars=["avg_ack_hours", "avg_complete_hours"],
-                var_name="metric",
-                value_name="hours",
+            figure = go.Figure()
+            figure.add_bar(
+                x=frame["department"], y=frame["avg_ack_hours"],
+                name="Time to acknowledge",
+                marker={"color": SERIES_ACK, "line": {"color": SURFACE, "width": 2}},
+                hovertemplate="%{x} · acknowledged in %{y:.1f}h<extra></extra>",
             )
-            melted["metric"] = melted["metric"].map(
-                {"avg_ack_hours": "Time to acknowledge", "avg_complete_hours": "Time to complete"}
+            figure.add_bar(
+                x=frame["department"], y=frame["avg_complete_hours"],
+                name="Time to complete",
+                marker={"color": SERIES_DONE, "line": {"color": SURFACE, "width": 2}},
+                hovertemplate="%{x} · completed in %{y:.1f}h<extra></extra>",
             )
-            figure = px.bar(
-                melted,
-                x="department",
-                y="hours",
-                color="metric",
-                barmode="group",
-                color_discrete_sequence=[PALETTE["gold_500"], PALETTE["green_700"]],
-            )
-            figure.update_layout(xaxis_title=None, yaxis_title="simulated hours")
-            st.plotly_chart(_style(figure, tickangle=-25), width="stretch",
-                            config={"displayModeBar": False})
+            figure.update_layout(barmode="group", bargroupgap=0.12)
+            figure.update_xaxes(tickangle=-20, showgrid=False)
+            _plot(_legend_top(_style(figure, height=280)))
 
-    with right:
-        st.markdown("#### How long open items have been waiting")
+    with right, st.container(border=True, key="card_ages"):
+        st.markdown("<div class='chart-head'>How long open items have waited"
+                    "<span class='chart-note'>darker = older</span></div>",
+                    unsafe_allow_html=True)
         if not queue_rows:
             empty_state("Nothing is waiting.")
         else:
-            frame = pd.DataFrame(queue_rows)
-            figure = px.histogram(
-                frame,
-                x="age_hours",
-                nbins=12,
-                color_discrete_sequence=[PALETTE["green_600"]],
-            )
-            figure.update_layout(xaxis_title="age in simulated hours", yaxis_title="requests")
-            st.plotly_chart(_style(figure), width="stretch",
-                            config={"displayModeBar": False})
+            ages = [row["age_hours"] for row in queue_rows]
+            buckets = ["under 24h", "24–48h", "48–96h", "over 96h"]
+            counts = [
+                sum(1 for a in ages if a < 24),
+                sum(1 for a in ages if 24 <= a < 48),
+                sum(1 for a in ages if 48 <= a < 96),
+                sum(1 for a in ages if a >= 96),
+            ]
+            figure = go.Figure(go.Bar(
+                x=buckets, y=counts,
+                marker={"color": AGE_RAMP, "line": {"color": SURFACE, "width": 2}},
+                text=counts, textposition="outside", cliponaxis=False,
+                textfont={"color": INK, "size": 12},
+                hovertemplate="%{x}: %{y} open request(s)<extra></extra>",
+            ))
+            figure.update_yaxes(showticklabels=False, showgrid=False)
+            figure.update_xaxes(showgrid=False)
+            _plot(_style(figure, height=280))
 
     st.markdown("## Bottlenecks")
     if not bottleneck_rows:
         empty_state("No queues are backing up.")
     else:
-        frame = pd.DataFrame(bottleneck_rows)
-        frame = frame.rename(
-            columns={
-                "person": "Person",
-                "title": "Title",
-                "department": "Department",
-                "open": "Open",
-                "avg_wait_hours": "Avg wait (h)",
-                "oldest_wait_hours": "Oldest (h)",
-                "is_ooo": "Out of office",
-            }
+        frame = pd.DataFrame(bottleneck_rows).rename(columns={
+            "person": "Person", "title": "Title", "department": "Department",
+            "open": "Open", "avg_wait_hours": "Avg wait (h)",
+            "oldest_wait_hours": "Oldest (h)", "is_ooo": "Out of office",
+        })
+        st.dataframe(
+            frame, width="stretch", hide_index=True,
+            column_config={
+                "Open": st.column_config.ProgressColumn(
+                    "Open", format="%d",
+                    max_value=max(int(frame["Open"].max()), 1),
+                ),
+                "Avg wait (h)": st.column_config.NumberColumn(format="%.1f"),
+                "Oldest (h)": st.column_config.NumberColumn(format="%.0f"),
+            },
         )
-        st.dataframe(frame, width="stretch", hide_index=True)
 
     st.markdown("## Orphaned processes")
     st.caption("Requests matched to these have no owner to route to — they park for the admin.")
@@ -224,9 +266,7 @@ def render(actor_id: int) -> None:
             elif row.owns:
                 uncovered = "Every process they own has a delegate or backup."
             else:
-                uncovered = (
-                    f"Approves on {row.approves} process(es) but owns none outright."
-                )
+                uncovered = f"Approves on {row.approves} process(es) but owns none outright."
             st.markdown(
                 f"""<div class="card {'accent' if row.uncovered else ''}">
                       <div class="card-title">{esc(row.person)}</div>

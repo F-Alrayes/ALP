@@ -1,6 +1,7 @@
 # Verified against streamlit 1.62, plotly 6.9 and 7.0, pandas 3.0, SQLAlchemy 2.0.
 # Upper bounds keep a future major release from breaking an existing deployment.
 streamlit>=1.49,<2
+anthropic>=1.0,<2
 SQLAlchemy>=2.0,<3
 rapidfuzz>=3.0,<4
 plotly>=5.20,<8

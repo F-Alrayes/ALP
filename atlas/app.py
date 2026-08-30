@@ -6,6 +6,7 @@ with ``streamlit run app.py`` once a database exists.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from atlas import agent  # noqa: E402
 from atlas.config import APP_NAME, APP_TAGLINE  # noqa: E402
 from atlas.db import create_all, database_is_seeded  # noqa: E402
 from atlas.ui import chrome, notify, theme  # noqa: E402
-from views import agent_log, dashboard, demo, directory, inbox, intake  # noqa: E402
+from views import agent_log, ask, dashboard, demo, directory, inbox  # noqa: E402
 
 st.set_page_config(
     page_title=f"{APP_NAME} — {APP_TAGLINE}",
@@ -39,7 +40,17 @@ def _bootstrap() -> bool:
     return True
 
 
+def _bridge_secrets() -> None:
+    """Streamlit Cloud keeps the Anthropic key in st.secrets; the brain reads env."""
+    try:
+        if "ANTHROPIC_API_KEY" in st.secrets and not os.environ.get("ANTHROPIC_API_KEY"):
+            os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+    except Exception:
+        pass  # no secrets file configured — the offline matcher takes over
+
+
 def main() -> None:
+    _bridge_secrets()
     _bootstrap()
     theme.inject()
 
@@ -52,7 +63,7 @@ def main() -> None:
     chrome.flash()
 
     pages = {
-        "Ask": intake.render,
+        "Ask": ask.render,
         "People": directory.render,
         "Requests": inbox.render,
         "Dashboard": dashboard.render,

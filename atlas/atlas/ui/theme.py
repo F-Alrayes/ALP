@@ -138,8 +138,11 @@ section[data-testid="stMain"] { overflow-x: clip; }
   .st-key-atlas_topbar { background: var(--surface); }
 }
 /* The brand, tabs and More keep their natural width; the spacer and the
-   identity select absorb any squeeze on narrower windows. */
-.st-key-atlas_topbar [data-testid="stColumn"]:nth-child(-n+5) { min-width: max-content; }
+   identity select absorb any squeeze. The row itself never wraps — a wrapped
+   sticky bar would wall off the page. */
+.st-key-atlas_topbar [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
+.st-key-atlas_topbar [data-testid="stColumn"] { min-width: 0 !important; }
+.st-key-atlas_topbar [data-testid="stColumn"]:nth-child(-n+5) { min-width: max-content !important; }
 @media (max-width: 1180px) {
   .st-key-atlas_topbar .stButton > button { padding: 0.3rem 0.55rem; }
   .atlas-brand .build { display: none; }
@@ -375,11 +378,112 @@ hr { border-color: var(--cream-300); }
 @keyframes flashin { from { opacity: 0; transform: translateY(8px); } }
 
 /* ---------- bordered containers read as ledger cards ---------- */
-[class*="st-key-demo_"] {
+[class*="st-key-demo_"], [class*="st-key-card_"], .st-key-ask_draft {
   background: var(--surface); border: 1px solid var(--line-soft) !important;
   border-radius: 14px !important; box-shadow: var(--edge), var(--shadow);
   padding: 1.0rem 1.05rem !important;
 }
+
+/* ---------- ask: the conversation ---------- */
+.chatlog { max-width: 780px; padding: 0.15rem 0 0.3rem; }
+.msg { display: flex; gap: 11px; margin-bottom: 16px; }
+.msg.user { justify-content: flex-end; }
+.msg.user .bub { background: var(--green-700); color: #F3EEE0;
+  border-radius: 16px 16px 5px 16px; padding: 10px 15px; max-width: 85%;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 2px 8px -3px rgba(20,56,42,.35); }
+.msg.bot .ava { width: 29px; height: 29px; border-radius: 9px; background: var(--gold-500);
+  color: #122019; display: grid; place-items: center; font-weight: 640; font-size: .86rem;
+  font-family: var(--serif); flex: none; margin-top: 2px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 2px rgba(27,53,40,.18); }
+.msg.bot .bub { background: var(--surface); border: 1px solid var(--line-soft);
+  border-radius: 5px 16px 16px 16px; padding: 13px 16px;
+  box-shadow: var(--edge), var(--shadow); flex: 1; min-width: 0; }
+.msg .bub p { margin: 0; }
+.msg .bub p + p { margin-top: 9px; }
+.msg .bub .small { font-size: .85rem; color: var(--muted); }
+.chatcard { border: 1px solid var(--cream-300); background: var(--cream-100);
+  border-radius: 10px; padding: .55rem .8rem; margin-top: .55rem; }
+.cc-title { font-weight: 600; font-size: .92rem; display: block; color: var(--ink); }
+.cc-meta { font-size: .82rem; color: var(--muted); display: block; margin-top: 2px; }
+.chatrow { border-top: 1px solid var(--line-soft); padding: .5rem 0 .35rem; display: block; }
+.chatrow:first-child { border-top: none; }
+
+/* The bot is thinking: three quiet dots, not a spinner. */
+.bub.typing { display: inline-flex; gap: 5px; align-items: center;
+  padding: 15px 16px 13px; flex: none; }
+.bub.typing span { width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted); opacity: .35; }
+@media (prefers-reduced-motion: no-preference) {
+  .bub.typing span { animation: atlasdots 1s var(--ease) infinite; }
+  .bub.typing span:nth-child(2) { animation-delay: .15s; }
+  .bub.typing span:nth-child(3) { animation-delay: .3s; }
+}
+@keyframes atlasdots {
+  0%, 100% { opacity: .35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* Arrival: only the newest exchange animates, never the whole history. */
+@media (prefers-reduced-motion: no-preference) {
+  .chatlog .msg:nth-last-child(-n+2) { animation: msgin .24s var(--ease) both; }
+}
+@keyframes msgin { from { opacity: 0; transform: translateY(6px); } }
+
+/* Suggestion chips */
+[class*="st-key-chip_"] .stButton > button {
+  border-radius: 999px !important; background: var(--surface) !important;
+  border: 1px solid var(--cream-300) !important; font-size: .8rem;
+  padding: .22rem .8rem; min-height: 0; color: var(--muted);
+  box-shadow: var(--edge), 0 1px 2px rgba(27,53,40,.05);
+}
+[class*="st-key-chip_"] .stButton > button:hover {
+  color: var(--ink); border-color: var(--gold-500) !important;
+  transform: translateY(-1px);
+}
+[class*="st-key-chip_"] .stButton > button p { font-size: .8rem; }
+
+/* The composer: Streamlit's chat input dressed as the island. */
+[data-testid="stBottom"] { background: var(--cream-100); }
+[data-testid="stBottomBlockContainer"] { max-width: 1240px;
+  padding-top: .5rem; padding-bottom: 1.1rem; background: var(--cream-100); }
+.stChatInput { max-width: 780px; }
+.stChatInput > div { border-radius: 17px !important;
+  border: 1px solid var(--cream-300) !important; background: var(--surface) !important;
+  box-shadow: var(--edge), var(--shadow) !important; }
+.stChatInput textarea { background: transparent !important; }
+.stChatInput textarea::placeholder { font-family: var(--serif); font-style: italic;
+  color: var(--muted); }
+
+/* Draft card furniture */
+.draft-head { font-family: var(--serif); font-weight: 560; font-size: 1.08rem;
+  display: flex; align-items: center; gap: .6rem; margin-bottom: .35rem; color: var(--ink); }
+.draft-src { font-size: .66rem; font-weight: 640; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--gold-600); background: #F7EFD5;
+  padding: 2px 9px; border-radius: 999px; }
+.draft-route { margin: .25rem 0 .5rem; font-size: .93rem; }
+
+/* Chart card headers */
+.chart-head { font-weight: 600; font-size: .95rem; margin: .05rem 0 .4rem;
+  display: flex; align-items: baseline; gap: .6rem; color: var(--ink); }
+.chart-note { font-size: .78rem; color: var(--muted); font-weight: 500; }
+
+/* ---------- motion ---------- */
+/* Short and quiet: reruns replay entrances, so anything longer than ~.3s
+   would read as lag rather than life. */
+@media (prefers-reduced-motion: no-preference) {
+  .page-head { animation: risein .26s var(--ease) both; }
+  .stat { animation: risein .3s var(--ease) both; }
+  .card, [class*="st-key-card_"], [class*="st-key-demo_"] {
+    animation: risein .3s var(--ease) both; }
+  [data-testid="stPopoverBody"] { animation: menupop .16s var(--ease) both;
+    transform-origin: top center; }
+  [data-testid="stExpander"] details summary { transition: color .15s var(--ease); }
+}
+@keyframes risein { from { opacity: 0; transform: translateY(7px); } }
+@keyframes menupop { from { opacity: 0; transform: scale(.97) translateY(-4px); } }
+.card { transition: transform .18s var(--ease), box-shadow .18s var(--ease); }
+.card:hover { transform: translateY(-1px);
+  box-shadow: var(--edge), 0 2px 4px rgba(27,53,40,.06), 0 20px 44px -20px rgba(27,53,40,.4); }
 
 /* ---------- assignment toast ---------- */
 /* The preview's #notify banner, in Streamlit's clothing: same material,
