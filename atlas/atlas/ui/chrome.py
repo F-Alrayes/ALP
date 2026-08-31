@@ -23,6 +23,15 @@ DEFAULT_ACTOR = "Noura Al-Sabah"
 
 PAGES = ("Ask", "People", "Requests", "Dashboard", "Agent log", "Demo controls")
 
+NAV_ICONS = {
+    "Ask": ":material/explore:",
+    "People": ":material/groups:",
+    "Requests": ":material/inbox:",
+    "Dashboard": ":material/monitoring:",
+    "Agent log": ":material/receipt_long:",
+    "Demo controls": ":material/tune:",
+}
+
 # Page names from earlier eras still arrive via stale session state.
 _LEGACY = {
     "Intake": "Ask",
@@ -85,6 +94,7 @@ def render() -> tuple[int, str]:
             st.button(
                 label,
                 key=f"nav_{name}",
+                icon=NAV_ICONS.get(name),
                 width="stretch",
                 type="primary" if page == name else "secondary",
                 on_click=_go,

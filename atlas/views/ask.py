@@ -32,10 +32,14 @@ SEEN_KEY = "atlas_chat_seen"
 
 # (label shown on the chip, full ask sent to the bot)
 SUGGESTIONS = [
-    ("Fix my laptop", "Who do I contact to get my laptop fixed?"),
-    ("Data room access", "Email whoever owns the data room and ask them for access"),
-    ("Expense sign-off", "Ask whoever approves expenses to sign off my claim"),
-    ("What's in my inbox?", "What's in my inbox?"),
+    ("Fix my laptop", "Who do I contact to get my laptop fixed?",
+     ":material/build:"),
+    ("Data room access", "Email whoever owns the data room and ask them for access",
+     ":material/key:"),
+    ("Expense sign-off", "Ask whoever approves expenses to sign off my claim",
+     ":material/approval:"),
+    ("What's in my inbox?", "What's in my inbox?",
+     ":material/mail:"),
 ]
 
 GREETING = (
@@ -282,7 +286,7 @@ def _draft_card(actor_id: int) -> None:
             f" &nbsp;<span class='subtle'>{esc(summary)}</span></div>",
             unsafe_allow_html=True,
         )
-        with st.expander("Why — the resolution trace"):
+        with st.expander("Why — the resolution trace", icon=":material/alt_route:"):
             resolution_trace(resolution)
 
         title = st.text_input("Title", key="ask_draft_title")
@@ -294,7 +298,8 @@ def _draft_card(actor_id: int) -> None:
                 f"#{dup['id']} — {dup['title']} looks "
                 f"{dup['similarity']:.0f}% like this. Follow it instead?"
             )
-            if col_b.button("Follow", key=f"ask_follow_{dup['id']}", width="stretch"):
+            if col_b.button("Follow", key=f"ask_follow_{dup['id']}",
+                            icon=":material/notification_add:", width="stretch"):
                 with write_lock, session_scope() as writer:
                     follow_existing(writer, dup["id"], actor_id)
                 _push("bot", "followed", id=dup["id"], note="Done — no duplicate raised.")
@@ -303,7 +308,7 @@ def _draft_card(actor_id: int) -> None:
 
         send_col, drop_col, _ = st.columns([1.2, 1, 3])
         if send_col.button("Send it", type="primary", width="stretch",
-                           key="ask_draft_send"):
+                           icon=":material/send:", key="ask_draft_send"):
             with write_lock, session_scope() as writer:
                 writer_process = (
                     writer.get(Process, chosen) if chosen is not None else None
@@ -319,7 +324,8 @@ def _draft_card(actor_id: int) -> None:
             _push("bot", "sent", id=new_id)
             _clear_draft()
             st.rerun()
-        if drop_col.button("Discard", width="stretch", key="ask_draft_drop"):
+        if drop_col.button("Discard", width="stretch",
+                           icon=":material/delete:", key="ask_draft_drop"):
             _clear_draft()
             _push("bot", "text", text="Dropped. What else can I sort out?")
             st.rerun()
@@ -363,7 +369,7 @@ def render(actor_id: int) -> None:
     # Undo lives under the log while the last thing sent can still be recalled.
     last = messages[-1] if messages else None
     if last and last["kind"] == "sent" and not st.session_state.get(DRAFT_KEY):
-        if st.button("Undo — withdraw it", key="ask_undo"):
+        if st.button("Undo — withdraw it", icon=":material/undo:", key="ask_undo"):
             with write_lock, session_scope() as writer:
                 ok = withdraw_request(writer, last["id"], actor_id)
             if ok:
@@ -377,11 +383,11 @@ def render(actor_id: int) -> None:
 
     if not st.session_state.get(DRAFT_KEY):
         chips = st.columns(len(SUGGESTIONS))
-        for index, (col, (label, ask)) in enumerate(zip(chips, SUGGESTIONS)):
+        for index, (col, (label, ask, glyph)) in enumerate(zip(chips, SUGGESTIONS)):
             with col:
                 with st.container(key=f"chip_{index}"):
                     st.button(
-                        label, key=f"ask_chip_{index}", help=ask,
+                        label, key=f"ask_chip_{index}", help=ask, icon=glyph,
                         width="stretch", on_click=_queue, args=(ask,),
                     )
 
