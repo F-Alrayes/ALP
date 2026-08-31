@@ -50,7 +50,7 @@ def _style(figure: go.Figure, height: int = 300) -> go.Figure:
         margin={"l": 4, "r": 8, "t": 8, "b": 4},
         hoverlabel=HOVER,
         bargap=0.45,
-        barcornerradius="45%",
+        barcornerradius="25%",
     )
     figure.update_xaxes(gridcolor=GRID, zeroline=False, showline=False,
                         tickfont={"color": MUTED, "size": 11})
