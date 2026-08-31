@@ -151,7 +151,11 @@ hr { border-color: var(--line-soft); }
   box-shadow: inset 2px 0 0 var(--accent);
 }
 [data-testid="stSidebar"] [data-testid="stSelectbox"] > div {
-  background: %(green_800)s; border-radius: 8px; border: 1px solid rgba(233,223,201,.25);
+  background: rgba(239,234,218,.08); border-radius: 11px;
+  border: 1px solid rgba(239,234,218,.28);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
 }
 /* The light base theme paints the value box; blank the internals so the
    dark shell shows through and the cream text stays legible. */
@@ -240,7 +244,9 @@ hr { border-color: var(--line-soft); }
 .badge {
   display: inline-block; font-family: var(--mono); font-size: .62rem;
   text-transform: uppercase; letter-spacing: .08em; padding: 1px 7px;
-  border-radius: 4px; border: 1px solid; background: transparent;
+  border-radius: 4px; border: 1px solid; background: rgba(255,253,246,.45);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5);
   vertical-align: middle;
 }
 .badge.pending      { color: %(status_pending)s; border-color: %(status_pending)s55; }
@@ -267,7 +273,11 @@ hr { border-color: var(--line-soft); }
 .stButton button:active { transform: scale(.96); transition: transform .1s ease-out; }
 .stButton button[kind="primary"],
 [data-testid="stBaseButton-primary"] {
-  background: var(--accent-strong); border-color: var(--accent-strong);
+  background: rgba(20,56,42,.85); border-color: rgba(255,255,255,.28);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22),
+              0 8px 18px -12px rgba(27,53,40,.6);
 }
 .stButton button[kind="primary"], .stButton button[kind="primary"] *,
 [data-testid="stBaseButton-primary"], [data-testid="stBaseButton-primary"] * {
@@ -280,13 +290,29 @@ hr { border-color: var(--line-soft); }
 
 /* ---------- inputs, tabs, tables ---------- */
 .stTextInput input, .stTextArea textarea, .stNumberInput input {
-  background: rgba(255,253,246,.85) !important; border-color: var(--line) !important;
+  background: var(--glass) !important; border-color: var(--glass-edge) !important;
   border-radius: 11px !important; color: var(--ink) !important;
+  backdrop-filter: blur(8px) saturate(1.4);
+  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8),
+              0 2px 6px -4px rgba(27,53,40,.35);
 }
 .stTextArea textarea::placeholder, .stTextInput input::placeholder {
   font-family: var(--mono); color: var(--muted); }
-[data-testid="stSelectbox"] > div { background: var(--surface); border-radius: 8px; }
-[role="listbox"], [data-baseweb="popover"] { color: var(--ink); background: var(--surface); }
+[data-testid="stSelectbox"] > div {
+  background: var(--glass); border: 1px solid var(--glass-edge);
+  border-radius: 11px;
+  backdrop-filter: blur(8px) saturate(1.4);
+  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8),
+              0 2px 6px -4px rgba(27,53,40,.35);
+}
+[role="listbox"], [data-baseweb="popover"] {
+  color: var(--ink); background: rgba(255,253,246,.82);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge); border-radius: 12px;
+  box-shadow: var(--glass-shadow), 0 18px 40px -24px rgba(27,53,40,.5);
+}
 
 .stTabs [data-baseweb="tab-list"] { gap: .2rem; border-bottom: 1px solid var(--line-soft); }
 .stTabs [data-baseweb="tab"] {
@@ -300,11 +326,29 @@ hr { border-color: var(--line-soft); }
   background: var(--glass); backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur); }
 [data-testid="stMetricValue"] { color: var(--ink); font-family: var(--mono); }
-[data-testid="stDataFrame"] { border: 1px solid var(--line); border-radius: var(--r); }
+[data-testid="stDataFrame"] {
+  border: 1px solid var(--glass-edge); border-radius: var(--r);
+  background: var(--glass); backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow);
+}
+[data-testid="stAlert"] {
+  background: var(--glass) !important; border: 1px solid var(--glass-edge);
+  border-radius: 12px; backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow);
+}
+[data-testid="stToast"] {
+  background: rgba(255,253,246,.8) !important;
+  border: 1px solid var(--glass-edge) !important; border-radius: 14px !important;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), 0 16px 36px -20px rgba(27,53,40,.5) !important;
+  color: var(--ink) !important;
+}
 
-.empty { border: 1px dashed var(--line); border-radius: var(--r);
+.empty { border: 1px dashed var(--glass-edge); border-radius: var(--r);
   padding: 1.7rem 1.3rem; text-align: center; color: var(--muted);
-  background: transparent; }
+  background: var(--glass); backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow); }
 .empty .big { font-family: var(--mono); font-size: .95rem; color: var(--ink);
   margin-bottom: .2rem; }
 
@@ -339,9 +383,13 @@ hr { border-color: var(--line-soft); }
   padding: .15rem 0 .3rem; }
 .msg { display: flex; gap: 11px; margin-bottom: 15px; }
 .msg.user { justify-content: flex-end; }
-.msg.user .bub { background: %(green_700)s; border: 1px solid %(green_700)s;
+.msg.user .bub { background: rgba(20,56,42,.85);
+  border: 1px solid rgba(255,255,255,.28);
   color: #F3EEE0; border-radius: 18px 18px 6px 18px; padding: 9px 15px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22),
+              0 8px 18px -12px rgba(27,53,40,.6);
   max-width: 78%%; }
 .msg.bot .ava { width: 27px; height: 27px; border-radius: 7px;
   background: var(--accent-strong); color: #F2F6FF; display: grid;
@@ -479,9 +527,13 @@ hr { border-color: var(--line-soft); }
 .orgtree > ul > li::before, .orgtree > ul > li::after { display: none; }
 /* the card */
 .onode { position: relative; width: 178px;
-  background: rgba(255,253,246,.94); border: 1px solid var(--line);
+  background: rgba(255,253,246,.72); border: 1px solid var(--glass-edge);
   border-radius: 12px; padding: 14px 12px 12px; text-align: center;
-  box-shadow: inset 0 3px 0 var(--accent-strong), 0 10px 24px -18px rgba(27,53,40,.4);
+  backdrop-filter: blur(8px) saturate(1.4);
+  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  box-shadow: inset 0 3px 0 var(--accent-strong),
+              inset 0 4px 0 rgba(255,255,255,.5),
+              0 10px 24px -18px rgba(27,53,40,.4);
   transition: transform .18s var(--ease), border-color .18s var(--ease);
 }
 .onode:hover { transform: translateY(-2px); border-color: #CDC3A8; }
@@ -530,8 +582,21 @@ hr { border-color: var(--line-soft); }
 @media (prefers-reduced-transparency: reduce) {
   .card, [class*="st-key-demo_"], [class*="st-key-card_"], .st-key-ask_draft,
   .stat, .msg.bot .bub, .stExpander, [data-testid="stToast"], .flash,
-  .stChatInput > div, .stButton button, [data-testid="stBottom"] {
+  .stChatInput > div, .stButton button, [data-testid="stBottom"],
+  .stTextInput input, .stTextArea textarea, .stNumberInput input,
+  [data-testid="stSelectbox"] > div, [role="listbox"], [data-baseweb="popover"],
+  [data-testid="stDataFrame"], [data-testid="stAlert"], .empty, .onode,
+  .orgwrap, .badge {
     background: var(--surface) !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  }
+  .msg.user .bub, .stButton button[kind="primary"],
+  [data-testid="stBaseButton-primary"] {
+    background: var(--accent-strong) !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  }
+  [data-testid="stSidebar"] [data-testid="stSelectbox"] > div {
+    background: %(green_800)s !important;
     backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
   }
   .stApp { background: var(--ground); }
@@ -539,7 +604,9 @@ hr { border-color: var(--line-soft); }
 }
 @media (prefers-contrast: more) {
   .card, [class*="st-key-demo_"], [class*="st-key-card_"], .st-key-ask_draft,
-  .stat, .msg.bot .bub { border-color: var(--muted) !important; }
+  .stat, .msg.bot .bub, .empty, .onode, [data-testid="stAlert"],
+  .stTextInput input, .stTextArea textarea, .stNumberInput input,
+  [data-testid="stSelectbox"] > div { border-color: var(--muted) !important; }
 }
 
 /* ---------- motion ---------- */
