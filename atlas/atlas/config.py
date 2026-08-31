@@ -17,7 +17,7 @@ APP_NAME = "Atlas"
 APP_TAGLINE = "Responsibility, routed."
 # Shown in the sidebar footer so a glance settles which build a deployment
 # runs. Bump it with any visible UI change.
-UI_BUILD = "Paper Console · build 14"
+UI_BUILD = "Paper Console · build 15"
 
 # --- Agent thresholds (simulated hours) -------------------------------------
 # Stored in settings() at seed time so they are inspectable/tunable from the DB,

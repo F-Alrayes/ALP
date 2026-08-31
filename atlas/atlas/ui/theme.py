@@ -321,6 +321,17 @@ hr { border-color: var(--line-soft); }
   margin-left: .55em; }
 .chart-note::before { content: "· "; color: var(--line); }
 
+/* Bento rows line up: a column stretches to the row's height, but the
+   card's own layout wrapper keeps its natural height and leaves ragged
+   bottoms. Let wrappers holding a dashboard card grow, and the card fill. */
+[data-testid="stColumn"] > [data-testid="stVerticalBlock"]
+  > [data-testid="stLayoutWrapper"]:has(> [class*="st-key-card_"]) {
+  flex: 1 1 auto; }
+[class*="st-key-card_"] { height: 100%%; }
+/* Cards that end up taller than their content spread it instead of
+   pooling the slack at the bottom. */
+.st-key-card_kpi, .st-key-card_donut { justify-content: space-between; }
+
 /* ---------- the conversation ---------- */
 /* One fluid, centred column: log, draft, chips, undo and composer all share
    min(920px, full width). */
