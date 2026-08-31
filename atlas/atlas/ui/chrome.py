@@ -1,10 +1,8 @@
-"""The app shell, matched to the preview: a glass topbar instead of a sidebar.
+"""The console shell: a dark left rail instead of a topbar.
 
-Brand on the left, the three primary tabs beside it, a More menu for the
-rest, and the identity switcher on the right — the same furniture in the
-same places as the single-file preview. The demo controls that used to
-live in the sidebar are a page now (views/demo.py), exactly as they are
-in the preview.
+Brand at the top, all six pages as flat mono nav items (no More menu), the
+identity switcher and the build stamp below. ``render()`` returns
+(acting user id, current page) exactly as before.
 """
 
 from __future__ import annotations
@@ -23,10 +21,9 @@ ACTOR_KEY = "atlas_actor_id"
 PAGE_KEY = "atlas_page"
 DEFAULT_ACTOR = "Noura Al-Sabah"
 
-PRIMARY = ("Ask", "People", "Requests")
-MORE = ("Dashboard", "Agent log", "Demo controls")
+PAGES = ("Ask", "People", "Requests", "Dashboard", "Agent log", "Demo controls")
 
-# Old sidebar-era page names still arrive via stale session state.
+# Page names from earlier eras still arrive via stale session state.
 _LEGACY = {
     "Intake": "Ask",
     "Directory & Graph": "People",
@@ -55,7 +52,7 @@ def current_actor_id() -> int:
 def current_page() -> str:
     page = st.session_state.get(PAGE_KEY, "Ask")
     page = _LEGACY.get(page, page)
-    if page not in PRIMARY + MORE:
+    if page not in PAGES:
         page = "Ask"
     return page
 
@@ -65,7 +62,7 @@ def _go(page: str) -> None:
 
 
 def render() -> tuple[int, str]:
-    """Draw the topbar; return (acting user id, current page)."""
+    """Draw the rail; return (acting user id, current page)."""
     page = current_page()
     actor = current_actor_id()
     people = all_people()
@@ -75,21 +72,17 @@ def render() -> tuple[int, str]:
     with session_scope() as session:
         unread = unread_count(session, actor)
 
-    with st.container(key="atlas_topbar"):
-        brand, t1, t2, t3, more, spacer, who = st.columns(
-            [2.45, 0.62, 0.82, 1.15, 0.95, 2.4, 2.6], vertical_alignment="center"
-        )
-        brand.markdown(
-            f"""<div class="atlas-brand"><span class="mark">A</span>
-                  <span class="name">{esc(APP_NAME.upper())}</span>
+    with st.sidebar:
+        st.markdown(
+            f"""<div class="atlas-brand"><span class="name">{esc(APP_NAME.upper())}</span>
                   <span class="build">{esc(UI_BUILD)}</span></div>""",
             unsafe_allow_html=True,
         )
-        for col, name in zip((t1, t2, t3), PRIMARY):
+        for name in PAGES:
             label = name
             if name == "Requests" and unread:
                 label = f"{name} · {unread}"
-            col.button(
+            st.button(
                 label,
                 key=f"nav_{name}",
                 width="stretch",
@@ -97,22 +90,14 @@ def render() -> tuple[int, str]:
                 on_click=_go,
                 args=(name,),
             )
-        with more:
-            with st.popover(
-                page if page in MORE else "More", width="stretch"
-            ):
-                for name in MORE:
-                    st.button(
-                        name,
-                        key=f"nav_more_{name}",
-                        width="stretch",
-                        type="primary" if page == name else "secondary",
-                        on_click=_go,
-                        args=(name,),
-                    )
-        spacer.empty()
-        chosen = who.selectbox(
-            "You are",
+        st.markdown("---")
+        st.markdown(
+            "<div class='subtle' style='font-family:var(--mono);font-size:.62rem;"
+            "text-transform:uppercase;letter-spacing:.12em'>Acting as</div>",
+            unsafe_allow_html=True,
+        )
+        chosen = st.selectbox(
+            "Acting as",
             options=ids,
             index=ids.index(actor),
             format_func=lambda i: labels[i],
@@ -125,7 +110,7 @@ def render() -> tuple[int, str]:
 
 
 def flash() -> None:
-    """The preview's bottom-right flash pill, not a banner across the page."""
+    """One-shot confirmation, bottom-right, console-styled."""
     message = st.session_state.pop("atlas_flash", None)
     if message:
         st.markdown(f'<div class="flash">{esc(message)}</div>', unsafe_allow_html=True)

@@ -18,13 +18,13 @@ from atlas.services import STATUS_LABELS
 from atlas.ui import motion
 from atlas.ui.components import badge, empty_state, esc, page_header, stat
 
-SURFACE = "#FFFDF6"
+SURFACE = PALETTE["cream_200"]         # panel surface: the bar-gap and hover color
 INK = PALETTE["ink"]
 MUTED = PALETTE["muted"]
-GRID = PALETTE["cream_300"]
-SERIES_ACK = PALETTE["gold_500"]       # time to acknowledge
-SERIES_DONE = PALETTE["green_600"]     # time to complete
-AGE_RAMP = ["#B9D6C5", "#7FB99A", "#3FA173", "#128A5E"]  # light → dark, one hue
+GRID = "#222B38"
+SERIES_ACK = PALETTE["gold_500"]       # time to acknowledge (validated amber)
+SERIES_DONE = PALETTE["green_600"]     # time to complete (validated blue)
+AGE_RAMP = ["#2C3E63", "#3A5490", "#476CC2", "#5581E2"]  # dim → bright, one hue
 
 STATUS_ORDER = ["pending", "acknowledged", "in_progress", "escalated", "completed"]
 
@@ -88,9 +88,9 @@ def render(actor_id: int) -> None:
     with cols[0]:
         stat("Open requests", str(head["open_requests"]), f"of {head['total_requests']} raised")
     with cols[1]:
-        stat("Avg time to acknowledge", f"{head['avg_ack_hours']:.1f}h", "first response")
+        stat("Avg acknowledge", f"{head['avg_ack_hours']:.1f}h", "first response")
     with cols[2]:
-        stat("Avg time to complete", f"{head['avg_cycle_hours']:.1f}h", "raised to closed")
+        stat("Avg complete", f"{head['avg_cycle_hours']:.1f}h", "raised to closed")
     with cols[3]:
         stat(
             "Escalation rate",

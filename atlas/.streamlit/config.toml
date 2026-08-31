@@ -1,19 +1,9 @@
 [theme]
-base = "light"
-primaryColor = "#14382A"
-backgroundColor = "#FAF6EB"
-secondaryBackgroundColor = "#F4EEDD"
-textColor = "#1B2721"
-
-[browser]
-gatherUsageStats = false
-
-[server]
-# Hosted runs never have a browser to open. `python run.py` passes
-# --server.headless explicitly, so local runs still open one.
-headless = true
-fileWatcherType = "auto"
+base = "dark"
+primaryColor = "#6E9BFF"
+backgroundColor = "#0F1218"
+secondaryBackgroundColor = "#161C25"
+textColor = "#E7ECF3"
 
 [client]
 toolbarMode = "minimal"
-showErrorDetails = true
