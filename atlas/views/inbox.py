@@ -54,9 +54,19 @@ def _summary(session, request: Request, at) -> dict:
         ),
     }
 
-def _request_list(rows: list[dict], *, counterpart_key: str, counterpart_label: str, prefix: str) -> None:
+def _request_list(
+    rows: list[dict],
+    *,
+    counterpart_key: str,
+    counterpart_label: str,
+    prefix: str,
+    empty: tuple[str, str] = (
+        "Nothing here.",
+        "Requests will appear as they are raised or routed to you.",
+    ),
+) -> None:
     if not rows:
-        empty_state("Nothing here.", "Requests will appear as they are raised or routed to you.")
+        empty_state(*empty)
         return
     for row in rows:
         card, action = st.columns([6, 1], vertical_alignment="center")
@@ -233,15 +243,27 @@ def render(actor_id: int) -> None:
     tab_inbox, tab_mine, tab_done = st.tabs(
         [f"My inbox ({len(incoming)})", f"My requests ({len(outgoing)})", "Completed by me"]
     )
+    inbox_empty = (
+        "Nothing waiting on you.",
+        f"Your raised requests have {unread} unread update{'s' if unread != 1 else ''}"
+        " — see My requests."
+        if unread and outgoing
+        else "Requests routed to you land here.",
+    )
     with tab_inbox:
         _request_list(
-            incoming, counterpart_key="requester", counterpart_label="from", prefix="in"
+            incoming, counterpart_key="requester", counterpart_label="from", prefix="in",
+            empty=inbox_empty,
         )
     with tab_mine:
         _request_list(
-            outgoing, counterpart_key="assignee", counterpart_label="with", prefix="out"
+            outgoing, counterpart_key="assignee", counterpart_label="with", prefix="out",
+            empty=("You haven't raised anything yet.",
+                   "Ask Atlas on the Ask page and the request lands here."),
         )
     with tab_done:
         _request_list(
-            incoming_closed, counterpart_key="requester", counterpart_label="from", prefix="done"
+            incoming_closed, counterpart_key="requester", counterpart_label="from", prefix="done",
+            empty=("Nothing completed yet.",
+                   "Requests you close will be listed here."),
         )

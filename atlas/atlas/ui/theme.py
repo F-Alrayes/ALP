@@ -113,6 +113,19 @@ input, textarea { caret-color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 hr { border-color: var(--line-soft); }
 
+/* Streamlit keeps columns on one row at every width; below the bento's
+   comfortable minimum, let rows wrap so tiles keep their measure. */
+@media (max-width: 1180px) {
+  [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    flex: 1 1 240px !important; min-width: 240px !important; }
+}
+
+/* live status dot (agent running / stopped) */
+.livedot { display: inline-block; width: 9px; height: 9px; border-radius: 50%%;
+  background: var(--muted); vertical-align: 1px; margin-left: 2px; }
+.livedot.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(18,138,94,.16); }
+
 /* ---------- the rail ---------- */
 [data-testid="stSidebar"] {
   background: var(--rail); border-right: 1px solid var(--line-soft);
@@ -208,7 +221,8 @@ hr { border-color: var(--line-soft); }
 .stat .label { font-family: var(--mono); font-size: .62rem; text-transform: uppercase;
   letter-spacing: .12em; color: var(--muted); }
 .stat .value { font-family: var(--mono); font-size: 1.75rem; font-weight: 600;
-  color: var(--ink); line-height: 1.15; font-variant-numeric: tabular-nums; }
+  color: var(--ink); line-height: 1.15; font-variant-numeric: tabular-nums;
+  white-space: nowrap; }
 .stat .delta { font-size: .74rem; color: var(--muted); }
 .stat.bare { background: none; border: none; box-shadow: none;
   backdrop-filter: none; -webkit-backdrop-filter: none;
@@ -303,7 +317,9 @@ hr { border-color: var(--line-soft); }
   letter-spacing: .1em; color: var(--muted); margin: .05rem 0 .55rem;
   display: flex; align-items: baseline; gap: .6rem; }
 .chart-head::before { content: "▮ "; color: var(--accent); }
-.chart-note { font-size: .66rem; color: #5C6878; letter-spacing: .05em; }
+.chart-note { font-size: .66rem; color: var(--muted); letter-spacing: .05em;
+  margin-left: .55em; }
+.chart-note::before { content: "· "; color: var(--line); }
 
 /* ---------- the conversation ---------- */
 /* One fluid, centred column: log, draft, chips, undo and composer all share

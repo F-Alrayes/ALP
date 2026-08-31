@@ -53,6 +53,6 @@ def check(actor_id: int) -> None:
         st.toast(
             f"**New request for you**  \n#{rid} — {title}  \nfrom {requester} · "
             "open the Requests page",
-            icon="🔔",
+            icon=":material/notifications:",
         )
     st.session_state[SEEN_KEY] = (actor_id, frozenset(assigned))

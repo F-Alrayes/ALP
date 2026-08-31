@@ -96,8 +96,11 @@ def _ooo_card() -> None:
 def _agent_card() -> None:
     with st.container(border=True, key="demo_agent"):
         state = agent.status()
-        dot = "🟢" if state["running"] else "⚪"
-        st.markdown(f"**Agent** {dot}")
+        dot = "on" if state["running"] else ""
+        st.markdown(
+            f'<strong>Agent</strong> <span class="livedot {dot}"></span>',
+            unsafe_allow_html=True,
+        )
         last = state["last_tick_at"]
         st.markdown(
             f"<div class='subtle'>{'Every 2s' if state['running'] else 'Stopped'}"
