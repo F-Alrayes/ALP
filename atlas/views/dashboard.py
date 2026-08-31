@@ -67,9 +67,8 @@ def _plot(figure: go.Figure) -> None:
 def render(actor_id: int) -> None:
     page_header(
         "Dashboard",
-        "Where work is actually stuck",
-        "Queue times, bottlenecks, orphaned processes and single points of failure — "
-        "computed live against simulated time.",
+        "Where work is stuck",
+        "Live against the simulated clock.",
     )
 
     with session_scope() as session:
@@ -232,7 +231,7 @@ def render(actor_id: int) -> None:
         )
 
     st.markdown("## Orphaned processes")
-    st.caption("Requests matched to these have no owner to route to — they park for the admin.")
+    st.caption("No owner to route to — these park with the admin.")
     if not orphans:
         st.success("Every process has an owner.")
     else:
@@ -248,10 +247,7 @@ def render(actor_id: int) -> None:
             )
 
     st.markdown("## Single points of failure")
-    st.caption(
-        "People carrying several processes. 'Uncovered' means the process has no available "
-        "delegate or backup behind them."
-    )
+    st.caption("Uncovered = no delegate or backup behind them.")
     if not spofs:
         st.success("No individual carries enough uncovered processes to be a concern.")
     else:

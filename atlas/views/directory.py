@@ -82,7 +82,7 @@ def _person_profile(person_id: int) -> None:
             "manager": manager.name if manager else "—",
         }
 
-    if st.button("← Back to the directory", key="back_person"):
+    if st.button("← Back", key="back_person"):
         st.session_state.pop(PERSON_KEY, None)
         st.rerun()
 
@@ -197,7 +197,7 @@ def _process_profile(process_id: int) -> None:
             "keywords": process.keyword_list,
         }
 
-    if st.button("← Back to processes", key="back_process"):
+    if st.button("← Back", key="back_process"):
         st.session_state.pop(PROCESS_KEY, None)
         st.rerun()
 
@@ -379,9 +379,9 @@ def _graph_figure(nodes: list[dict], edges: list[dict]) -> go.Figure:
 
 def render(actor_id: int) -> None:
     page_header(
-        "Directory & Graph",
-        "Who is responsible for what",
-        "The org chart says who reports to whom. This says who owns the work.",
+        "People",
+        "Who owns the work",
+        "Responsibility, not the reporting line.",
     )
 
     if st.session_state.get(PERSON_KEY):
@@ -517,10 +517,7 @@ def render(actor_id: int) -> None:
                 st.rerun()
 
     with tab_graph:
-        st.caption(
-            "Gold nodes are processes, green nodes are people. Line colour is the role: "
-            "owner, approver, delegate or backup. Hover a node for its name."
-        )
+        st.caption("Gold = processes · green = people · lines = roles.")
         with session_scope() as session:
             departments = ["All departments"] + [
                 d.name for d in session.query(Department).order_by(Department.name).all()

@@ -69,7 +69,7 @@ def _request_list(rows: list[dict], *, counterpart_key: str, counterpart_label: 
                   <div class="card-meta">
                     {status_badge(row['status'])} &nbsp; {esc(row['process'])} ·
                     {esc(counterpart_label)} {esc(row[counterpart_key])} ·
-                    raised {esc(row['age'])} ago · quiet for {esc(row['since'])}{esc(chase_note)}
+                    {esc(row['age'])} old · quiet {esc(row['since'])}{esc(chase_note)}
                   </div>
                 </div>""",
             unsafe_allow_html=True,
@@ -125,7 +125,7 @@ def _detail(request_id: int, actor_id: int) -> None:
             "assignee_id": request.assignee_id,
         }
 
-    if st.button("← Back to the list"):
+    if st.button("← Back"):
         st.session_state.pop(OPEN_REQUEST_KEY, None)
         st.rerun()
 
@@ -205,9 +205,7 @@ def _detail(request_id: int, actor_id: int) -> None:
                     reassign(session, request_id, actor_id, target, reason)
                 st.rerun()
     else:
-        st.caption(
-            "You are watching this request. Switch to the assignee in the sidebar to act on it."
-        )
+        st.caption("Watching only — switch to the assignee to act.")
 
 def render(actor_id: int) -> None:
     with session_scope() as session:
@@ -236,12 +234,10 @@ def render(actor_id: int) -> None:
         [f"My inbox ({len(incoming)})", f"My requests ({len(outgoing)})", "Completed by me"]
     )
     with tab_inbox:
-        st.caption("Work Atlas has routed to you, newest activity first.")
         _request_list(
             incoming, counterpart_key="requester", counterpart_label="from", prefix="in"
         )
     with tab_mine:
-        st.caption("Everything you have raised, including what the agent has done with it.")
         _request_list(
             outgoing, counterpart_key="assignee", counterpart_label="with", prefix="out"
         )

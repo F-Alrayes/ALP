@@ -475,6 +475,21 @@ hr { border-color: var(--cream-300); }
   display: flex; align-items: baseline; gap: .6rem; color: var(--ink); }
 .chart-note { font-size: .78rem; color: var(--muted); font-weight: 500; }
 
+/* ---------- alignment ---------- */
+/* The conversation is one column: log, draft card, chips and undo all share
+   the same 780px measure as the composer. */
+.st-key-ask_draft { max-width: 780px; }
+[data-testid="stHorizontalBlock"]:has([class*="st-key-chip_"]) { max-width: 780px; }
+.st-key-ask_undo { max-width: 780px; }
+.st-key-ask_undo button { border-radius: 999px !important; font-size: .82rem;
+  padding: .25rem .9rem; min-height: 0; color: var(--muted); }
+
+/* Stat tiles line up whatever their caption length. */
+.stat { min-height: 96px; display: flex; flex-direction: column; justify-content: center; }
+
+/* List rows keep one rhythm. */
+.card { margin-bottom: 0.65rem; }
+
 /* ---------- motion ---------- */
 /* Short and quiet: reruns replay entrances, so anything longer than ~.3s
    would read as lag rather than life. */

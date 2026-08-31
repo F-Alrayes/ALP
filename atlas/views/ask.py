@@ -30,18 +30,17 @@ DRAFT_KEY = "atlas_draft"
 PENDING_KEY = "atlas_chat_pending"
 SEEN_KEY = "atlas_chat_seen"
 
+# (label shown on the chip, full ask sent to the bot)
 SUGGESTIONS = [
-    "Who do I contact to get my laptop fixed?",
-    "Email whoever owns the data room and ask them for access",
-    "Ask whoever approves expenses to sign off my claim",
-    "What's in my inbox?",
+    ("Fix my laptop", "Who do I contact to get my laptop fixed?"),
+    ("Data room access", "Email whoever owns the data room and ask them for access"),
+    ("Expense sign-off", "Ask whoever approves expenses to sign off my claim"),
+    ("What's in my inbox?", "What's in my inbox?"),
 ]
 
 GREETING = (
-    "What can I take off your plate? Describe the problem, not the paperwork — "
-    "“who do I contact to get my laptop fixed?” and “email whoever owns the "
-    "data room and ask for access” both work. I find the accountable person "
-    "and draft the request for you."
+    "What can I take off your plate? Describe the problem — I find who is "
+    "accountable and draft the request."
 )
 
 
@@ -97,8 +96,8 @@ def _render_message(session, message: dict) -> str:
                 <strong>{esc(assignee.name) if assignee else 'the Atlas admin'}</strong>
                 {('· ' + esc(assignee.title)) if assignee else ''}</div>
             </div>
-            <p class="small">{esc(verb)} · I chase after 48h, hand over to a cover,
-            then escalate — watch it on the Requests page.</p>"""
+            <p class="small">{esc(verb)} — I'll chase in 48h and escalate if it
+            stalls. Track it under Requests.</p>"""
         )
     if kind == "reqlist":
         rows = (
@@ -149,8 +148,7 @@ def _render_message(session, message: dict) -> str:
               <div class="cc-meta">{esc(person.title)}
                 {('· ' + esc(person.department.name)) if person.department else ''}</div>
             </div>
-            <p class="small">Ask me for something and I'll route it to whoever is
-            accountable — even if that's them.</p>"""
+            <p class="small">Ask me for something and I'll route it.</p>"""
         )
     return _bub_bot("<p>…</p>")
 
@@ -165,9 +163,8 @@ def _handle(text: str, actor_id: int) -> None:
 
         if reading.intent == "help":
             _push("bot", "text", text=reading.reply or (
-                "Describe the problem, not the paperwork — I find who is "
-                "accountable right now and draft the request. I can also tell "
-                "you what's in your inbox, what you've raised, and who is away."
+                "Tell me what you need and I'll route it. I can also show "
+                "your inbox, your requests, and who is away."
             ))
             return
         if reading.intent == "inbox":
@@ -207,8 +204,8 @@ def _handle(text: str, actor_id: int) -> None:
         if reading.process_id is None:
             if reading.contact_line:
                 lines.append(reading.contact_line)
-            lines.append("Pick the request type below, or send it anyway and "
-                         "I'll park it with the Atlas admin.")
+            lines.append("Pick a type below — or send it and I'll park it "
+                         "with the admin.")
         st.session_state[DRAFT_KEY] = {
             "query": text,
             "process_id": reading.process_id,
@@ -380,14 +377,12 @@ def render(actor_id: int) -> None:
 
     if not st.session_state.get(DRAFT_KEY):
         chips = st.columns(len(SUGGESTIONS))
-        for index, (col, suggestion) in enumerate(zip(chips, SUGGESTIONS)):
+        for index, (col, (label, ask)) in enumerate(zip(chips, SUGGESTIONS)):
             with col:
                 with st.container(key=f"chip_{index}"):
                     st.button(
-                        suggestion if len(suggestion) <= 34
-                        else suggestion[:31].rsplit(" ", 1)[0] + "…",
-                        key=f"ask_chip_{index}", help=suggestion,
-                        width="stretch", on_click=_queue, args=(suggestion,),
+                        label, key=f"ask_chip_{index}", help=ask,
+                        width="stretch", on_click=_queue, args=(ask,),
                     )
 
     typed = st.chat_input("Tell Atlas what you need…")

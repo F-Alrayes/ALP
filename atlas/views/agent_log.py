@@ -30,10 +30,9 @@ FILTERS = {
 def render(actor_id: int) -> None:
     state = agent.status()
     page_header(
-        "Agent Log",
+        "Agent log",
         "What the agent did, and why",
-        "The agent evaluates its rules against simulated time every couple of seconds. "
-        "Nothing here was triggered by a human.",
+        "No entry here was triggered by a human.",
     )
 
     with session_scope() as session:
