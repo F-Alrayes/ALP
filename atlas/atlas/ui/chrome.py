@@ -24,7 +24,7 @@ DEFAULT_ACTOR = "Noura Al-Sabah"
 PAGES = ("Ask", "People", "Requests", "Dashboard", "Agent log", "Demo controls")
 
 NAV_ICONS = {
-    "Ask": ":material/explore:",
+    "Ask": ":material/chat:",
     "People": ":material/groups:",
     "Requests": ":material/inbox:",
     "Dashboard": ":material/monitoring:",

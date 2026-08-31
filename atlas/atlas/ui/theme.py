@@ -579,59 +579,6 @@ def _uri(svg: str) -> str:
     return "data:image/svg+xml," + _q(svg, safe="'/ =:.,()")
 
 
-# Z1 hero — the Plate: engraved compass rose, watermark under the chat.
-_ROSE = _uri(
-    "<svg viewBox='0 0 640 640' xmlns='http://www.w3.org/2000/svg'>"
-    "<defs>"
-    "<path id='lF' d='M320,64 L336,320 L320,320 Z'/>"
-    "<path id='lO' d='M320,64 L304,320 L320,320 Z'/>"
-    "<path id='sF' d='M320,148 L330,320 L320,320 Z'/>"
-    "<path id='sO' d='M320,148 L310,320 L320,320 Z'/>"
-    "</defs>"
-    "<g fill='none' stroke='#1B2721'>"
-    "<circle cx='320' cy='320' r='292' stroke-width='1'/>"
-    "<circle cx='320' cy='320' r='276' stroke-width='.75'/>"
-    "<circle cx='320' cy='320' r='284' stroke-width='16' stroke-dasharray='1.5 48.06'/>"
-    "<circle cx='320' cy='320' r='284' stroke-width='30' stroke-dasharray='2 146.7'/>"
-    "<circle cx='320' cy='320' r='180' stroke-width='.75' stroke-dasharray='2 7'/>"
-    "<circle cx='320' cy='320' r='96' stroke-width='1'/>"
-    "<circle cx='320' cy='320' r='90' stroke-width='.75'/>"
-    "</g>"
-    "<g stroke='#1B2721' stroke-width='.9'>"
-    "<use href='#lF' fill='#A8820F' stroke='#A8820F'/>"
-    "<use href='#lO' fill='none'/>"
-    "<g fill='#1B2721'>"
-    "<use href='#lF' transform='rotate(90 320 320)'/>"
-    "<use href='#lF' transform='rotate(180 320 320)'/>"
-    "<use href='#lF' transform='rotate(270 320 320)'/>"
-    "<use href='#sF' transform='rotate(45 320 320)'/>"
-    "<use href='#sF' transform='rotate(135 320 320)'/>"
-    "<use href='#sF' transform='rotate(225 320 320)'/>"
-    "<use href='#sF' transform='rotate(315 320 320)'/>"
-    "</g>"
-    "<g fill='none'>"
-    "<use href='#lO' transform='rotate(90 320 320)'/>"
-    "<use href='#lO' transform='rotate(180 320 320)'/>"
-    "<use href='#lO' transform='rotate(270 320 320)'/>"
-    "<use href='#sO' transform='rotate(45 320 320)'/>"
-    "<use href='#sO' transform='rotate(135 320 320)'/>"
-    "<use href='#sO' transform='rotate(225 320 320)'/>"
-    "<use href='#sO' transform='rotate(315 320 320)'/>"
-    "</g>"
-    "</g>"
-    "<circle cx='320' cy='320' r='4' fill='#1B2721'/>"
-    "<path d='M296,320 H344 M320,296 V344' stroke='#1B2721' stroke-width='.75' fill='none'/>"
-    "<g fill='none' stroke='#1B2721' stroke-width='.75'>"
-    "<path d='M20,452 A560,560 0 0 1 620,428' stroke-dasharray='2 6'/>"
-    "<path d='M186,20 A620,620 0 0 0 162,620' stroke-dasharray='2 6'/>"
-    "<path d='M104,150 h12 M110,144 v12 M528,116 h12 M534,110 v12 "
-    "M120,516 h12 M126,510 v12 M544,530 h12 M550,524 v12'/>"
-    "</g>"
-    "<text x='320' y='44' text-anchor='middle' font-family='monospace' "
-    "font-size='15' fill='#1B2721'>N</text>"
-    "</svg>"
-)
-
 # Z2 — the chart margin: latitude scale + gold plotted course, top-faded.
 _MARGIN = _uri(
     "<svg viewBox='0 0 232 440' xmlns='http://www.w3.org/2000/svg'>"
@@ -657,10 +604,6 @@ _MARGIN = _uri(
     "<path d='M178,357 V351 M178,379 V385 M167,368 H161 M189,368 H195' stroke-width='1'/>"
     "</g>"
     "<circle cx='178' cy='368' r='2.5' fill='#E9C25C' fill-opacity='.28'/>"
-    "<g stroke='#EFEADA' stroke-opacity='.16' stroke-width='.9'>"
-    "<path d='M196,30 L200,58 L196,58 Z' fill='#EFEADA' fill-opacity='.16'/>"
-    "<path d='M196,30 L192,58 L196,58 Z' fill='none'/>"
-    "</g>"
     "</g>"
     "</svg>"
 )
@@ -706,7 +649,7 @@ _STOCK = _uri(
     "</svg>"
 )
 
-# Z5 — the plate mark: survey scale bar into a small graticule rose.
+# Z5 — the plate mark: survey scale bar with a gold survey cross.
 _COLOPHON = _uri(
     "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 64'>"
     "<defs>"
@@ -718,26 +661,15 @@ _COLOPHON = _uri(
     "</defs>"
     "<g mask='url(#lm)'>"
     "<g stroke='#1B2721' stroke-width='.9' fill='none'>"
-    "<rect x='8' y='29.5' width='200' height='4'/>"
-    "<rect x='8' y='29.5' width='25' height='4' fill='#1B2721'/>"
-    "<rect x='58' y='29.5' width='25' height='4' fill='#1B2721'/>"
-    "<rect x='108' y='29.5' width='25' height='4' fill='#1B2721'/>"
-    "<rect x='158' y='29.5' width='25' height='4' fill='#1B2721'/>"
-    "<path d='M8,24 V39 M108,24 V39 M208,24 V39' stroke-width='.75'/>"
+    "<rect x='28' y='29.5' width='220' height='4'/>"
+    "<rect x='28' y='29.5' width='27.5' height='4' fill='#1B2721'/>"
+    "<rect x='83' y='29.5' width='27.5' height='4' fill='#1B2721'/>"
+    "<rect x='138' y='29.5' width='27.5' height='4' fill='#1B2721'/>"
+    "<rect x='193' y='29.5' width='27.5' height='4' fill='#1B2721'/>"
+    "<path d='M28,24 V39 M138,24 V39 M248,24 V39' stroke-width='.75'/>"
     "</g>"
-    "<g fill='none' stroke='#1B2721' stroke-width='.8'>"
-    "<circle cx='246' cy='32' r='22'/>"
-    "<circle cx='246' cy='32' r='17' stroke-width='.6'/>"
-    "<circle cx='246' cy='32' r='20' stroke-width='6' stroke-dasharray='1 9.47'/>"
-    "<path d='M246,12 L250,32 L246,32 Z' fill='#A8820F' stroke='#A8820F'/>"
-    "<path d='M246,12 L242,32 L246,32 Z'/>"
-    "<path d='M246,52 L242,32 L246,32 Z' fill='#1B2721'/>"
-    "<path d='M246,52 L250,32 L246,32 Z'/>"
-    "<path d='M226,32 L246,28 L246,32 Z' fill='#1B2721'/>"
-    "<path d='M226,32 L246,36 L246,32 Z'/>"
-    "<path d='M266,32 L246,36 L246,32 Z' fill='#1B2721'/>"
-    "<path d='M266,32 L246,28 L246,32 Z'/>"
-    "<circle cx='246' cy='32' r='1.8' fill='#A8820F' stroke='none'/>"
+    "<g fill='none' stroke='#A8820F' stroke-width='1'>"
+    "<path d='M264,31.5 h12 M270,25.5 v12'/>"
     "</g>"
     "</g>"
     "</svg>"
@@ -754,12 +686,6 @@ _ART = f"""
     var(--ground);
   background-attachment: fixed;
 }}
-section.stMain:has(.chatlog)::before {{
-  content: ""; position: fixed; inset: 0; z-index: 0;
-  pointer-events: none; opacity: .05;
-  background: url("{_ROSE}") no-repeat center 46% / min(720px, 78vw);
-}}
-.block-container {{ position: relative; z-index: 1; }}
 [data-testid="stSidebar"] {{
   background: var(--rail) url("{_MARGIN}") no-repeat
     left -14px bottom -28px / 232px auto;
@@ -785,12 +711,10 @@ section.stMain:has(.chatlog)::before {{
 @media (prefers-reduced-transparency: reduce) {{
   .stApp {{ background: var(--ground); }}
   [data-testid="stSidebar"] {{ background: var(--rail); }}
-  section.stMain:has(.chatlog)::before {{ opacity: .035; }}
 }}
 @media (prefers-contrast: more) {{
   .stApp {{ background: var(--ground); }}
   [data-testid="stSidebar"] {{ background: var(--rail); }}
-  section.stMain:has(.chatlog)::before,
   .empty::before, .page-head::after {{ display: none; }}
 }}
 """
