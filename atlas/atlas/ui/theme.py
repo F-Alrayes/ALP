@@ -66,11 +66,24 @@ _CSS_TEMPLATE = """
   --sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --ease: cubic-bezier(.23,1,.32,1);
-  --r: 10px;
+  --r: 16px;
+  --glass: rgba(255,253,246,.55);
+  --glass-edge: rgba(255,255,255,.6);
+  --glass-blur: blur(16px) saturate(1.45);
+  --glass-shadow: inset 0 1px 0 rgba(255,255,255,.7),
+                  0 14px 34px -22px rgba(27,53,40,.4);
 }
 
 html, body, [class*="css"], .stApp { font-family: var(--sans); }
-.stApp { background: var(--ground); color: var(--ink); }
+.stApp {
+  background:
+    radial-gradient(52rem 36rem at 12%% -8%%, rgba(168,130,15,.10), transparent 62%%),
+    radial-gradient(64rem 44rem at 108%% 22%%, rgba(18,138,94,.09), transparent 65%%),
+    radial-gradient(48rem 42rem at 60%% 118%%, rgba(168,130,15,.07), transparent 60%%),
+    var(--ground);
+  background-attachment: fixed;
+  color: var(--ink);
+}
 .block-container { max-width: 1320px; padding-top: 1.1rem; padding-bottom: 4rem; }
 section[data-testid="stMain"] { overflow-x: clip; }
 [data-testid="stHeader"] { background: transparent; }
@@ -107,6 +120,7 @@ hr { border-color: var(--line-soft); }
 [data-testid="stSidebar"] * { color: #EFEADA; }
 [data-testid="stSidebar"] .stButton button {
   background: transparent !important; border: none !important; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
   width: 100%%; justify-content: flex-start; text-align: left;
   font-family: var(--mono); font-size: .78rem; text-transform: uppercase;
   letter-spacing: .09em; color: #B7C2B0; border-radius: 7px;
@@ -160,7 +174,9 @@ hr { border-color: var(--line-soft); }
 
 /* ---------- panels ---------- */
 .card {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--glass); border: 1px solid var(--glass-edge); border-radius: var(--r);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
   padding: .95rem 1.1rem; margin-bottom: .65rem;
   transition: border-color .18s var(--ease), transform .18s var(--ease);
 }
@@ -172,16 +188,20 @@ hr { border-color: var(--line-soft); }
   white-space: pre-line; }
 
 [class*="st-key-demo_"], [class*="st-key-card_"], .st-key-ask_draft {
-  background: var(--surface); border: 1px solid var(--line) !important;
-  border-radius: var(--r) !important; padding: 1.0rem 1.05rem !important;
+  background: var(--glass); border: 1px solid var(--glass-edge) !important;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  border-radius: 18px !important; padding: 1.0rem 1.05rem !important;
   transition: border-color .18s var(--ease);
 }
 [class*="st-key-card_"]:hover { border-color: #CDC3A8; }
 
 /* ---------- stat tiles ---------- */
 .stat {
-  background: var(--surface); border: 1px solid var(--line);
-  border-left: 2px solid var(--accent); border-radius: var(--r);
+  background: var(--glass); border: 1px solid var(--glass-edge);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  border-left: 3px solid var(--accent); border-radius: var(--r);
   padding: .75rem .95rem; min-height: 96px;
   display: flex; flex-direction: column; justify-content: center;
 }
@@ -213,13 +233,15 @@ hr { border-color: var(--line-soft); }
 
 /* ---------- buttons ---------- */
 .stButton button {
-  border-radius: 8px; border: 1px solid var(--line); font-weight: 500;
-  background: var(--surface); color: var(--ink);
+  border-radius: 11px; border: 1px solid var(--glass-edge); font-weight: 500;
+  background: rgba(255,253,246,.5); color: var(--ink);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
   transition: transform .4s cubic-bezier(.34,1.35,.64,1),
               border-color .15s var(--ease), background .15s var(--ease);
   will-change: transform;
 }
-.stButton button:hover { border-color: var(--accent); background: #F5EFDE; }
+.stButton button:hover { border-color: var(--accent); background: rgba(255,253,246,.78); }
 .stButton button:active { transform: scale(.96); transition: transform .1s ease-out; }
 .stButton button[kind="primary"],
 [data-testid="stBaseButton-primary"] {
@@ -236,8 +258,8 @@ hr { border-color: var(--line-soft); }
 
 /* ---------- inputs, tabs, tables ---------- */
 .stTextInput input, .stTextArea textarea, .stNumberInput input {
-  background: var(--surface) !important; border-color: var(--line) !important;
-  border-radius: 8px !important; color: var(--ink) !important;
+  background: rgba(255,253,246,.85) !important; border-color: var(--line) !important;
+  border-radius: 11px !important; color: var(--ink) !important;
 }
 .stTextArea textarea::placeholder, .stTextInput input::placeholder {
   font-family: var(--mono); color: var(--muted); }
@@ -252,8 +274,9 @@ hr { border-color: var(--line-soft); }
 .stTabs [aria-selected="true"] { color: var(--ink) !important;
   box-shadow: inset 0 -2px 0 var(--accent); background: transparent; }
 
-.stExpander { border: 1px solid var(--line) !important; border-radius: var(--r) !important;
-  background: var(--surface); }
+.stExpander { border: 1px solid var(--glass-edge) !important; border-radius: var(--r) !important;
+  background: var(--glass); backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur); }
 [data-testid="stMetricValue"] { color: var(--ink); font-family: var(--mono); }
 [data-testid="stDataFrame"] { border: 1px solid var(--line); border-radius: var(--r); }
 
@@ -282,19 +305,22 @@ hr { border-color: var(--line-soft); }
 .msg { display: flex; gap: 11px; margin-bottom: 15px; }
 .msg.user { justify-content: flex-end; }
 .msg.user .bub { background: %(green_700)s; border: 1px solid %(green_700)s;
-  color: #F3EEE0; border-radius: 12px 12px 4px 12px; padding: 9px 14px;
+  color: #F3EEE0; border-radius: 18px 18px 6px 18px; padding: 9px 15px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
   max-width: 78%%; }
 .msg.bot .ava { width: 27px; height: 27px; border-radius: 7px;
   background: var(--accent-strong); color: #F2F6FF; display: grid;
   place-items: center; font-family: var(--mono); font-weight: 600;
   font-size: .8rem; flex: none; margin-top: 2px; }
-.msg.bot .bub { background: var(--surface); border: 1px solid var(--line);
-  border-radius: 4px 12px 12px 12px; padding: 11px 15px; flex: 1; min-width: 0; }
+.msg.bot .bub { background: var(--glass); border: 1px solid var(--glass-edge);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  border-radius: 6px 18px 18px 18px; padding: 11px 15px; flex: 1; min-width: 0; }
 .msg .bub p { margin: 0; }
 .msg .bub p + p { margin-top: 8px; }
 .msg .bub .small { font-size: .82rem; color: var(--muted); }
-.chatcard { border: 1px solid var(--line); background: #F6F1E1;
-  border-radius: 8px; padding: .55rem .8rem; margin-top: .55rem; }
+.chatcard { border: 1px solid var(--line); background: rgba(246,241,225,.9);
+  border-radius: 12px; padding: .55rem .8rem; margin-top: .55rem; }
 .cc-title { font-weight: 600; font-size: .9rem; display: block; color: var(--ink); }
 .cc-meta { font-size: .78rem; color: var(--muted); display: block; margin-top: 2px; }
 .chatrow { border-top: 1px solid var(--line-soft); padding: .5rem 0 .35rem;
@@ -319,7 +345,7 @@ hr { border-color: var(--line-soft); }
 [data-testid="stHorizontalBlock"]:has([class*="st-key-chip_"]) {
   max-width: 920px; margin-inline: auto; }
 [class*="st-key-chip_"] .stButton button {
-  border-radius: 6px !important; background: transparent !important;
+  border-radius: 999px !important; background: transparent !important;
   border: 1px solid var(--line) !important; font-family: var(--mono);
   font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
   padding: .28rem .7rem; min-height: 0; color: var(--muted);
@@ -331,14 +357,16 @@ hr { border-color: var(--line-soft); }
 [class*="st-key-chip_"] .stButton button p { font-size: .68rem; color: inherit !important; }
 
 /* composer */
-[data-testid="stBottom"] { background: var(--ground);
-  border-top: 1px solid var(--line-soft); }
+[data-testid="stBottom"] { background: rgba(250,246,235,.72);
+  backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-top: 1px solid var(--glass-edge); }
 [data-testid="stBottomBlockContainer"] { max-width: 1320px;
-  padding-top: .55rem; padding-bottom: 1rem; background: var(--ground); }
+  padding-top: .55rem; padding-bottom: 1rem; background: transparent; }
 .stChatInput { max-width: 920px; margin-inline: auto; }
-.stChatInput > div { border-radius: 10px !important;
-  border: 1px solid var(--line) !important; background: var(--surface) !important;
-  box-shadow: none !important; }
+.stChatInput > div { border-radius: 18px !important;
+  border: 1px solid var(--glass-edge) !important; background: var(--glass) !important;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow) !important; }
 .stChatInput textarea { background: transparent !important; color: var(--ink) !important; }
 .stChatInput textarea::placeholder { font-family: var(--mono); color: var(--muted); }
 
@@ -358,9 +386,11 @@ hr { border-color: var(--line-soft); }
 
 /* ---------- toast & flash ---------- */
 [data-testid="stToast"] {
-  background: var(--surface) !important; color: var(--ink) !important;
-  border: 1px solid var(--line); border-left: 2px solid var(--accent);
-  border-radius: 10px; padding: .8rem .95rem;
+  background: var(--glass) !important; color: var(--ink) !important;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge); border-left: 3px solid var(--accent);
+  border-radius: 14px; padding: .8rem .95rem;
+  box-shadow: var(--glass-shadow);
 }
 [data-testid="stToast"] [data-testid="stMarkdownContainer"] p { color: var(--ink); }
 [data-testid="stToast"] [data-testid="stMarkdownContainer"] p strong {
@@ -369,13 +399,49 @@ hr { border-color: var(--line-soft); }
 
 .flash {
   position: fixed; right: 22px; bottom: 84px; z-index: 98;
-  background: var(--surface); color: var(--ink); border: 1px solid var(--line);
-  border-left: 2px solid var(--ok);
-  padding: .55rem 1rem; border-radius: 8px; font-size: .84rem;
+  background: var(--glass); color: var(--ink); border: 1px solid var(--glass-edge);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  border-left: 3px solid var(--ok);
+  padding: .55rem 1rem; border-radius: 12px; font-size: .84rem;
   font-family: var(--mono);
   animation: flashin .3s var(--ease) both;
 }
 @keyframes flashin { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- charts grow in ---------- */
+/* Bars grow from their baseline (transform-box makes the origin the bars'
+   own box). Delays follow the card stagger so each chart grows as its
+   card lands. */
+@media (prefers-reduced-motion: no-preference) {
+  .js-plotly-plot .barlayer { transform-box: fill-box; }
+  .st-key-card_status .js-plotly-plot .barlayer {
+    transform-origin: left center; animation: growx .55s .12s var(--ease) both; }
+  .st-key-card_dept .js-plotly-plot .barlayer {
+    transform-origin: center bottom; animation: growy .55s .18s var(--ease) both; }
+  .st-key-card_turnaround .js-plotly-plot .barlayer {
+    transform-origin: center bottom; animation: growy .55s .22s var(--ease) both; }
+  .st-key-card_ages .js-plotly-plot .barlayer {
+    transform-origin: center bottom; animation: growy .55s .26s var(--ease) both; }
+}
+@keyframes growx { from { transform: scaleX(0); opacity: .4; } }
+@keyframes growy { from { transform: scaleY(0); opacity: .4; } }
+
+/* ---------- glass fallbacks ---------- */
+@media (prefers-reduced-transparency: reduce) {
+  .card, [class*="st-key-demo_"], [class*="st-key-card_"], .st-key-ask_draft,
+  .stat, .msg.bot .bub, .stExpander, [data-testid="stToast"], .flash,
+  .stChatInput > div, .stButton button, [data-testid="stBottom"] {
+    background: var(--surface) !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  }
+  .stApp { background: var(--ground); }
+  body::after { display: none; }
+}
+@media (prefers-contrast: more) {
+  .card, [class*="st-key-demo_"], [class*="st-key-card_"], .st-key-ask_draft,
+  .stat, .msg.bot .bub { border-color: var(--muted) !important; }
+}
 
 /* ---------- motion ---------- */
 @media (prefers-reduced-motion: no-preference) {
@@ -403,6 +469,16 @@ footer { visibility: hidden; }
 """
 
 
+# Appended after token processing — the data URI is full of literal %.
+_GRAIN = (
+    'body::after{content:"";position:fixed;inset:0;z-index:90;pointer-events:none;'
+    'opacity:.045;background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://'
+    "www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence "
+    "type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E"
+    "%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E\");}"
+)
+
+
 def _render_css() -> str:
     css = _CSS_TEMPLATE.replace("%(fonts)s", _font_css())
     for key, value in PALETTE.items():
@@ -410,7 +486,8 @@ def _render_css() -> str:
     for key, value in STATUS_COLORS.items():
         css = css.replace(f"%(status_{key})s", value)
     # Literal percent signs survive the token pass as %%.
-    return css.replace("%%", "%")
+    css = css.replace("%%", "%")
+    return css.replace("</style>", _GRAIN + "\n</style>")
 
 
 CSS = _render_css()
