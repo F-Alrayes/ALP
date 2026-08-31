@@ -21,10 +21,10 @@ from atlas.ui.components import badge, empty_state, esc, page_header, stat
 SURFACE = PALETTE["cream_200"]         # panel surface: the bar-gap and hover color
 INK = PALETTE["ink"]
 MUTED = PALETTE["muted"]
-GRID = "#222B38"
-SERIES_ACK = PALETTE["gold_500"]       # time to acknowledge (validated amber)
-SERIES_DONE = PALETTE["green_600"]     # time to complete (validated blue)
-AGE_RAMP = ["#2C3E63", "#3A5490", "#476CC2", "#5581E2"]  # dim → bright, one hue
+GRID = "#ECE4CF"
+SERIES_ACK = PALETTE["gold_500"]       # time to acknowledge (validated gold)
+SERIES_DONE = PALETTE["green_600"]     # time to complete (validated green)
+AGE_RAMP = ["#B9D6C5", "#7FB99A", "#3FA173", "#128A5E"]  # light → dark, one hue
 
 STATUS_ORDER = ["pending", "acknowledged", "in_progress", "escalated", "completed"]
 

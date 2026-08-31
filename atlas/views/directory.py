@@ -355,7 +355,7 @@ def _graph_figure(nodes: list[dict], edges: list[dict]) -> go.Figure:
             xanchor="left" if on_right else "right",
             yanchor="middle",
             font={"size": 11, "color": PALETTE["ink"]},
-            bgcolor="rgba(22,28,37,0.92)",
+            bgcolor="rgba(255,253,246,0.92)",
             bordercolor=PALETTE["cream_300"],
             borderwidth=1,
             borderpad=3,
