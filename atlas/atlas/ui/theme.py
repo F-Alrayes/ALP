@@ -417,6 +417,70 @@ hr { border-color: var(--line-soft); }
 }
 @keyframes flashin { from { opacity: 0; transform: translateY(8px); } }
 
+/* ---------- the org tree ---------- */
+/* The reference board's anatomy — top accent bar, avatar chip riding the
+   corner, a reports-count pill under the card, elbow connectors — in the
+   ledger's evergreen and gold. Pure CSS; the canvas scrolls sideways. */
+.orgwrap { overflow-x: auto; padding: 1.4rem .5rem .9rem;
+  background: var(--glass); border: 1px solid var(--glass-edge);
+  border-radius: 18px; backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow); }
+.orgtree { min-width: max-content; margin-inline: auto; }
+/* !important: Streamlit's markdown CSS hits nested lists with
+   `li > ul { display: block }` at higher specificity. */
+.orgtree ul { display: flex !important; justify-content: center;
+  padding: 26px 0 0 !important; margin: 0 !important; position: relative; }
+.orgtree li { list-style: none !important; position: relative;
+  padding: 26px 12px 14px !important; margin: 0 !important;
+  display: flex; flex-direction: column; align-items: center; }
+/* elbows */
+.orgtree li::before, .orgtree li::after { content: "";
+  position: absolute; top: 0; right: 50%%; width: 50%%; height: 26px;
+  border-top: 1.5px solid var(--line); }
+.orgtree li::after { right: auto; left: 50%%;
+  border-left: 1.5px solid var(--line); }
+.orgtree li:only-child::before, .orgtree li:only-child::after { display: none; }
+.orgtree li:only-child { padding-top: 0 !important; }
+.orgtree li:first-child::before, .orgtree li:last-child::after { border: 0 none; }
+.orgtree li:last-child::before { border-right: 1.5px solid var(--line);
+  border-radius: 0 8px 0 0; }
+.orgtree li:first-child::after { border-radius: 8px 0 0 0; }
+.orgtree ul ul::before { content: ""; position: absolute; top: 0; left: 50%%;
+  height: 26px; border-left: 1.5px solid var(--line); }
+.orgtree > ul { padding-top: 0 !important; }
+.orgtree > ul > li { padding-top: 0 !important; }
+.orgtree > ul > li::before, .orgtree > ul > li::after { display: none; }
+/* the card */
+.onode { position: relative; width: 178px;
+  background: rgba(255,253,246,.94); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px 12px 12px; text-align: center;
+  box-shadow: inset 0 3px 0 var(--accent-strong), 0 10px 24px -18px rgba(27,53,40,.4);
+  transition: transform .18s var(--ease), border-color .18s var(--ease);
+}
+.onode:hover { transform: translateY(-2px); border-color: #CDC3A8; }
+.onode.hit { box-shadow: inset 0 3px 0 var(--accent),
+  0 0 0 2px #A8820F55, 0 10px 24px -18px rgba(27,53,40,.4); }
+.oava { position: absolute; top: -14px; right: 10px; width: 30px; height: 30px;
+  border-radius: 50%%; background: var(--accent); color: #122019;
+  font-family: var(--mono); font-weight: 600; font-size: .66rem;
+  display: grid; place-items: center;
+  box-shadow: 0 0 0 3px rgba(255,253,246,.94), inset 0 1px 0 rgba(255,255,255,.35); }
+.onode.away .oava { box-shadow: 0 0 0 3px var(--danger),
+  inset 0 1px 0 rgba(255,255,255,.35); }
+.oname { font-weight: 600; font-size: .84rem; color: var(--ink); line-height: 1.2; }
+.orole { font-size: .72rem; color: var(--muted); margin-top: 2px; line-height: 1.25; }
+.odept { font-family: var(--mono); font-size: .58rem; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--amber); margin-top: 4px; }
+.okids { position: absolute; left: 50%%; bottom: -9px; transform: translateX(-50%%);
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: 5px;
+  background: var(--accent-strong); color: #F3EEE0; font-family: var(--mono);
+  font-size: .6rem; font-weight: 600; display: grid; place-items: center;
+  box-shadow: 0 0 0 2px rgba(255,253,246,.94); }
+@media (prefers-reduced-transparency: reduce) {
+  .orgwrap { background: var(--surface); backdrop-filter: none;
+    -webkit-backdrop-filter: none; }
+}
+
 /* ---------- charts grow in ---------- */
 /* Bars grow from their baseline (transform-box makes the origin the bars'
    own box). Delays follow the card stagger so each chart grows as its

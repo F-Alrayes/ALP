@@ -274,6 +274,98 @@ def _process_profile(process_id: int) -> None:
             )
 
 
+# --- org tree ---------------------------------------------------------------
+
+
+def _initials(name: str) -> str:
+    parts = name.split()
+    return (parts[0][0] + parts[-1][0]).upper() if len(parts) > 1 else name[:2].upper()
+
+
+def _org_node(person, dept: str, kids: int, away: bool, hit: bool) -> str:
+    # One line: indented multi-line HTML trips markdown's code-block rule.
+    pill = f'<span class="okids">{kids}</span>' if kids else ""
+    return (
+        f'<div class="onode{" hit" if hit else ""}{" away" if away else ""}">'
+        f'<span class="oava">{esc(_initials(person.name))}</span>'
+        f'<div class="oname">{esc(person.name)}</div>'
+        f'<div class="orole">{esc(person.title)}</div>'
+        f'<div class="odept">{esc(dept)}</div>'
+        f"{pill}</div>"
+    )
+
+
+def _org_branch(person, children_map, dept_map, away_ids, highlight_id) -> str:
+    children = children_map.get(person.id, [])
+    node = _org_node(
+        person, dept_map.get(person.department_id, "Executive"),
+        len(children), person.id in away_ids, person.id == highlight_id,
+    )
+    if not children:
+        return f"<li>{node}</li>"
+    kids = "".join(
+        _org_branch(c, children_map, dept_map, away_ids, highlight_id)
+        for c in children
+    )
+    return f"<li>{node}<ul>{kids}</ul></li>"
+
+
+def _org_chart_tab() -> None:
+    term = st.text_input(
+        "Org chart for", placeholder="everyone — type a name to focus",
+        key="org_chart_for",
+    )
+    with session_scope() as session:
+        at = clock.now(session)
+        people = session.query(Person).order_by(Person.name).all()
+        dept_map = {
+            d.id: d.name
+            for d in session.query(Department).all()
+        }
+        away_ids = {p.id for p in people if is_out_of_office(p, at)}
+        children_map: dict[int | None, list[Person]] = {}
+        for p in people:
+            children_map.setdefault(p.manager_id, []).append(p)
+
+        focus = None
+        if term.strip():
+            needle = term.strip().lower()
+            focus = next((p for p in people if needle in p.name.lower()), None)
+            if focus is None:
+                st.caption("Nobody matches — showing everyone.")
+
+        roots = [focus] if focus else children_map.get(None, [])
+        branches = "".join(
+            _org_branch(r, children_map, dept_map, away_ids,
+                        focus.id if focus else None)
+            for r in roots
+        )
+    if focus:
+        st.caption(f"{focus.name}'s team · clear the box to see everyone.")
+    st.markdown(
+        f'<div class="orgwrap"><div class="orgtree"><ul>{branches}</ul></div></div>',
+        unsafe_allow_html=True,
+    )
+    if not focus:
+        # Open centered on the root instead of the leftmost branch.
+        import streamlit.components.v1 as components
+
+        components.html(
+            """<script>
+            const doc = window.parent.document;
+            let tries = 0;
+            const center = () => {
+              const w = doc.querySelector('.orgwrap');
+              if (w && w.scrollWidth > w.clientWidth) {
+                w.scrollLeft = (w.scrollWidth - w.clientWidth) / 2;
+              } else if (++tries < 20) { setTimeout(center, 100); }
+            };
+            center();
+            </script>""",
+            height=0,
+        )
+
+
 # --- graph ------------------------------------------------------------------
 
 
@@ -391,7 +483,11 @@ def render(actor_id: int) -> None:
         _process_profile(st.session_state[PROCESS_KEY])
         return
 
-    tab_people, tab_processes, tab_graph = st.tabs(["People", "Processes", "Responsibility graph"])
+    tab_org, tab_people, tab_processes, tab_graph = st.tabs(
+        ["Org chart", "People", "Processes", "Responsibility graph"])
+
+    with tab_org:
+        _org_chart_tab()
 
     with tab_people:
         with session_scope() as session:
