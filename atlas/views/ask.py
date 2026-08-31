@@ -203,16 +203,21 @@ def _handle(text: str, actor_id: int) -> None:
                 _push("bot", "person", id=person.id)
             return
 
-        # A request: explain the reading, then open the draft.
+        # A request: explain the reading, then ask for approval on the draft.
         lines = [reading.rationale] if reading.rationale else []
         if reading.process_id is None:
             if reading.contact_line:
                 lines.append(reading.contact_line)
             lines.append("Pick a type below — or send it and I'll park it "
                          "with the admin.")
+        else:
+            lines.append(f"{reading.confidence:.0f}% confident in this route — "
+                         "approve the draft below and I'll send it.")
         st.session_state[DRAFT_KEY] = {
             "query": text,
             "process_id": reading.process_id,
+            "matched_id": reading.process_id,   # the model's own pick, immutable
+            "confidence": reading.confidence,
             "title": reading.title or "",
             "source": reading.source,
             "body_for": None,
@@ -271,10 +276,14 @@ def _draft_card(actor_id: int) -> None:
         target = resolution.assignee_name or "the Atlas admin (no owner resolved)"
         summary = resolution.summary
 
+    src_label = {
+        "claude": "read by Claude",
+        "open model": "read by an open model",
+    }.get(draft["source"], "matched by keywords")
     with st.container(border=True, key="ask_draft"):
         st.markdown(
-            f"<div class='draft-head'>Here's the request I'd send"
-            f"<span class='draft-src'>{'read by Claude' if draft['source'] == 'claude' else 'matched by keywords'}</span></div>",
+            f"<div class='draft-head'>Approve this request?"
+            f"<span class='draft-src'>{src_label}</span></div>",
             unsafe_allow_html=True,
         )
         st.selectbox(
@@ -286,6 +295,19 @@ def _draft_card(actor_id: int) -> None:
             f" &nbsp;<span class='subtle'>{esc(summary)}</span></div>",
             unsafe_allow_html=True,
         )
+        # The meter speaks for the model's own match; a manual re-route is
+        # the requester's call, so it needs no score.
+        conf = float(draft.get("confidence") or 0)
+        if chosen is not None and chosen == draft.get("matched_id") and conf > 0:
+            band = " high" if conf >= 70 else ("" if conf >= 40 else " low")
+            st.markdown(
+                f"<div class='confmeter{band}'>"
+                f"<div class='confhead'><span>Route confidence</span>"
+                f"<b>{conf:.0f}%</b></div>"
+                f"<div class='track'><span class='fill' "
+                f"style='width:{conf:.0f}%'></span></div></div>",
+                unsafe_allow_html=True,
+            )
         with st.expander("Why — the resolution trace", icon=":material/alt_route:"):
             resolution_trace(resolution)
 
@@ -306,8 +328,8 @@ def _draft_card(actor_id: int) -> None:
                 _clear_draft()
                 st.rerun()
 
-        send_col, drop_col, _ = st.columns([1.2, 1, 3])
-        if send_col.button("Send it", type="primary", width="stretch",
+        send_col, drop_col, _ = st.columns([1.7, 1, 2.5])
+        if send_col.button("Approve & send", type="primary", width="stretch",
                            icon=":material/send:", key="ask_draft_send"):
             with write_lock, session_scope() as writer:
                 writer_process = (

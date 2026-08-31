@@ -2,9 +2,11 @@
 
 With an ``ANTHROPIC_API_KEY`` configured, the chat runs on Claude: the model
 reads the request in context of the live process catalogue and returns a
-structured reading (intent, which process, a title). Without a key — or on
-any API failure — it falls back to the deterministic keyword matcher, so the
-demo still runs fully offline.
+structured reading (intent, which process, a confidence 0-100, a title).
+With ``ATLAS_LLM_BASE_URL`` set instead, the same reading comes from any
+OpenAI-compatible endpoint serving an open-source model (Ollama, vLLM,
+LM Studio, …). Without either — or on any API failure — it falls back to
+the deterministic keyword matcher, so the demo still runs fully offline.
 
 Routing stays deterministic either way. The model only interprets the
 sentence; ``routing.resolve`` decides who is accountable, exactly as before.
@@ -45,6 +47,12 @@ def llm_ready() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY"))
 
 
+def oss_ready() -> bool:
+    """An OpenAI-compatible endpoint serving an open-source model (Ollama,
+    vLLM, LM Studio, Groq, Together…) configured via ATLAS_LLM_BASE_URL."""
+    return bool(os.environ.get("ATLAS_LLM_BASE_URL"))
+
+
 def understand(session: Session, text: str, actor: Person | None = None) -> Understanding:
     text = (text or "").strip()
     if not text:
@@ -55,6 +63,11 @@ def understand(session: Session, text: str, actor: Person | None = None) -> Unde
         except Exception:
             # Whatever went wrong upstream (auth, rate limit, network, refusal),
             # the person asked a question — answer it with the local matcher.
+            pass
+    if oss_ready():
+        try:
+            return _understand_oss(session, text, actor)
+        except Exception:
             pass
     return _understand_keywords(session, text)
 
@@ -82,6 +95,7 @@ def _reading_model():
             "request", "inbox", "my_requests", "ooo", "about_person", "help"
         ]
         process_id: Optional[int]
+        confidence: int
         person_name: Optional[str]
         title: Optional[str]
         reply: Optional[str]
@@ -120,6 +134,9 @@ def _system(session: Session) -> str:
         "describing what they need.\n\n"
         "For a request, pick the best matching process id from the catalogue "
         "below, or null when nothing genuinely fits (do not force a bad match). "
+        "Set `confidence` 0-100: how sure you are that this process (and the "
+        "division that owns it) is the right route — 90+ only for unmistakable "
+        "matches, under 40 means you should have returned null instead. "
         "Also write `title`: a short subject line for the request in the "
         "requester's words (e.g. 'Data room access — Project Falcon').\n"
         "For about_person, set `person_name` to the person's full name from the "
@@ -149,19 +166,87 @@ def _understand_llm(session: Session, text: str, actor: Person | None) -> Unders
     if response.stop_reason == "refusal":
         raise RuntimeError("model refused")
     reading = response.parsed_output
+    return _from_reading(session, text, reading, source="claude")
+
+
+def _from_reading(session: Session, text: str, reading, *, source: str) -> Understanding:
     process_id = reading.process_id
     if process_id is not None and session.get(Process, process_id) is None:
         process_id = None  # the model must not invent catalogue entries
+    confidence = max(0.0, min(100.0, float(reading.confidence or 0)))
+    if process_id is None:
+        confidence = 0.0
     return Understanding(
         intent=reading.intent,
         process_id=process_id,
-        confidence=90.0 if process_id is not None else 0.0,
+        confidence=confidence,
         person_name=reading.person_name,
         title=reading.title or suggest_title(text, None),
         reply=reading.reply,
         rationale=reading.rationale,
-        source="claude",
+        source=source,
     )
+
+
+# --- open-source models (OpenAI-compatible endpoint) -------------------------
+# Any server speaking the /chat/completions dialect works: Ollama or LM Studio
+# on a laptop, vLLM in the cluster, or a hosted open-model provider. Configure:
+#   ATLAS_LLM_BASE_URL  e.g. http://localhost:11434/v1
+#   ATLAS_LLM_MODEL     e.g. llama3.1:8b  (shared with the Claude path)
+#   ATLAS_LLM_API_KEY   optional; many local servers need none
+
+
+def _understand_oss(session: Session, text: str, actor: Person | None) -> Understanding:
+    import json
+    import urllib.request
+
+    base = os.environ["ATLAS_LLM_BASE_URL"].rstrip("/")
+    model = os.environ.get("ATLAS_LLM_MODEL", "llama3.1:8b")
+    schema_note = (
+        "\n\nAnswer with ONLY a JSON object, no prose, shaped exactly like:\n"
+        '{"intent": "request|inbox|my_requests|ooo|about_person|help", '
+        '"process_id": <int or null>, "confidence": <0-100>, '
+        '"person_name": <string or null>, "title": <string or null>, '
+        '"reply": <string or null>, "rationale": <string>}'
+    )
+    who = f"(Asked by {actor.name}, {actor.title}.) " if actor else ""
+    payload = {
+        "model": model,
+        "temperature": 0,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": _system(session) + schema_note},
+            {"role": "user", "content": who + text},
+        ],
+    }
+    req = urllib.request.Request(
+        f"{base}/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers={
+            "Content-Type": "application/json",
+            **(
+                {"Authorization": f"Bearer {os.environ['ATLAS_LLM_API_KEY']}"}
+                if os.environ.get("ATLAS_LLM_API_KEY") else {}
+            ),
+        },
+    )
+    with urllib.request.urlopen(req, timeout=25) as resp:
+        body = json.loads(resp.read().decode())
+    content = body["choices"][0]["message"]["content"]
+    # Some servers wrap the JSON in code fences despite json_object mode.
+    content = content.strip().removeprefix("```json").removeprefix("```").removesuffix("```")
+    raw = json.loads(content)
+    Reading = _reading_model()
+    reading = Reading(
+        intent=raw.get("intent") if raw.get("intent") in INTENTS else "help",
+        process_id=raw.get("process_id"),
+        confidence=int(raw.get("confidence") or 0),
+        person_name=raw.get("person_name"),
+        title=raw.get("title"),
+        reply=raw.get("reply"),
+        rationale=raw.get("rationale") or "",
+    )
+    return _from_reading(session, text, reading, source="open model")
 
 
 # --- deterministic fallback --------------------------------------------------
