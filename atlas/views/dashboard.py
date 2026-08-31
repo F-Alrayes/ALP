@@ -15,6 +15,7 @@ from atlas import analytics, clock
 from atlas.config import PALETTE, STATUS_COLORS
 from atlas.db import session_scope
 from atlas.services import STATUS_LABELS
+from atlas.ui import motion
 from atlas.ui.components import badge, empty_state, esc, page_header, stat
 
 SURFACE = "#FFFDF6"
@@ -105,6 +106,7 @@ def render(actor_id: int) -> None:
             "still waiting",
             "warn" if head["oldest_open_hours"] >= 48 else "",
         )
+    motion.count_up_stats()
 
     st.markdown("## Queue")
     left, right = st.columns(2)

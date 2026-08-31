@@ -144,7 +144,7 @@ section[data-testid="stMain"] { overflow-x: clip; }
 .st-key-atlas_topbar [data-testid="stColumn"] { min-width: 0 !important; }
 .st-key-atlas_topbar [data-testid="stColumn"]:nth-child(-n+5) { min-width: max-content !important; }
 @media (max-width: 1180px) {
-  .st-key-atlas_topbar .stButton > button { padding: 0.3rem 0.55rem; }
+  .st-key-atlas_topbar .stButton button { padding: 0.3rem 0.55rem; }
   .atlas-brand .build { display: none; }
 }
 /* Below Streamlit's 640px column breakpoint the columns would stack into a
@@ -155,36 +155,36 @@ section[data-testid="stMain"] { overflow-x: clip; }
   .st-key-atlas_topbar [data-testid="stColumn"]:nth-child(-n+5) { min-width: max-content !important; }
   .atlas-brand .name, .atlas-brand .build { display: none; }
 }
-.st-key-atlas_topbar .stButton > button {
+.st-key-atlas_topbar .stButton button {
   background: transparent !important; border: none !important; color: var(--muted);
   box-shadow: none; font-weight: 550; border-radius: 999px;
   padding: 0.3rem 0.85rem; min-height: 0;
   transition: background .15s var(--ease), color .15s var(--ease);
 }
 /* Streamlit paints button labels on a nested node; keep them with the button. */
-.st-key-atlas_topbar .stButton > button p,
+.st-key-atlas_topbar .stButton button p,
 .st-key-atlas_topbar [data-testid="stPopover"] button p,
-[data-testid="stPopoverBody"] .stButton > button p {
+[data-testid="stPopoverBody"] .stButton button p {
   color: inherit !important; font-size: 0.9rem; white-space: nowrap;
 }
-.st-key-atlas_topbar .stButton > button:hover,
+.st-key-atlas_topbar .stButton button:hover,
 .st-key-atlas_topbar [data-testid="stPopover"] > button:hover {
   color: var(--ink); background: %(cream_200)s; border: none;
 }
-.st-key-atlas_topbar .stButton > button:active { transform: scale(.97); }
+.st-key-atlas_topbar .stButton button:active { transform: scale(.97); }
 /* The active tab is pressed into the paper, not painted green — and its
    label keeps the ink (the global primary rule paints labels cream). */
-.st-key-atlas_topbar .stButton > button[kind="primary"] {
+.st-key-atlas_topbar .stButton button[kind="primary"] {
   background: %(cream_200)s !important; border: none !important;
   box-shadow: inset 0 1px 3px rgba(27,53,40,.12), inset 0 0 0 1px var(--cream-300);
 }
-.st-key-atlas_topbar .stButton > button[kind="primary"],
-.st-key-atlas_topbar .stButton > button[kind="primary"] *,
-[data-testid="stPopoverBody"] .stButton > button[kind="primary"],
-[data-testid="stPopoverBody"] .stButton > button[kind="primary"] * {
+.st-key-atlas_topbar .stButton button[kind="primary"],
+.st-key-atlas_topbar .stButton button[kind="primary"] *,
+[data-testid="stPopoverBody"] .stButton button[kind="primary"],
+[data-testid="stPopoverBody"] .stButton button[kind="primary"] * {
   color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important;
 }
-.st-key-atlas_topbar .stButton > button:hover { transform: none; box-shadow: none; }
+.st-key-atlas_topbar .stButton button:hover { transform: none; box-shadow: none; }
 .st-key-atlas_topbar [data-testid="stPopover"] button {
   background: transparent !important; border: none !important; color: var(--muted);
   font-weight: 550; border-radius: 999px; padding: 0.3rem 0.85rem; min-height: 0;
@@ -198,15 +198,15 @@ section[data-testid="stMain"] { overflow-x: clip; }
   background: var(--surface); border: 1px solid var(--cream-300);
   border-radius: 12px; box-shadow: var(--edge), var(--shadow); min-width: 230px;
 }
-[data-testid="stPopoverBody"] .stButton > button {
+[data-testid="stPopoverBody"] .stButton button {
   background: transparent !important; border: none !important; justify-content: flex-start;
   text-align: left; color: var(--ink); border-radius: 8px; min-height: 0;
   padding: 0.42rem 0.7rem; box-shadow: none;
 }
-[data-testid="stPopoverBody"] .stButton > button:hover {
+[data-testid="stPopoverBody"] .stButton button:hover {
   background: %(cream_200)s !important; transform: none;
 }
-[data-testid="stPopoverBody"] .stButton > button[kind="primary"] {
+[data-testid="stPopoverBody"] .stButton button[kind="primary"] {
   background: %(cream_200)s !important; box-shadow: none;
 }
 [role="listbox"], [data-baseweb="popover"] { color: var(--ink); background: var(--surface); }
@@ -304,34 +304,42 @@ section[data-testid="stMain"] { overflow-x: clip; }
 .timeline .who { font-size: 0.74rem; color: var(--gold-600); font-weight: 600; }
 
 /* ---------- buttons ---------- */
-.stButton > button {
+.stButton button {
   border-radius: 9px; border: 1px solid var(--cream-300); font-weight: 500;
   background: var(--surface); color: var(--ink);
   box-shadow: 0 1px 2px rgba(27,53,40,.05);
-  transition: border-color .15s var(--ease), box-shadow .15s var(--ease),
-              transform .14s var(--ease), background .15s var(--ease);
+  /* Press is instant (feedback on pointer-down); release springs back with a
+     touch of overshoot — the momentum came from the press. */
+  transition: transform .4s cubic-bezier(.34,1.35,.64,1),
+              border-color .15s var(--ease), box-shadow .2s var(--ease),
+              background .15s var(--ease);
+  will-change: transform;
 }
-.stButton > button:hover {
+.stButton button:hover {
   border-color: var(--green-600); color: var(--ink); background: var(--surface);
   transform: translateY(-1px); box-shadow: var(--edge), 0 3px 8px -2px rgba(27,53,40,.14);
 }
-.stButton > button:active { transform: scale(.97); box-shadow: none; }
-.stButton > button[kind="primary"],
+.stButton button:active { transform: scale(.96); box-shadow: none;
+  transition: transform .1s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .stButton button, .stButton button:active { transition: none; transform: none; }
+}
+.stButton button[kind="primary"],
 [data-testid="stBaseButton-primary"] {
   background: linear-gradient(#1D4635, var(--green-700));
   border-color: var(--green-700);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 3px rgba(20,56,42,.3);
 }
 /* The label lives in a nested node, so colour the descendants too. */
-.stButton > button[kind="primary"], .stButton > button[kind="primary"] *,
+.stButton button[kind="primary"], .stButton button[kind="primary"] *,
 [data-testid="stBaseButton-primary"], [data-testid="stBaseButton-primary"] * {
   color: #F5F0E3 !important;
   -webkit-text-fill-color: #F5F0E3 !important;
 }
-.stButton > button[kind="primary"]:hover,
+.stButton button[kind="primary"]:hover,
 [data-testid="stBaseButton-primary"]:hover { filter: brightness(1.07); }
-[data-testid="stSidebar"] .stButton > button:hover,
-[data-testid="stSidebar"] .stButton > button:hover * {
+[data-testid="stSidebar"] .stButton button:hover,
+[data-testid="stSidebar"] .stButton button:hover * {
   color: var(--green-900) !important; -webkit-text-fill-color: var(--green-900) !important;
   transform: none;
 }
@@ -430,17 +438,17 @@ hr { border-color: var(--cream-300); }
 @keyframes msgin { from { opacity: 0; transform: translateY(6px); } }
 
 /* Suggestion chips */
-[class*="st-key-chip_"] .stButton > button {
+[class*="st-key-chip_"] .stButton button {
   border-radius: 999px !important; background: var(--surface) !important;
   border: 1px solid var(--cream-300) !important; font-size: .8rem;
   padding: .22rem .8rem; min-height: 0; color: var(--muted);
   box-shadow: var(--edge), 0 1px 2px rgba(27,53,40,.05);
 }
-[class*="st-key-chip_"] .stButton > button:hover {
+[class*="st-key-chip_"] .stButton button:hover {
   color: var(--ink); border-color: var(--gold-500) !important;
   transform: translateY(-1px);
 }
-[class*="st-key-chip_"] .stButton > button p { font-size: .8rem; }
+[class*="st-key-chip_"] .stButton button p { font-size: .8rem; }
 
 /* The composer: Streamlit's chat input dressed as the island. */
 [data-testid="stBottom"] { background: var(--cream-100); }
@@ -473,17 +481,29 @@ hr { border-color: var(--cream-300); }
 @media (prefers-reduced-motion: no-preference) {
   .page-head { animation: risein .26s var(--ease) both; }
   .stat { animation: risein .3s var(--ease) both; }
+  [data-testid="stColumn"]:nth-child(2) .stat { animation-delay: .04s; }
+  [data-testid="stColumn"]:nth-child(3) .stat { animation-delay: .08s; }
+  [data-testid="stColumn"]:nth-child(4) .stat { animation-delay: .12s; }
+  [data-testid="stColumn"]:nth-child(5) .stat { animation-delay: .16s; }
   .card, [class*="st-key-card_"], [class*="st-key-demo_"] {
     animation: risein .3s var(--ease) both; }
+  .st-key-card_dept, .st-key-demo_ooo { animation-delay: .06s; }
+  .st-key-card_turnaround, .st-key-demo_agent { animation-delay: .1s; }
+  .st-key-card_ages, .st-key-demo_reset { animation-delay: .14s; }
   [data-testid="stPopoverBody"] { animation: menupop .16s var(--ease) both;
     transform-origin: top center; }
   [data-testid="stExpander"] details summary { transition: color .15s var(--ease); }
 }
 @keyframes risein { from { opacity: 0; transform: translateY(7px); } }
 @keyframes menupop { from { opacity: 0; transform: scale(.97) translateY(-4px); } }
-.card { transition: transform .18s var(--ease), box-shadow .18s var(--ease); }
-.card:hover { transform: translateY(-1px);
+.card, [class*="st-key-card_"] {
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease); }
+.card:hover, [class*="st-key-card_"]:hover { transform: translateY(-1px);
   box-shadow: var(--edge), 0 2px 4px rgba(27,53,40,.06), 0 20px 44px -20px rgba(27,53,40,.4); }
+@media (prefers-reduced-motion: reduce) {
+  .card, [class*="st-key-card_"] { transition: none; }
+  .card:hover, [class*="st-key-card_"]:hover { transform: none; }
+}
 
 /* ---------- assignment toast ---------- */
 /* The preview's #notify banner, in Streamlit's clothing: same material,
