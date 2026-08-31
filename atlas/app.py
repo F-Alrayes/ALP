@@ -53,6 +53,7 @@ def main() -> None:
     _bridge_secrets()
     _bootstrap()
     theme.inject()
+    theme.mode_toggle()
 
     if not database_is_seeded():
         st.error("The database is not seeded. Run `python run.py` from the atlas/ directory.")

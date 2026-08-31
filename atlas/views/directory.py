@@ -12,6 +12,7 @@ from atlas.config import OPEN_STATUSES, PALETTE
 from atlas.db import session_scope
 from atlas.models import Department, Person, Process, Request, Responsibility
 from atlas.routing import holders, is_out_of_office, responsibilities_of
+from atlas.ui import theme
 from atlas.ui.components import (
     badge,
     empty_state,
@@ -20,6 +21,10 @@ from atlas.ui.components import (
     page_header,
     status_badge,
 )
+
+def _ring() -> str:
+    return "#16281F" if theme.is_dark() else PALETTE["cream_200"]
+
 
 PERSON_KEY = "atlas_directory_person"
 PROCESS_KEY = "atlas_directory_process"
@@ -417,7 +422,7 @@ def _graph_figure(nodes: list[dict], edges: list[dict]) -> go.Figure:
             x=[positions[n["id"]][0] for n in people],
             y=[positions[n["id"]][1] for n in people],
             mode="markers",
-            marker={"size": 11, "color": PALETTE["green_700"], "line": {"width": 1.5, "color": PALETTE["cream_200"]}},
+            marker={"size": 11, "color": PALETTE["green_700"], "line": {"width": 1.5, "color": _ring()}},
             hovertext=[f"{n['label']}<br>{n['group']}" for n in people],
             hoverinfo="text",
             name="People",
@@ -428,7 +433,7 @@ def _graph_figure(nodes: list[dict], edges: list[dict]) -> go.Figure:
             x=[positions[n["id"]][0] for n in processes],
             y=[positions[n["id"]][1] for n in processes],
             mode="markers",
-            marker={"size": 15, "color": PALETTE["gold_500"], "line": {"width": 1.5, "color": PALETTE["cream_200"]}},
+            marker={"size": 15, "color": PALETTE["gold_500"], "line": {"width": 1.5, "color": _ring()}},
             hovertext=[f"{n['label']}<br>{n['group']}" for n in processes],
             hoverinfo="text",
             name="Processes",
@@ -446,8 +451,8 @@ def _graph_figure(nodes: list[dict], edges: list[dict]) -> go.Figure:
             showarrow=False,
             xanchor="left" if on_right else "right",
             yanchor="middle",
-            font={"size": 11, "color": PALETTE["ink"]},
-            bgcolor="rgba(255,253,246,0.92)",
+            font={"size": 11, "color": "#ECEFE8" if theme.is_dark() else PALETTE["ink"]},
+            bgcolor="rgba(18,34,26,0.92)" if theme.is_dark() else "rgba(255,253,246,0.92)",
             bordercolor=PALETTE["cream_300"],
             borderwidth=1,
             borderpad=3,

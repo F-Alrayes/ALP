@@ -67,9 +67,9 @@ _CSS_TEMPLATE = """
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --ease: cubic-bezier(.23,1,.32,1);
   --r: 16px;
-  --glass: rgba(255,253,246,.55);
+  --glass: rgba(255,253,246,.42);
   --glass-edge: rgba(255,255,255,.6);
-  --glass-blur: blur(16px) saturate(1.45);
+  --glass-blur: blur(26px) saturate(1.5);
   --glass-shadow: inset 0 1px 0 rgba(255,255,255,.7),
                   0 14px 34px -22px rgba(27,53,40,.4);
   /* the visible light-catch that makes a panel read as glass on flat paper */
@@ -124,6 +124,17 @@ hr { border-color: var(--line-soft); }
   [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
     flex: 1 1 240px !important; min-width: 240px !important; }
 }
+
+/* the theme toggle: a round glass button pinned to the corner */
+.st-key-theme_toggle { position: fixed; top: 10px; right: 18px;
+  z-index: 1000001; width: auto !important; }
+.st-key-theme_toggle .stButton button {
+  width: 38px; height: 38px; min-height: 38px; border-radius: 50%%;
+  padding: 0; justify-content: center; }
+.st-key-theme_toggle .stButton button [data-testid="stIconMaterial"] {
+  background: transparent !important; border: none !important;
+  box-shadow: none !important; padding: 0; margin: 0 !important;
+  font-size: 1.05rem; }
 
 /* live status dot (agent running / stopped) */
 .livedot { display: inline-block; width: 9px; height: 9px; border-radius: 50%%;
@@ -270,7 +281,7 @@ hr { border-color: var(--line-soft); }
 .stButton button {
   border-radius: 11px; border: 1px solid var(--glass-edge); font-weight: 500;
   background: rgba(255,253,246,.5); color: var(--ink);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(16px) saturate(1.35); -webkit-backdrop-filter: blur(16px) saturate(1.35);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
   transition: transform .4s cubic-bezier(.34,1.35,.64,1),
               border-color .15s var(--ease), background .15s var(--ease);
@@ -281,8 +292,8 @@ hr { border-color: var(--line-soft); }
 .stButton button[kind="primary"],
 [data-testid="stBaseButton-primary"] {
   background: rgba(20,56,42,.85); border-color: rgba(255,255,255,.28);
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.35);
+  -webkit-backdrop-filter: blur(16px) saturate(1.35);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.22),
               0 8px 18px -12px rgba(27,53,40,.6);
 }
@@ -299,8 +310,8 @@ hr { border-color: var(--line-soft); }
 .stTextInput input, .stTextArea textarea, .stNumberInput input {
   background: var(--glass) !important; border-color: var(--glass-edge) !important;
   border-radius: 11px !important; color: var(--ink) !important;
-  backdrop-filter: blur(8px) saturate(1.4);
-  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.45);
+  -webkit-backdrop-filter: blur(14px) saturate(1.45);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.8),
               0 2px 6px -4px rgba(27,53,40,.35);
 }
@@ -309,13 +320,13 @@ hr { border-color: var(--line-soft); }
 [data-testid="stSelectbox"] > div {
   background: var(--glass); border: 1px solid var(--glass-edge);
   border-radius: 11px;
-  backdrop-filter: blur(8px) saturate(1.4);
-  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.45);
+  -webkit-backdrop-filter: blur(14px) saturate(1.45);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.8),
               0 2px 6px -4px rgba(27,53,40,.35);
 }
 [role="listbox"], [data-baseweb="popover"] {
-  color: var(--ink); background: rgba(255,253,246,.82);
+  color: var(--ink); background: rgba(255,253,246,.7);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-edge); border-radius: 12px;
   box-shadow: var(--glass-shadow), 0 18px 40px -24px rgba(27,53,40,.5);
@@ -393,8 +404,8 @@ hr { border-color: var(--line-soft); }
 .msg.user .bub { background: rgba(20,56,42,.85);
   border: 1px solid rgba(255,255,255,.28);
   color: #F3EEE0; border-radius: 18px 18px 6px 18px; padding: 9px 15px;
-  backdrop-filter: blur(10px) saturate(1.3);
-  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.35);
+  -webkit-backdrop-filter: blur(16px) saturate(1.35);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.22),
               0 8px 18px -12px rgba(27,53,40,.6);
   max-width: 78%%; }
@@ -534,10 +545,10 @@ hr { border-color: var(--line-soft); }
 .orgtree > ul > li::before, .orgtree > ul > li::after { display: none; }
 /* the card */
 .onode { position: relative; width: 178px;
-  background: rgba(255,253,246,.72); border: 1px solid var(--glass-edge);
+  background: rgba(255,253,246,.55); border: 1px solid var(--glass-edge);
   border-radius: 12px; padding: 14px 12px 12px; text-align: center;
-  backdrop-filter: blur(8px) saturate(1.4);
-  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.45);
+  -webkit-backdrop-filter: blur(14px) saturate(1.45);
   box-shadow: inset 0 3px 0 var(--accent-strong),
               inset 0 4px 0 rgba(255,255,255,.5),
               0 10px 24px -18px rgba(27,53,40,.4);
@@ -652,8 +663,8 @@ _ART = """
   box-sizing: content-box; padding: 4px; border-radius: 8px;
   background: rgba(255,253,246,.55);
   border: 1px solid rgba(255,255,255,.65);
-  backdrop-filter: blur(8px) saturate(1.4);
-  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.45);
+  -webkit-backdrop-filter: blur(14px) saturate(1.45);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.8),
               0 2px 6px -4px rgba(27,53,40,.35);
 }
@@ -720,6 +731,121 @@ def _render_css() -> str:
 
 CSS = _render_css()
 
+# --- night variant -----------------------------------------------------------
+# The same Paper Console, printed on dark evergreen stock: tokens flip, the
+# glass turns smoky, and the handful of literal light values are re-inked.
+_DARK = """
+<style>
+:root {
+  --ground: #0E1B15;
+  --surface: #16281F;
+  --rail: #0A1410;
+  --line: rgba(236,239,232,.16);
+  --line-soft: rgba(236,239,232,.1);
+  --ink: #ECEFE8;
+  --muted: #9DAA9E;
+  --accent: #E9C25C;
+  --accent-strong: #1E4433;
+  --amber: #D9B254;
+  --danger: #E06B5B;
+  --warn: #D9A441;
+  --ok: #3FBF8C;
+  --glass: rgba(18,34,26,.45);
+  --glass-edge: rgba(255,255,255,.14);
+  --glass-shadow: inset 0 1px 0 rgba(255,255,255,.12),
+                  0 14px 34px -22px rgba(0,0,0,.65);
+  --glass-sheen: linear-gradient(165deg,
+                  rgba(255,255,255,.1) 0%, rgba(255,255,255,.03) 34%,
+                  rgba(255,255,255,0) 60%);
+}
+.stApp {
+  background:
+    radial-gradient(52rem 36rem at 12% -8%, rgba(233,194,92,.13), transparent 62%),
+    radial-gradient(64rem 44rem at 108% 22%, rgba(63,191,140,.11), transparent 65%),
+    radial-gradient(48rem 42rem at 60% 118%, rgba(233,194,92,.08), transparent 60%),
+    var(--ground);
+  background-attachment: fixed;
+}
+::selection { background: #3A4A3F; color: var(--ink); }
+.stButton button {
+  background: rgba(236,239,232,.07); color: var(--ink);
+  border-color: rgba(255,255,255,.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+}
+.stButton button:hover { background: rgba(236,239,232,.13); }
+.stButton button [data-testid="stIconMaterial"],
+[data-testid="stChatInput"] [data-testid="stIconMaterial"] {
+  background: rgba(236,239,232,.08); border-color: rgba(255,255,255,.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+}
+.stButton button[kind="primary"],
+[data-testid="stBaseButton-primary"] {
+  background: rgba(30,68,51,.8); border-color: rgba(255,255,255,.22);
+}
+.stTextInput input, .stTextArea textarea, .stNumberInput input,
+[data-testid="stSelectbox"] > div {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12),
+              0 2px 6px -4px rgba(0,0,0,.5);
+}
+[role="listbox"], [data-baseweb="popover"] {
+  background: rgba(18,34,26,.88);
+}
+[role="listbox"] li, [data-baseweb="popover"] li { color: var(--ink); }
+[data-testid="stToast"] {
+  background: rgba(18,34,26,.88) !important; color: var(--ink) !important;
+}
+.badge { background: rgba(236,239,232,.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1); }
+.msg.user .bub { background: rgba(30,68,51,.75);
+  border-color: rgba(255,255,255,.2); }
+.msg.bot .ava { background: #1E4433; }
+.onode { background: rgba(22,40,30,.6); }
+.oava { color: #122019; box-shadow: 0 0 0 3px rgba(14,27,21,.9),
+  inset 0 1px 0 rgba(255,255,255,.35); }
+.okids { color: #ECEFE8; box-shadow: 0 0 0 2px rgba(14,27,21,.9); }
+.confmeter .track { background: rgba(236,239,232,.12);
+  border-color: rgba(255,255,255,.14);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.4); }
+.livedot.on { box-shadow: 0 0 0 3px rgba(63,191,140,.2); }
+[data-testid="stSidebar"] { border-right-color: rgba(255,255,255,.08); }
+[data-testid="stBottom"] { background: rgba(14,27,21,.78); }
+[data-testid="stBottom"] > div { background: transparent; }
+/* The light base theme paints widget internals; blank them so the dark
+   glass shells show through (same trick the rail select already uses). */
+[data-testid="stSelectbox"] div, [data-testid="stSelectbox"] input,
+.stTextInput div, .stTextArea div, .stNumberInput div,
+.stNumberInput button, .stTextArea textarea {
+  background-color: transparent !important;
+  color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important;
+}
+.stTextInput input, .stTextArea textarea {
+  background-color: var(--glass) !important; }
+body::after { opacity: .06; }
+</style>
+"""
+
+
+def is_dark() -> bool:
+    return bool(st.session_state.get("atlas_dark"))
+
 
 def inject() -> None:
     st.markdown(CSS, unsafe_allow_html=True)
+    if is_dark():
+        st.markdown(_DARK, unsafe_allow_html=True)
+
+
+def _flip() -> None:
+    st.session_state["atlas_dark"] = not st.session_state.get("atlas_dark")
+
+
+def mode_toggle() -> None:
+    """A fixed round glass button in the top-right corner: sun <-> moon."""
+    with st.container(key="theme_toggle"):
+        st.button(
+            "",
+            icon=":material/light_mode:" if is_dark() else ":material/dark_mode:",
+            key="theme_toggle_btn",
+            help="Switch to light mode" if is_dark() else "Switch to dark mode",
+            on_click=_flip,
+        )

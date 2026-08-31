@@ -20,49 +20,59 @@ from atlas.config import PALETTE, STATUS_COLORS
 from atlas.db import session_scope
 from atlas.models import Request
 from atlas.services import STATUS_LABELS
-from atlas.ui import motion
+from atlas.ui import motion, theme
 from atlas.ui.components import badge, empty_state, esc, page_header, stat
 
-SURFACE = PALETTE["cream_200"]         # panel surface: the bar-gap and hover color
-INK = PALETTE["ink"]
-MUTED = PALETTE["muted"]
-GRID = "#ECE4CF"
 SERIES_ACK = PALETTE["gold_500"]       # gold series (validated on cream)
 SERIES_DONE = PALETTE["green_600"]     # green series (validated on cream)
-AGE_RAMP = ["#B9D6C5", "#7FB99A", "#3FA173", "#128A5E"]  # light → dark, one hue
-DONUT_REST = "#EBE3CC"
 
 STATUS_ORDER = ["pending", "acknowledged", "in_progress", "escalated", "completed"]
 
-HOVER = {
-    "bgcolor": SURFACE,
-    "bordercolor": PALETTE["cream_300"],
-    "font": {"color": INK, "size": 12, "family": "Instrument Sans, sans-serif"},
-}
+
+def _ui() -> dict:
+    """Chart chrome colors for the active theme (the toggle lives in theme.py)."""
+    if theme.is_dark():
+        return {
+            "surface": "#16281F", "ink": "#ECEFE8", "muted": "#9DAA9E",
+            "grid": "rgba(236,239,232,.12)", "border": "rgba(236,239,232,.25)",
+            "rest": "#24382D",
+            "age_ramp": ["#2E5643", "#3E7A5D", "#3FA173", "#3FBF8C"],
+        }
+    return {
+        "surface": PALETTE["cream_200"], "ink": PALETTE["ink"],
+        "muted": PALETTE["muted"], "grid": "#ECE4CF",
+        "border": PALETTE["cream_300"], "rest": "#EBE3CC",
+        "age_ramp": ["#B9D6C5", "#7FB99A", "#3FA173", "#128A5E"],
+    }
 
 
 def _style(figure: go.Figure, height: int = 300) -> go.Figure:
+    u = _ui()
     figure.update_layout(
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font={"color": INK, "size": 12, "family": "Instrument Sans, sans-serif"},
+        font={"color": u["ink"], "size": 12, "family": "Instrument Sans, sans-serif"},
         margin={"l": 4, "r": 8, "t": 8, "b": 4},
-        hoverlabel=HOVER,
+        hoverlabel={
+            "bgcolor": u["surface"], "bordercolor": u["border"],
+            "font": {"color": u["ink"], "size": 12,
+                     "family": "Instrument Sans, sans-serif"},
+        },
         bargap=0.45,
         barcornerradius="25%",
     )
-    figure.update_xaxes(gridcolor=GRID, zeroline=False, showline=False,
-                        tickfont={"color": MUTED, "size": 11})
-    figure.update_yaxes(gridcolor=GRID, zeroline=False, showline=False,
-                        tickfont={"color": MUTED, "size": 11})
+    figure.update_xaxes(gridcolor=u["grid"], zeroline=False, showline=False,
+                        tickfont={"color": u["muted"], "size": 11})
+    figure.update_yaxes(gridcolor=u["grid"], zeroline=False, showline=False,
+                        tickfont={"color": u["muted"], "size": 11})
     return figure
 
 
 def _legend_top(figure: go.Figure) -> go.Figure:
     figure.update_layout(legend={
         "orientation": "h", "y": 1.04, "yanchor": "bottom", "x": 0,
-        "title": None, "font": {"color": MUTED, "size": 11},
+        "title": None, "font": {"color": _ui()["muted"], "size": 11},
     })
     return figure
 
@@ -101,7 +111,7 @@ def _flow_series(session, at):
 
 def _flow_chart(series) -> go.Figure:
     days, raised, completed = series
-    marker = {"size": 7, "line": {"color": SURFACE, "width": 2}}
+    marker = {"size": 7, "line": {"color": _ui()["surface"], "width": 2}}
     figure = go.Figure()
     figure.add_scatter(
         x=days, y=raised, name="Raised", mode="lines+markers",
@@ -123,13 +133,13 @@ def _donut(done: int, total: int) -> go.Figure:
     figure = go.Figure(go.Pie(
         values=[done, max(total - done, 0)] if total else [0, 1],
         hole=0.74, sort=False, direction="clockwise",
-        marker={"colors": [SERIES_DONE, DONUT_REST],
-                "line": {"color": SURFACE, "width": 3}},
+        marker={"colors": [SERIES_DONE, _ui()["rest"]],
+                "line": {"color": _ui()["surface"], "width": 3}},
         textinfo="none", hoverinfo="skip", showlegend=False,
     ))
     figure.add_annotation(
         text=f"<b>{rate}%</b>", showarrow=False,
-        font={"size": 30, "color": INK, "family": "IBM Plex Mono, monospace"},
+        font={"size": 30, "color": _ui()["ink"], "family": "IBM Plex Mono, monospace"},
     )
     figure.update_layout(
         height=196, margin={"l": 8, "r": 8, "t": 8, "b": 8},
@@ -236,9 +246,9 @@ def render(actor_id: int) -> None:
             figure = go.Figure(go.Bar(
                 x=frame["count"], y=frame["status"], orientation="h",
                 marker={"color": colors,
-                        "line": {"color": SURFACE, "width": 2}},
+                        "line": {"color": _ui()["surface"], "width": 2}},
                 text=frame["count"], textposition="outside", cliponaxis=False,
-                textfont={"color": INK, "size": 12},
+                textfont={"color": _ui()["ink"], "size": 12},
                 hovertemplate="%{y}: %{x} request(s)<extra></extra>",
             ))
             figure.update_xaxes(showticklabels=False, showgrid=False)
@@ -259,7 +269,7 @@ def render(actor_id: int) -> None:
                 figure.add_bar(
                     x=sub["department"], y=sub["count"], name=label,
                     marker={"color": STATUS_COLORS[key],
-                            "line": {"color": SURFACE, "width": 2}},
+                            "line": {"color": _ui()["surface"], "width": 2}},
                     hovertemplate="%{x} · " + label + ": %{y}<extra></extra>",
                 )
             figure.update_layout(barmode="stack")
@@ -281,9 +291,9 @@ def render(actor_id: int) -> None:
             ]
             figure = go.Figure(go.Bar(
                 x=buckets, y=counts,
-                marker={"color": AGE_RAMP, "line": {"color": SURFACE, "width": 2}},
+                marker={"color": _ui()["age_ramp"], "line": {"color": _ui()["surface"], "width": 2}},
                 text=counts, textposition="outside", cliponaxis=False,
-                textfont={"color": INK, "size": 12},
+                textfont={"color": _ui()["ink"], "size": 12},
                 hovertemplate="%{x}: %{y} open request(s)<extra></extra>",
             ))
             figure.update_yaxes(showticklabels=False, showgrid=False)
@@ -302,13 +312,13 @@ def render(actor_id: int) -> None:
             figure.add_bar(
                 x=frame["department"], y=frame["avg_ack_hours"],
                 name="Time to acknowledge",
-                marker={"color": SERIES_ACK, "line": {"color": SURFACE, "width": 2}},
+                marker={"color": SERIES_ACK, "line": {"color": _ui()["surface"], "width": 2}},
                 hovertemplate="%{x} · acknowledged in %{y:.1f}h<extra></extra>",
             )
             figure.add_bar(
                 x=frame["department"], y=frame["avg_complete_hours"],
                 name="Time to complete",
-                marker={"color": SERIES_DONE, "line": {"color": SURFACE, "width": 2}},
+                marker={"color": SERIES_DONE, "line": {"color": _ui()["surface"], "width": 2}},
                 hovertemplate="%{x} · completed in %{y:.1f}h<extra></extra>",
             )
             figure.update_layout(barmode="group", bargroupgap=0.12)
