@@ -72,14 +72,18 @@ _CSS_TEMPLATE = """
   --glass-blur: blur(16px) saturate(1.45);
   --glass-shadow: inset 0 1px 0 rgba(255,255,255,.7),
                   0 14px 34px -22px rgba(27,53,40,.4);
+  /* the visible light-catch that makes a panel read as glass on flat paper */
+  --glass-sheen: linear-gradient(165deg,
+                  rgba(255,255,255,.6) 0%, rgba(255,255,255,.16) 34%,
+                  rgba(255,253,246,0) 60%);
 }
 
 html, body, [class*="css"], .stApp { font-family: var(--sans); }
 .stApp {
   background:
-    radial-gradient(52rem 36rem at 12%% -8%%, rgba(168,130,15,.10), transparent 62%%),
-    radial-gradient(64rem 44rem at 108%% 22%%, rgba(18,138,94,.09), transparent 65%%),
-    radial-gradient(48rem 42rem at 60%% 118%%, rgba(168,130,15,.07), transparent 60%%),
+    radial-gradient(52rem 36rem at 12%% -8%%, rgba(168,130,15,.15), transparent 62%%),
+    radial-gradient(64rem 44rem at 108%% 22%%, rgba(18,138,94,.13), transparent 65%%),
+    radial-gradient(48rem 42rem at 60%% 118%%, rgba(168,130,15,.11), transparent 60%%),
     var(--ground);
   background-attachment: fixed;
   color: var(--ink);
@@ -191,7 +195,8 @@ hr { border-color: var(--line-soft); }
 
 /* ---------- panels ---------- */
 .card {
-  background: var(--glass); border: 1px solid var(--glass-edge); border-radius: var(--r);
+  background: var(--glass-sheen), var(--glass);
+  border: 1px solid var(--glass-edge); border-radius: var(--r);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
   padding: .95rem 1.1rem; margin-bottom: .65rem;
@@ -205,7 +210,8 @@ hr { border-color: var(--line-soft); }
   white-space: pre-line; }
 
 [class*="st-key-demo_"], [class*="st-key-card_"], .st-key-ask_draft {
-  background: var(--glass); border: 1px solid var(--glass-edge) !important;
+  background: var(--glass-sheen), var(--glass);
+  border: 1px solid var(--glass-edge) !important;
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
   border-radius: 18px !important; padding: 1.0rem 1.05rem !important;
@@ -215,7 +221,8 @@ hr { border-color: var(--line-soft); }
 
 /* ---------- stat tiles ---------- */
 .stat {
-  background: var(--glass); border: 1px solid var(--glass-edge);
+  background: var(--glass-sheen), var(--glass);
+  border: 1px solid var(--glass-edge);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
   border-left: 3px solid var(--accent); border-radius: var(--r);
