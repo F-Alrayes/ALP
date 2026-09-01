@@ -340,13 +340,13 @@ def _org_palette(dark: bool) -> dict:
         return {"card": "rgba(22,40,30,.88)", "line": "rgba(236,239,232,.18)",
                 "ink": "#ECEFE8", "muted": "#9DAA9E", "amber": "#D9B254",
                 "accent": "#E9C25C", "strong": "#1E4433",
-                "tipbg": "rgba(14,27,21,.97)", "btnbg": "rgba(236,239,232,.08)",
+                "tipbg": "#101E17", "btnbg": "rgba(236,239,232,.08)",
                 "ring": "rgba(14,27,21,.9)",
                 "online": "#3FBF8C", "notin": "#D9A441", "leave": "#E06B5B"}
     return {"card": "rgba(255,253,246,.88)", "line": "#E3DAC2",
             "ink": "#1B2721", "muted": "#566158", "amber": "#83660A",
             "accent": "#A8820F", "strong": "#14382A",
-            "tipbg": "rgba(255,253,246,.98)", "btnbg": "rgba(255,253,246,.7)",
+            "tipbg": "#FFFDF6", "btnbg": "rgba(255,253,246,.7)",
             "ring": "rgba(255,253,246,.94)",
             "online": "#128A5E", "notin": "#B0741B", "leave": "#BE3E2F"}
 
@@ -359,10 +359,12 @@ def _org_doc(branches: str, focused: bool) -> str:
     c = _org_palette(_theme.is_dark())
     css = f"""
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; background: transparent;
+    body {{ margin: 0; background: transparent; height: 100vh;
+      display: flex; flex-direction: column; overflow: hidden;
       font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; }}
     .mono {{ font-family: 'IBM Plex Mono', ui-monospace, monospace; }}
-    .bar {{ display: flex; gap: 6px; align-items: center; margin: 0 0 8px; }}
+    .bar {{ display: flex; gap: 6px; align-items: center; margin: 0 0 8px;
+      flex: none; flex-wrap: wrap; row-gap: 6px; }}
     .bar button {{ font-family: 'IBM Plex Mono', monospace; font-size: 12px;
       color: {c['ink']}; background: {c['btnbg']}; border: 1px solid {c['line']};
       border-radius: 9px; padding: 4px 10px; cursor: pointer;
@@ -371,11 +373,15 @@ def _org_doc(branches: str, focused: bool) -> str:
     #zpct {{ font-family: 'IBM Plex Mono', monospace; font-size: 12px;
       color: {c['muted']}; min-width: 44px; text-align: center; }}
     .legend {{ margin-left: auto; display: flex; gap: 12px; align-items: center;
-      font-size: 11px; color: {c['muted']}; }}
+      flex-wrap: wrap; font-size: 11px; color: {c['muted']}; }}
     .legend span {{ display: inline-flex; gap: 5px; align-items: center; }}
     .ldot {{ width: 8px; height: 8px; border-radius: 50%; display: inline-block; }}
-    #wrap {{ overflow: auto; height: calc(100vh - 44px); border-radius: 14px;
-      border: 1px solid {c['line']}; padding: 26px 10px 16px; }}
+    #wrap {{ overflow: auto; flex: 1; min-height: 0; border-radius: 14px;
+      border: 1px solid {c['line']}; padding: 26px 10px 16px;
+      cursor: grab; user-select: none; -webkit-user-select: none;
+      overscroll-behavior: contain; }}
+    #wrap.grabbing {{ cursor: grabbing; }}
+    #wrap.grabbing .onode {{ pointer-events: none; }}
     #tree {{ min-width: max-content; margin-inline: auto; }}
     #tree ul {{ display: flex; justify-content: center; padding: 26px 0 0;
       margin: 0; position: relative; list-style: none; }}
@@ -508,6 +514,24 @@ document.querySelectorAll('.onode').forEach(n => {{
   n.addEventListener('mouseleave', hide);
 }});
 wrap.addEventListener('scroll', hide);
+let drag = null;
+wrap.addEventListener('pointerdown', e => {{
+  if (e.button !== 0 || e.target.closest('.okids')) return;
+  drag = {{x: e.clientX, y: e.clientY,
+          sl: wrap.scrollLeft, st: wrap.scrollTop, moved: false}};
+  wrap.setPointerCapture(e.pointerId);
+}});
+wrap.addEventListener('pointermove', e => {{
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 4) {{
+    drag.moved = true; hide(); wrap.classList.add('grabbing');
+  }}
+  if (drag.moved) {{ wrap.scrollLeft = drag.sl - dx; wrap.scrollTop = drag.st - dy; }}
+}});
+const endDrag = () => {{ drag = null; wrap.classList.remove('grabbing'); }};
+wrap.addEventListener('pointerup', endDrag);
+wrap.addEventListener('pointercancel', endDrag);
 const center = () => wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2;
 {"" if focused else "requestAnimationFrame(center);"}
 </script></body></html>"""
