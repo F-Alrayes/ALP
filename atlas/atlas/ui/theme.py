@@ -826,6 +826,10 @@ _DARK = """
 .msg.user .bub { background: rgba(30,68,51,.75);
   border-color: rgba(255,255,255,.2); }
 .msg.bot .ava { background: #1E4433; }
+.chatcard { background: rgba(18,34,26,.55);
+  border-color: rgba(236,239,232,.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+.chatrow { border-top-color: rgba(236,239,232,.12); }
 .onode { background: rgba(22,40,30,.6); }
 .oava { color: #122019; box-shadow: 0 0 0 3px rgba(14,27,21,.9),
   inset 0 1px 0 rgba(255,255,255,.35); }

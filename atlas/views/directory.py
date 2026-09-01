@@ -351,8 +351,9 @@ def _org_palette(dark: bool) -> dict:
             "online": "#128A5E", "notin": "#B0741B", "leave": "#BE3E2F"}
 
 
-def _org_doc(branches: str, focused: bool) -> str:
-    """A self-contained interactive chart: zoom, collapse, status, hover cards."""
+def _org_doc(branches: str) -> str:
+    """A self-contained interactive chart: live search, zoom, collapse, status,
+    hover cards."""
     from atlas.ui import theme as _theme
     from atlas.ui.theme import _font_css
 
@@ -448,10 +449,36 @@ def _org_doc(branches: str, focused: bool) -> str:
     #tip .tdot {{ width: 8px; height: 8px; border-radius: 50%;
       display: inline-block; margin-right: 5px; }}
     #tip .leaveline {{ color: {c['leave']}; }}
+    .search {{ position: relative; flex: none; }}
+    #q {{ font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+      font-size: 12.5px; color: {c['ink']}; background: {c['btnbg']};
+      border: 1px solid {c['line']}; border-radius: 9px; padding: 5px 11px;
+      width: 218px; outline: none; backdrop-filter: blur(8px); }}
+    #q::placeholder {{ color: {c['muted']}; }}
+    #q:focus {{ border-color: {c['accent']}; }}
+    #sugg {{ position: absolute; top: calc(100% + 5px); left: 0; z-index: 30;
+      width: 264px; display: none; background: {c['tipbg']};
+      border: 1px solid {c['line']}; border-radius: 11px; padding: 4px;
+      max-height: 262px; overflow: auto;
+      box-shadow: 0 18px 40px -18px rgba(0,0,0,.5); }}
+    .sg {{ padding: 6px 9px; border-radius: 8px; cursor: pointer; }}
+    .sg .sn {{ display: block; font-weight: 600; font-size: 12.5px;
+      color: {c['ink']}; }}
+    .sg .sm {{ display: block; font-size: 11px; color: {c['muted']};
+      margin-top: 1px; }}
+    .sg.active {{ background: {c['btnbg']};
+      box-shadow: inset 2px 0 0 {c['accent']}; }}
+    .sg.none {{ cursor: default; font-size: 12px; color: {c['muted']};
+      padding: 8px 9px; }}
     """
     return f"""<!DOCTYPE html><html><head><style>{_font_css()}</style>
 <style>{css}</style></head><body>
 <div class="bar">
+  <div class="search">
+    <input id="q" type="search" placeholder="Search people…" autocomplete="off"
+           spellcheck="false">
+    <div id="sugg"></div>
+  </div>
   <button id="zo" title="Zoom out">−</button>
   <span id="zpct">100%</span>
   <button id="zi" title="Zoom in">+</button>
@@ -533,17 +560,70 @@ const endDrag = () => {{ drag = null; wrap.classList.remove('grabbing'); }};
 wrap.addEventListener('pointerup', endDrag);
 wrap.addEventListener('pointercancel', endDrag);
 const center = () => wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2;
-{"" if focused else "requestAnimationFrame(center);"}
+requestAnimationFrame(center);
+
+/* ---- live search: suggestions as you type ---- */
+const q = document.getElementById('q'), sugg = document.getElementById('sugg');
+const idx = [...document.querySelectorAll('.onode')].map(n => {{
+  const d = JSON.parse(n.dataset.info);
+  return {{n, name: d.name, sub: d.title + ' · ' + d.dept,
+          low: (d.name + ' ' + d.title + ' ' + d.dept).toLowerCase()}};
+}});
+let items = [], sel = -1;
+const clearHits = () =>
+  document.querySelectorAll('.onode.hit').forEach(x => x.classList.remove('hit'));
+const closeSugg = () => {{ sugg.style.display = 'none'; items = []; sel = -1; }};
+const paint = () => sugg.querySelectorAll('.sg[data-i]').forEach(el =>
+  el.classList.toggle('active', +el.dataset.i === sel));
+const choose = it => {{
+  q.value = it.name; closeSugg(); clearHits(); hide();
+  for (let li = it.n.closest('li'); li; li = li.parentElement.closest('li')) {{
+    li.classList.remove('closed'); setPill(li);
+  }}
+  it.n.classList.add('hit');
+  const nr = it.n.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+  wrap.scrollTo({{
+    left: wrap.scrollLeft + (nr.left + nr.width / 2) - (wr.left + wr.width / 2),
+    top: wrap.scrollTop + (nr.top + nr.height / 2) - (wr.top + wr.height / 2),
+    behavior: 'smooth'}});
+}};
+const renderSugg = () => {{
+  const v = q.value.trim().toLowerCase();
+  if (!v) {{ closeSugg(); clearHits(); return; }}
+  items = idx.filter(x => x.low.includes(v)).slice(0, 7);
+  if (!items.length) {{
+    sugg.innerHTML = '<div class="sg none">No one matches</div>';
+    sugg.style.display = 'block'; sel = -1; return;
+  }}
+  sel = 0;
+  sugg.innerHTML = items.map((x, i) =>
+    `<div class="sg" data-i="${{i}}"><span class="sn">${{x.name}}</span>` +
+    `<span class="sm">${{x.sub}}</span></div>`).join('');
+  sugg.style.display = 'block'; paint();
+  sugg.querySelectorAll('.sg[data-i]').forEach(el => {{
+    el.addEventListener('mousedown', e => {{
+      e.preventDefault(); choose(items[+el.dataset.i]); }});
+    el.addEventListener('mouseenter', () => {{ sel = +el.dataset.i; paint(); }});
+  }});
+}};
+q.addEventListener('input', renderSugg);
+q.addEventListener('focus', renderSugg);
+q.addEventListener('blur', () => setTimeout(closeSugg, 120));
+q.addEventListener('keydown', e => {{
+  if (e.key === 'ArrowDown' && items.length) {{
+    e.preventDefault(); sel = (sel + 1) % items.length; paint();
+  }} else if (e.key === 'ArrowUp' && items.length) {{
+    e.preventDefault(); sel = (sel - 1 + items.length) % items.length; paint();
+  }} else if (e.key === 'Enter' && sel >= 0 && items[sel]) {{
+    e.preventDefault(); choose(items[sel]);
+  }} else if (e.key === 'Escape') {{ closeSugg(); q.blur(); }}
+}});
 </script></body></html>"""
 
 
 def _org_chart_tab() -> None:
     import streamlit.components.v1 as components
 
-    term = st.text_input(
-        "Org chart for", placeholder="everyone — type a name to focus",
-        key="org_chart_for",
-    )
     with session_scope() as session:
         at = clock.now(session)
         people = session.query(Person).order_by(Person.name).all()
@@ -580,19 +660,9 @@ def _org_chart_tab() -> None:
 
         ctx = {"children": children_map, "dept": dept_map,
                "status": status_map, "info": info_map}
-        focus = None
-        if term.strip():
-            needle = term.strip().lower()
-            focus = next((p for p in people if needle in p.name.lower()), None)
-            if focus is None:
-                st.caption("Nobody matches — showing everyone.")
-        roots = [focus] if focus else children_map.get(None, [])
-        branches = "".join(
-            _org_branch(r, ctx, focus.id if focus else None) for r in roots
-        )
-    if focus:
-        st.caption(f"{focus.name}'s team · clear the box to see everyone.")
-    components.html(_org_doc(branches, focused=bool(focus)), height=700)
+        roots = children_map.get(None, [])
+        branches = "".join(_org_branch(r, ctx, None) for r in roots)
+    components.html(_org_doc(branches), height=700)
 
 
 # --- graph ------------------------------------------------------------------
