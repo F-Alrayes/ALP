@@ -132,9 +132,7 @@ hr { border-color: var(--line-soft); }
   width: 38px; height: 38px; min-height: 38px; border-radius: 50%%;
   padding: 0; justify-content: center; }
 .st-key-theme_toggle .stButton button [data-testid="stIconMaterial"] {
-  background: transparent !important; border: none !important;
-  box-shadow: none !important; padding: 0; margin: 0 !important;
-  font-size: 1.05rem; }
+  padding: 0; margin: 0 !important; font-size: 1.05rem; }
 
 /* live status dot (agent running / stopped) */
 .livedot { display: inline-block; width: 9px; height: 9px; border-radius: 50%%;
@@ -656,29 +654,44 @@ footer { visibility: hidden; }
 # --- glass icon tiles & the confidence meter ---------------------------------
 # Appended after the token pass so literal % values stay untouched.
 _ART = """
-/* Material glyphs sit on small liquid-glass tiles. */
-[data-testid="stIconMaterial"] { font-size: 1rem; }
-.stButton button [data-testid="stIconMaterial"],
-[data-testid="stChatInput"] [data-testid="stIconMaterial"] {
-  box-sizing: content-box; padding: 4px; border-radius: 8px;
-  background: rgba(255,253,246,.55);
-  border: 1px solid rgba(255,255,255,.65);
-  backdrop-filter: blur(14px) saturate(1.45);
-  -webkit-backdrop-filter: blur(14px) saturate(1.45);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.8),
-              0 2px 6px -4px rgba(27,53,40,.35);
+/* The glyphs themselves are cut from glass — a translucent gradient ink
+   with a light-catch, clipped to the letterform. No tiles behind them. */
+[data-testid="stIconMaterial"] {
+  font-size: 1.05rem;
+  background: linear-gradient(165deg,
+    rgba(20,56,42,.95) 8%, rgba(20,56,42,.45) 52%, rgba(20,56,42,.8) 92%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent !important; -webkit-text-fill-color: transparent !important;
+  filter: drop-shadow(0 1px 0 rgba(255,255,255,.55));
 }
-[data-testid="stSidebar"] .stButton button [data-testid="stIconMaterial"] {
-  font-size: .9rem; padding: 4px; margin-right: .3rem; border-radius: 8px;
-  background: rgba(239,234,218,.09);
-  border: 1px solid rgba(255,255,255,.14);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.16);
+[data-testid="stSidebar"] [data-testid="stIconMaterial"] {
+  font-size: .95rem; margin-right: .3rem;
+  background: linear-gradient(165deg,
+    rgba(239,234,218,.95) 8%, rgba(239,234,218,.42) 52%, rgba(239,234,218,.8) 92%);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.4));
 }
 [data-testid="stSidebar"] .stButton button[kind="primary"] [data-testid="stIconMaterial"] {
-  background: rgba(233,194,92,.14);
-  border-color: rgba(233,194,92,.35);
+  background: linear-gradient(165deg,
+    #F2D584 8%, rgba(233,194,92,.5) 52%, #D9B254 92%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent !important;
 }
-[class*="st-key-chip_"] [data-testid="stIconMaterial"] { font-size: .8rem; padding: 3px; }
+.stButton button[kind="primary"] [data-testid="stIconMaterial"],
+[data-testid="stBaseButton-primary"] [data-testid="stIconMaterial"] {
+  background: linear-gradient(165deg,
+    rgba(243,238,224,.98) 8%, rgba(243,238,224,.48) 52%, rgba(243,238,224,.85) 92%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent !important;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.35));
+}
+[class*="st-key-chip_"] [data-testid="stIconMaterial"] { font-size: .82rem; }
+@media (prefers-contrast: more) {
+  [data-testid="stIconMaterial"] {
+    background: none !important; color: currentColor !important;
+    -webkit-text-fill-color: currentColor !important; filter: none !important;
+  }
+}
 
 /* The route-confidence meter on the approval card. */
 .confmeter { margin: .25rem 0 .5rem; }
@@ -697,13 +710,6 @@ _ART = """
 .confmeter.high .fill { background: linear-gradient(90deg, #128A5E, #1BA371); }
 .confmeter.low .fill { background: linear-gradient(90deg, #BE3E2F, #D05A48); }
 
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .stButton button [data-testid="stIconMaterial"],
-  [data-testid="stSidebar"] .stButton button [data-testid="stIconMaterial"] {
-    background: transparent; border-color: transparent;
-    backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none;
-  }
-}
 """
 
 
@@ -773,10 +779,11 @@ _DARK = """
   box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
 }
 .stButton button:hover { background: rgba(236,239,232,.13); }
-.stButton button [data-testid="stIconMaterial"],
-[data-testid="stChatInput"] [data-testid="stIconMaterial"] {
-  background: rgba(236,239,232,.08); border-color: rgba(255,255,255,.16);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+[data-testid="stIconMaterial"] {
+  background: linear-gradient(165deg,
+    rgba(236,239,232,.95) 8%, rgba(236,239,232,.42) 52%, rgba(236,239,232,.8) 92%);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.45));
 }
 .stButton button[kind="primary"],
 [data-testid="stBaseButton-primary"] {
