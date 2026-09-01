@@ -39,8 +39,9 @@ class Understanding:
     title: str | None = None
     reply: str | None = None          # the assistant's own words, for help/small talk
     rationale: str = ""
-    source: str = "keywords"          # "claude" or "keywords"
+    source: str = "keywords"          # "claude", "open model" or "keywords"
     contact_line: str = ""            # "no process fits, but this team covers it"
+    alternates: list = None           # ranked [{process_id, name, confidence}]
 
 
 def llm_ready() -> bool:
@@ -174,6 +175,22 @@ def _from_reading(session: Session, text: str, reading, *, source: str) -> Under
     if process_id is not None and session.get(Process, process_id) is None:
         process_id = None  # the model must not invent catalogue entries
     confidence = max(0.0, min(100.0, float(reading.confidence or 0)))
+    # The deterministic ranking backs the "not this" fallback, and covers
+    # for a model that returned null on a request-shaped message.
+    ranked = match_processes(session, matchable_text(text), limit=4)
+    alternates = [
+        {"process_id": m.process_id, "name": m.process_name,
+         "confidence": m.confidence}
+        for m in ranked
+    ]
+    if process_id is None and reading.intent == "request" and ranked:
+        process_id = ranked[0].process_id
+        confidence = ranked[0].confidence
+    if process_id is not None and process_id not in [a["process_id"] for a in alternates]:
+        picked = session.get(Process, process_id)
+        alternates.insert(0, {"process_id": process_id,
+                              "name": picked.name if picked else "",
+                              "confidence": confidence})
     if process_id is None:
         confidence = 0.0
     return Understanding(
@@ -185,6 +202,7 @@ def _from_reading(session: Session, text: str, reading, *, source: str) -> Under
         reply=reading.reply,
         rationale=reading.rationale,
         source=source,
+        alternates=alternates,
     )
 
 
@@ -281,8 +299,16 @@ def _understand_keywords(session: Session, text: str) -> Understanding:
     ):
         return Understanding(intent="help")
 
-    matches = match_processes(session, matchable_text(text), limit=3)
-    top = matches[0] if matches and matches[0].confidence >= 25 else None
+    # Always commit to the best available match — the requester gets a route
+    # and a drafted email immediately; the ranked alternates back the
+    # "not this" fallback instead of dumping the whole catalogue on them.
+    matches = match_processes(session, matchable_text(text), limit=4)
+    top = matches[0] if matches else None
+    alternates = [
+        {"process_id": m.process_id, "name": m.process_name,
+         "confidence": m.confidence}
+        for m in matches
+    ]
     contact_line = ""
     if top is None:
         contacts = match_departments(session, text, limit=1)
@@ -293,13 +319,17 @@ def _understand_keywords(session: Session, text: str) -> Understanding:
                 f"{contact.department_name} — {contact.person_name}, "
                 f"{contact.person_title}, {contact.reason}."
             )
+    rationale = top.why() if top else (
+        "Nothing in the catalogue overlaps this at all.")
+    if top and top.confidence < 25:
+        rationale += " It's a loose fit — say so if I got it wrong."
     return Understanding(
         intent="request",
         process_id=top.process_id if top else None,
         confidence=top.confidence if top else 0.0,
         title=suggest_title(text, top.process_name if top else None),
-        rationale=top.why() if top else
-        "Nothing in the catalogue matched with usable confidence.",
+        rationale=rationale,
         contact_line=contact_line,
         source="keywords",
+        alternates=alternates,
     )

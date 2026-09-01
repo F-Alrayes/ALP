@@ -204,23 +204,31 @@ def _handle(text: str, actor_id: int) -> None:
             return
 
         # A request: explain the reading, then ask for approval on the draft.
+        # Routing is fully automated — the best available match is committed
+        # and the email is drafted immediately; "Not this" offers the ranked
+        # runners-up instead of the whole catalogue.
         lines = [reading.rationale] if reading.rationale else []
         if reading.process_id is None:
             if reading.contact_line:
                 lines.append(reading.contact_line)
-            lines.append("Pick a type below — or send it and I'll park it "
-                         "with the admin.")
-        else:
+            lines.append("I'll park it with the Atlas admin, who routes "
+                         "unmapped work by hand.")
+        elif reading.confidence >= 10:
             lines.append(f"{reading.confidence:.0f}% confident in this route — "
                          "approve the draft below and I'll send it.")
+        else:
+            lines.append("No close match, so I've routed it to the nearest "
+                         "fit — tap 'Not this' on the draft if I got it wrong.")
         st.session_state[DRAFT_KEY] = {
             "query": text,
             "process_id": reading.process_id,
             "matched_id": reading.process_id,   # the model's own pick, immutable
             "confidence": reading.confidence,
+            "alternates": reading.alternates or [],
             "title": reading.title or "",
             "source": reading.source,
-            "body_for": None,
+            "body_for": "unset",
+            "show_alts": False,
         }
         for stale in ("ask_draft_title", "ask_draft_body", "ask_draft_process"):
             st.session_state.pop(stale, None)
@@ -241,21 +249,10 @@ def _draft_card(actor_id: int) -> None:
     # roll a commit back.
     with session_scope() as session:
         actor = session.get(Person, actor_id)
-        processes = session.query(Process).order_by(Process.name).all()
-        options = [p.id for p in processes]
-        names = {p.id: f"{p.name} — {p.category}" for p in processes}
-        if draft["process_id"] is None:
-            # Nothing matched: don't guess a route — park with the admin unless
-            # the requester picks a type themselves.
-            options = [None] + options
-            names[None] = "No matching type — park with the Atlas admin"
-        default = draft["process_id"] if draft["process_id"] in options else options[0]
-
-        chosen = st.session_state.get("ask_draft_process", default)
+        chosen = draft["process_id"]
         process = session.get(Process, chosen) if chosen is not None else None
         resolution = resolve(session, process)
         if chosen != draft.get("body_for"):
-            draft["process_id"] = chosen
             draft["body_for"] = chosen
             # A new route re-drafts the message for the new owner; the title
             # stays — it's the requester's words.
@@ -275,6 +272,8 @@ def _draft_card(actor_id: int) -> None:
         ]
         target = resolution.assignee_name or "the Atlas admin (no owner resolved)"
         summary = resolution.summary
+        route_name = (f"{process.name} — {process.category}" if process
+                      else "Unmapped — the Atlas admin routes it by hand")
 
     src_label = {
         "claude": "read by Claude",
@@ -286,19 +285,19 @@ def _draft_card(actor_id: int) -> None:
             f"<span class='draft-src'>{src_label}</span></div>",
             unsafe_allow_html=True,
         )
-        st.selectbox(
-            "Route as", options=options, key="ask_draft_process",
-            index=options.index(chosen), format_func=lambda i: names[i],
-        )
         st.markdown(
-            f"<div class='draft-route'>→ <strong>{esc(target)}</strong>"
+            f"<div class='draft-route'><span class='subtle'>{esc(route_name)}"
+            f"</span><br>→ <strong>{esc(target)}</strong>"
             f" &nbsp;<span class='subtle'>{esc(summary)}</span></div>",
             unsafe_allow_html=True,
         )
-        # The meter speaks for the model's own match; a manual re-route is
-        # the requester's call, so it needs no score.
+        # The meter follows whichever candidate is currently routed.
+        alternates = draft.get("alternates") or []
         conf = float(draft.get("confidence") or 0)
-        if chosen is not None and chosen == draft.get("matched_id") and conf > 0:
+        if chosen is not None and chosen != draft.get("matched_id"):
+            conf = next((float(a["confidence"]) for a in alternates
+                         if a["process_id"] == chosen), 0.0)
+        if chosen is not None and conf > 0:
             band = " high" if conf >= 70 else ("" if conf >= 40 else " low")
             st.markdown(
                 f"<div class='confmeter{band}'>"
@@ -328,7 +327,7 @@ def _draft_card(actor_id: int) -> None:
                 _clear_draft()
                 st.rerun()
 
-        send_col, drop_col, _ = st.columns([1.7, 1, 2.5])
+        send_col, alt_col, drop_col = st.columns([1.6, 1.2, 1])
         if send_col.button("Approve & send", type="primary", width="stretch",
                            icon=":material/send:", key="ask_draft_send"):
             with write_lock, session_scope() as writer:
@@ -346,11 +345,44 @@ def _draft_card(actor_id: int) -> None:
             _push("bot", "sent", id=new_id)
             _clear_draft()
             st.rerun()
+        runners_up = [a for a in alternates if a["process_id"] != chosen]
+        if runners_up and alt_col.button(
+                "Not this", width="stretch",
+                icon=":material/alt_route:", key="ask_draft_wrong",
+                help="Show the next most likely routes"):
+            draft["show_alts"] = not draft.get("show_alts")
+            st.rerun()
         if drop_col.button("Discard", width="stretch",
                            icon=":material/delete:", key="ask_draft_drop"):
             _clear_draft()
             _push("bot", "text", text="Dropped. What else can I sort out?")
             st.rerun()
+
+        if draft.get("show_alts") and runners_up:
+            st.markdown(
+                "<div class='subtle' style='margin:.3rem 0 .2rem'>"
+                "Next most likely — pick one and I'll re-draft:</div>",
+                unsafe_allow_html=True,
+            )
+            for alt in runners_up[:3]:
+                score = (f"{alt['confidence']:.0f}%" if alt["confidence"] >= 1
+                         else "low match")
+                if st.button(
+                        f"{alt['name']} · {score}",
+                        key=f"ask_alt_{alt['process_id']}", width="stretch",
+                        icon=":material/turn_right:"):
+                    draft["process_id"] = alt["process_id"]
+                    draft["show_alts"] = False
+                    st.session_state.pop("ask_draft_body", None)
+                    st.rerun()
+            if chosen is not None and st.button(
+                    "None of these — park with the Atlas admin",
+                    key="ask_alt_admin", width="stretch",
+                    icon=":material/support_agent:"):
+                draft["process_id"] = None
+                draft["show_alts"] = False
+                st.session_state.pop("ask_draft_body", None)
+                st.rerun()
 
 
 def _clear_draft() -> None:
