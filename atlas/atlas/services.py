@@ -79,24 +79,32 @@ def touch(request: Request, at: datetime) -> None:
 
 
 def draft_body(requester: Person, process: Process | None, resolution: Resolution, query: str) -> str:
-    """The editable message Atlas proposes on the intake page."""
-    target = resolution.assignee_name or "the Atlas admin"
-    process_name = process.name if process else "an unmatched request"
-    lines = [
-        f"Hi {target.split()[0] if resolution.assignee_name else 'there'},",
-        "",
-        f"{requester.name} ({requester.title}) has raised a request under {process_name}:",
-        "",
-        f"    {query.strip()}",
-        "",
-    ]
+    """The editable email Atlas proposes — written in the requester's own
+    voice, ready to send as if they typed it themselves."""
+    first = resolution.assignee_name.split()[0] if resolution.assignee_name else "there"
+    ask = (query or "").strip().rstrip(".!?")
+    if ask:
+        ask = ask[0].upper() + ask[1:] + "."
+    lines = [f"Hi {first},", "", ask, ""]
+    if process is not None:
+        lines += [
+            f"I believe this falls under {process.name} — could you pick it "
+            "up, or point me to the right person if I've got that wrong?",
+            "",
+        ]
+    else:
+        lines += [
+            "I couldn't find the right request type for this, so I'm sending "
+            "it your way to route.",
+            "",
+        ]
     if resolution.rerouted and resolution.owner_name:
-        lines.append(
-            f"You are receiving this because {resolution.owner_name} is out of office and you are "
-            f"the configured {resolution.assignee_role} for this process."
-        )
-        lines.append("")
-    lines.append("Atlas will chase this automatically if it is not acknowledged.")
+        lines += [
+            f"I'm writing to you as {resolution.owner_name} is out of office "
+            f"and I understand you're covering as {resolution.assignee_role}.",
+            "",
+        ]
+    lines += ["Thanks,", requester.name, requester.title]
     return "\n".join(lines)
 
 
