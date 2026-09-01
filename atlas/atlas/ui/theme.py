@@ -795,9 +795,29 @@ _DARK = """
               0 2px 6px -4px rgba(0,0,0,.5);
 }
 [role="listbox"], [data-baseweb="popover"] {
-  background: rgba(18,34,26,.88);
+  background: rgba(18,34,26,.94);
 }
-[role="listbox"] li, [data-baseweb="popover"] li { color: var(--ink); }
+/* BaseWeb paints menu items with the light theme's own ink and fills;
+   blank them so the dark panel shows through and the text is light. */
+[role="listbox"] li, [role="listbox"] li *,
+[data-baseweb="menu"] li, [data-baseweb="menu"] li *,
+[role="option"], [role="option"] * {
+  background-color: transparent !important;
+  color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important;
+}
+[role="option"]:hover, [role="option"][aria-selected="true"],
+[data-baseweb="menu"] li:hover {
+  background-color: rgba(236,239,232,.14) !important;
+}
+/* help tooltips: dark pill, light text */
+[data-baseweb="tooltip"], [data-testid="stTooltipContent"] {
+  background: #101E17 !important; color: var(--ink) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+}
+[data-baseweb="tooltip"] *, [data-testid="stTooltipContent"] * {
+  background: transparent !important;
+  color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important;
+}
 [data-testid="stToast"] {
   background: rgba(18,34,26,.88) !important; color: var(--ink) !important;
 }
