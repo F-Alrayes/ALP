@@ -72,6 +72,31 @@ class Match:
         return joined[0].upper() + joined[1:] + "."
 
 
+# Everyday phrasings mapped onto the catalogue's vocabulary, so "my computer
+# is broken" reaches the hardware process without using its exact keywords.
+SYNONYMS: dict[str, str] = {
+    "computer": "laptop hardware", "pc": "laptop hardware",
+    "machine": "laptop hardware", "macbook": "laptop", "notebook": "laptop",
+    "fix": "repair broken", "fixed": "repair broken", "fixing": "repair broken",
+    "repair": "broken fix", "broken": "repair fix", "broke": "repair fix broken",
+    "faulty": "broken repair", "crashed": "broken repair", "down": "broken",
+    "screen": "monitor hardware", "keyboard": "hardware", "mouse": "hardware",
+    "printer": "hardware", "wifi": "network vpn", "internet": "network vpn",
+    "login": "password access", "signin": "password access",
+    "reimburse": "expense reimbursement", "refund": "expense reimbursement",
+    "pay": "payment invoice", "paid": "payment invoice",
+    "fly": "flight travel", "flying": "flight travel", "plane": "flight travel",
+    "hotel": "travel", "conference": "travel trip",
+    "folder": "access", "docs": "documents",
+}
+
+
+def expand_query(query: str) -> str:
+    """Append synonym expansions so common words reach catalogue keywords."""
+    extra = [SYNONYMS[t] for t in tokenize(query) if t in SYNONYMS]
+    return query + ((" " + " ".join(extra)) if extra else "")
+
+
 def tokenize(text: str) -> list[str]:
     return [t for t in TOKEN_RE.findall((text or "").lower()) if t not in STOPWORDS and len(t) > 1]
 
@@ -152,7 +177,7 @@ def _keyword_hits(query: str, query_tokens: list[str], keywords: list[str]) -> l
 
 def match_processes(session: Session, query: str, limit: int = 3) -> list[Match]:
     """Rank processes against a free-text request. Highest confidence first."""
-    query = (query or "").strip()
+    query = expand_query((query or "").strip())
     processes = session.query(Process).order_by(Process.name).all()
     if not query or not processes:
         return []

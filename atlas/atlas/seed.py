@@ -194,6 +194,16 @@ PROCESSES: list[tuple[str, str, str, str]] = [
         "policy exception, waiver, exemption, deviation, override, policy breach, "
         "one off approval, dispensation",
     ),
+    (
+        "IT Hardware Support",
+        "IT",
+        "Fix or replace a broken laptop, monitor, phone or other device, "
+        "including slow machines, battery and charger problems.",
+        "laptop, computer, hardware, broken laptop, fix laptop, laptop fixed, repair, "
+        "device, screen, monitor, keyboard, mouse, printer, phone, headset, docking, "
+        "battery, charger, slow computer, not working, blue screen, "
+        "replacement device, new laptop, it support",
+    ),
 ]
 
 # process name -> {role: [person names]}
@@ -209,6 +219,12 @@ RESPONSIBILITIES: dict[str, dict[str, list[str]]] = {
         "approver": ["Huda Al-Najjar"],
         "delegate": ["Karim El-Masri"],
         "backup": ["Tomas Ferreira"],
+    },
+    "IT Hardware Support": {
+        "owner": ["Bilal Rahman"],
+        "approver": ["Vikram Chandra"],
+        "delegate": ["Ivan Kovacs"],
+        "backup": ["Ahmed Zaki"],
     },
     "IT Access Provisioning": {
         "owner": ["Bilal Rahman"],

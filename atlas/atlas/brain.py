@@ -183,7 +183,8 @@ def _from_reading(session: Session, text: str, reading, *, source: str) -> Under
          "confidence": m.confidence}
         for m in ranked
     ]
-    if process_id is None and reading.intent == "request" and ranked:
+    if (process_id is None and reading.intent == "request"
+            and ranked and ranked[0].confidence >= 3):
         process_id = ranked[0].process_id
         confidence = ranked[0].confidence
     if process_id is not None and process_id not in [a["process_id"] for a in alternates]:
@@ -303,7 +304,10 @@ def _understand_keywords(session: Session, text: str) -> Understanding:
     # and a drafted email immediately; the ranked alternates back the
     # "not this" fallback instead of dumping the whole catalogue on them.
     matches = match_processes(session, matchable_text(text), limit=4)
-    top = matches[0] if matches else None
+    # Below ~3% every process scored zero and the order is just catalogue
+    # order — committing to it would send laptops to the data room. Park
+    # with the admin instead; the ranked list still backs "Not this".
+    top = matches[0] if matches and matches[0].confidence >= 3 else None
     alternates = [
         {"process_id": m.process_id, "name": m.process_name,
          "confidence": m.confidence}
