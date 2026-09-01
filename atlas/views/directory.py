@@ -287,11 +287,33 @@ def _initials(name: str) -> str:
     return (parts[0][0] + parts[-1][0]).upper() if len(parts) > 1 else name[:2].upper()
 
 
-def _org_node(person, dept: str, kids: int, away: bool, hit: bool) -> str:
-    # One line: indented multi-line HTML trips markdown's code-block rule.
-    pill = f'<span class="okids">{kids}</span>' if kids else ""
+_LEAVE_REASONS = ("Annual leave", "Parental leave", "Business trip", "Medical leave")
+
+
+def _org_status(person, away: bool, at) -> tuple[str, str]:
+    """leave / notin / online, derived from OOO state and the simulated clock.
+    Arrival is staggered per person (08:00-11:30) so the board shows life."""
+    if away:
+        return "leave", "On leave"
+    hour = at.hour + at.minute / 60.0
+    start = 8.0 + ((person.id * 37) % 15) / 4.0
+    if hour < start:
+        return "notin", "Not in office yet"
+    if hour >= 18.5:
+        return "notin", "Not in office"
+    return "online", "Online"
+
+
+def _org_node(person, dept, kids, hit, status, info) -> str:
+    import html as _html
+    import json as _json
+
+    code, _label = status
+    pill = (f'<button class="okids" data-n="{kids}">{kids}</button>' if kids else "")
+    payload = _html.escape(_json.dumps(info), quote=True)
     return (
-        f'<div class="onode{" hit" if hit else ""}{" away" if away else ""}">'
+        f'<div class="onode {code}{" hit" if hit else ""}" data-info="{payload}">'
+        f'<span class="odot {code}"></span>'
         f'<span class="oava">{esc(_initials(person.name))}</span>'
         f'<div class="oname">{esc(person.name)}</div>'
         f'<div class="orole">{esc(person.title)}</div>'
@@ -300,22 +322,200 @@ def _org_node(person, dept: str, kids: int, away: bool, hit: bool) -> str:
     )
 
 
-def _org_branch(person, children_map, dept_map, away_ids, highlight_id) -> str:
-    children = children_map.get(person.id, [])
+def _org_branch(person, ctx, highlight_id) -> str:
+    children = ctx["children"].get(person.id, [])
     node = _org_node(
-        person, dept_map.get(person.department_id, "Executive"),
-        len(children), person.id in away_ids, person.id == highlight_id,
+        person, ctx["dept"].get(person.department_id, "Executive"),
+        len(children), person.id == highlight_id,
+        ctx["status"][person.id], ctx["info"][person.id],
     )
     if not children:
         return f"<li>{node}</li>"
-    kids = "".join(
-        _org_branch(c, children_map, dept_map, away_ids, highlight_id)
-        for c in children
-    )
-    return f"<li>{node}<ul>{kids}</ul></li>"
+    kids = "".join(_org_branch(c, ctx, highlight_id) for c in children)
+    return f'<li class="branch">{node}<ul>{kids}</ul></li>'
+
+
+def _org_palette(dark: bool) -> dict:
+    if dark:
+        return {"card": "rgba(22,40,30,.88)", "line": "rgba(236,239,232,.18)",
+                "ink": "#ECEFE8", "muted": "#9DAA9E", "amber": "#D9B254",
+                "accent": "#E9C25C", "strong": "#1E4433",
+                "tipbg": "rgba(14,27,21,.97)", "btnbg": "rgba(236,239,232,.08)",
+                "ring": "rgba(14,27,21,.9)",
+                "online": "#3FBF8C", "notin": "#D9A441", "leave": "#E06B5B"}
+    return {"card": "rgba(255,253,246,.88)", "line": "#E3DAC2",
+            "ink": "#1B2721", "muted": "#566158", "amber": "#83660A",
+            "accent": "#A8820F", "strong": "#14382A",
+            "tipbg": "rgba(255,253,246,.98)", "btnbg": "rgba(255,253,246,.7)",
+            "ring": "rgba(255,253,246,.94)",
+            "online": "#128A5E", "notin": "#B0741B", "leave": "#BE3E2F"}
+
+
+def _org_doc(branches: str, focused: bool) -> str:
+    """A self-contained interactive chart: zoom, collapse, status, hover cards."""
+    from atlas.ui import theme as _theme
+    from atlas.ui.theme import _font_css
+
+    c = _org_palette(_theme.is_dark())
+    css = f"""
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; background: transparent;
+      font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; }}
+    .mono {{ font-family: 'IBM Plex Mono', ui-monospace, monospace; }}
+    .bar {{ display: flex; gap: 6px; align-items: center; margin: 0 0 8px; }}
+    .bar button {{ font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+      color: {c['ink']}; background: {c['btnbg']}; border: 1px solid {c['line']};
+      border-radius: 9px; padding: 4px 10px; cursor: pointer;
+      backdrop-filter: blur(8px); }}
+    .bar button:hover {{ border-color: {c['accent']}; }}
+    #zpct {{ font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+      color: {c['muted']}; min-width: 44px; text-align: center; }}
+    .legend {{ margin-left: auto; display: flex; gap: 12px; align-items: center;
+      font-size: 11px; color: {c['muted']}; }}
+    .legend span {{ display: inline-flex; gap: 5px; align-items: center; }}
+    .ldot {{ width: 8px; height: 8px; border-radius: 50%; display: inline-block; }}
+    #wrap {{ overflow: auto; height: calc(100vh - 44px); border-radius: 14px;
+      border: 1px solid {c['line']}; padding: 26px 10px 16px; }}
+    #tree {{ min-width: max-content; margin-inline: auto; }}
+    #tree ul {{ display: flex; justify-content: center; padding: 26px 0 0;
+      margin: 0; position: relative; list-style: none; }}
+    #tree li {{ list-style: none; position: relative; padding: 26px 12px 14px;
+      margin: 0; display: flex; flex-direction: column; align-items: center; }}
+    #tree li::before, #tree li::after {{ content: ""; position: absolute; top: 0;
+      right: 50%; width: 50%; height: 26px; border-top: 1.5px solid {c['line']}; }}
+    #tree li::after {{ right: auto; left: 50%; border-left: 1.5px solid {c['line']}; }}
+    #tree li:only-child::before, #tree li:only-child::after {{ display: none; }}
+    #tree li:only-child {{ padding-top: 0; }}
+    #tree li:first-child::before, #tree li:last-child::after {{ border: 0 none; }}
+    #tree li:last-child::before {{ border-right: 1.5px solid {c['line']};
+      border-radius: 0 8px 0 0; }}
+    #tree li:first-child::after {{ border-radius: 8px 0 0 0; }}
+    #tree ul ul::before {{ content: ""; position: absolute; top: 0; left: 50%;
+      height: 26px; border-left: 1.5px solid {c['line']}; }}
+    #tree > ul {{ padding-top: 0; }}
+    #tree > ul > li {{ padding-top: 0; }}
+    #tree > ul > li::before, #tree > ul > li::after {{ display: none; }}
+    #tree li.closed > ul {{ display: none; }}
+    .onode {{ position: relative; width: 178px; background: {c['card']};
+      border: 1px solid {c['line']}; border-radius: 12px;
+      padding: 14px 12px 12px; text-align: center; cursor: default;
+      backdrop-filter: blur(10px) saturate(1.35);
+      box-shadow: inset 0 3px 0 {c['strong']},
+                  inset 0 4px 0 rgba(255,255,255,.35),
+                  0 10px 24px -18px rgba(0,0,0,.45);
+      transition: transform .18s ease, border-color .18s ease; }}
+    .onode:hover {{ transform: translateY(-2px); border-color: {c['accent']}; }}
+    .onode.hit {{ box-shadow: inset 0 3px 0 {c['accent']}, 0 0 0 2px {c['accent']}55,
+      0 10px 24px -18px rgba(0,0,0,.45); }}
+    .odot {{ position: absolute; top: -5px; left: 10px; width: 11px; height: 11px;
+      border-radius: 50%; box-shadow: 0 0 0 3px {c['ring']}; }}
+    .odot.online {{ background: {c['online']}; }}
+    .odot.notin  {{ background: {c['notin']}; }}
+    .odot.leave  {{ background: {c['leave']}; }}
+    .oava {{ position: absolute; top: -14px; right: 10px; width: 30px; height: 30px;
+      border-radius: 50%; background: {c['accent']}; color: #122019;
+      font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 11px;
+      display: grid; place-items: center; box-shadow: 0 0 0 3px {c['ring']},
+      inset 0 1px 0 rgba(255,255,255,.35); }}
+    .oname {{ font-weight: 600; font-size: 13.5px; color: {c['ink']}; line-height: 1.2; }}
+    .orole {{ font-size: 11.5px; color: {c['muted']}; margin-top: 2px; line-height: 1.25; }}
+    .odept {{ font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: .1em; color: {c['amber']};
+      margin-top: 4px; }}
+    .okids {{ position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 5px; border: 0;
+      background: {c['strong']}; color: #F3EEE0;
+      font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+      display: grid; place-items: center; cursor: pointer;
+      box-shadow: 0 0 0 2px {c['ring']}; }}
+    li.closed .okids {{ background: {c['accent']}; color: #122019; }}
+    #tip {{ position: fixed; z-index: 10; display: none; width: 264px;
+      background: {c['tipbg']}; border: 1px solid {c['line']}; border-radius: 12px;
+      padding: 11px 13px; font-size: 12px; color: {c['ink']};
+      box-shadow: 0 18px 40px -18px rgba(0,0,0,.5); pointer-events: none; }}
+    #tip .tname {{ font-weight: 600; font-size: 13px; }}
+    #tip .tsub {{ color: {c['muted']}; margin-top: 1px; }}
+    #tip .trow {{ margin-top: 7px; display: flex; gap: 6px; align-items: baseline; }}
+    #tip .tkey {{ font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: .09em; color: {c['muted']};
+      flex: none; min-width: 62px; }}
+    #tip .tdot {{ width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 5px; }}
+    #tip .leaveline {{ color: {c['leave']}; }}
+    """
+    return f"""<!DOCTYPE html><html><head><style>{_font_css()}</style>
+<style>{css}</style></head><body>
+<div class="bar">
+  <button id="zo" title="Zoom out">−</button>
+  <span id="zpct">100%</span>
+  <button id="zi" title="Zoom in">+</button>
+  <button id="zr">Fit</button>
+  <button id="xall">Expand all</button>
+  <button id="call">Collapse all</button>
+  <div class="legend">
+    <span><i class="ldot" style="background:{c['online']}"></i>Online</span>
+    <span><i class="ldot" style="background:{c['notin']}"></i>Not in yet</span>
+    <span><i class="ldot" style="background:{c['leave']}"></i>On leave</span>
+  </div>
+</div>
+<div id="wrap"><div id="tree"><ul>{branches}</ul></div></div>
+<div id="tip"></div>
+<script>
+const wrap = document.getElementById('wrap'), tree = document.getElementById('tree');
+const tip = document.getElementById('tip'), zpct = document.getElementById('zpct');
+let z = 1;
+const setz = v => {{ z = Math.min(2, Math.max(.4, v)); tree.style.zoom = z;
+  zpct.textContent = Math.round(z * 100) + '%'; }};
+document.getElementById('zi').onclick = () => setz(z + .15);
+document.getElementById('zo').onclick = () => setz(z - .15);
+document.getElementById('zr').onclick = () => {{ setz(1); center(); }};
+wrap.addEventListener('wheel', e => {{
+  if (e.ctrlKey || e.metaKey) {{ e.preventDefault(); setz(z + (e.deltaY < 0 ? .1 : -.1)); }}
+}}, {{passive: false}});
+const setPill = li => {{ const b = li.querySelector(':scope > .onode .okids');
+  if (b) b.textContent = (li.classList.contains('closed') ? '+' : '') + b.dataset.n; }};
+document.querySelectorAll('.okids').forEach(b => b.addEventListener('click', e => {{
+  e.stopPropagation(); const li = b.closest('li');
+  li.classList.toggle('closed'); setPill(li); hide();
+}}));
+document.getElementById('xall').onclick = () => document.querySelectorAll('li.branch')
+  .forEach(li => {{ li.classList.remove('closed'); setPill(li); }});
+document.getElementById('call').onclick = () => document.querySelectorAll('li.branch')
+  .forEach(li => {{ if (li.parentElement.parentElement !== tree) li.classList.add('closed');
+                    setPill(li); }});
+const hide = () => tip.style.display = 'none';
+const pos = e => {{
+  const w = 264, h = tip.offsetHeight || 160;
+  tip.style.left = Math.min(e.clientX + 16, innerWidth - w - 10) + 'px';
+  tip.style.top = (e.clientY + 18 + h > innerHeight
+                   ? e.clientY - h - 12 : e.clientY + 18) + 'px'; }};
+document.querySelectorAll('.onode').forEach(n => {{
+  n.addEventListener('mouseenter', e => {{
+    const d = JSON.parse(n.dataset.info);
+    let rows = `<div class="tname">${{d.name}}</div>` +
+      `<div class="tsub">${{d.title}} · ${{d.dept}}</div>` +
+      `<div class="trow"><span class="tkey">Status</span>` +
+      `<span><i class="tdot" style="background:${{d.dotColor}}"></i>${{d.status}}</span></div>`;
+    if (d.leave) rows += `<div class="trow"><span class="tkey">Leave</span>` +
+      `<span class="leaveline">${{d.leave.reason}} · back ${{d.leave.back}}</span></div>`;
+    rows += `<div class="trow"><span class="tkey">Manager</span><span>${{d.manager}}</span></div>` +
+      `<div class="trow"><span class="tkey">Email</span><span>${{d.email}}</span></div>`;
+    (d.resp || []).forEach(r => rows +=
+      `<div class="trow"><span class="tkey">${{r[0]}}</span><span>${{r[1]}}</span></div>`);
+    tip.innerHTML = rows; tip.style.display = 'block'; pos(e);
+  }});
+  n.addEventListener('mousemove', pos);
+  n.addEventListener('mouseleave', hide);
+}});
+wrap.addEventListener('scroll', hide);
+const center = () => wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2;
+{"" if focused else "requestAnimationFrame(center);"}
+</script></body></html>"""
 
 
 def _org_chart_tab() -> None:
+    import streamlit.components.v1 as components
+
     term = st.text_input(
         "Org chart for", placeholder="everyone — type a name to focus",
         key="org_chart_for",
@@ -323,52 +523,52 @@ def _org_chart_tab() -> None:
     with session_scope() as session:
         at = clock.now(session)
         people = session.query(Person).order_by(Person.name).all()
-        dept_map = {
-            d.id: d.name
-            for d in session.query(Department).all()
-        }
+        dept_map = {d.id: d.name for d in session.query(Department).all()}
+        by_id = {p.id: p for p in people}
         away_ids = {p.id for p in people if is_out_of_office(p, at)}
         children_map: dict[int | None, list[Person]] = {}
         for p in people:
             children_map.setdefault(p.manager_id, []).append(p)
 
+        pal = _org_palette(__import__("atlas.ui.theme", fromlist=["is_dark"]).is_dark())
+        status_map, info_map = {}, {}
+        for p in people:
+            status = _org_status(p, p.id in away_ids, at)
+            status_map[p.id] = status
+            grouped = responsibilities_of(session, p.id)
+            resp = [
+                [role.capitalize(), ", ".join(pr.name for pr in procs[:3])]
+                for role, procs in grouped.items() if procs
+            ][:4]
+            info_map[p.id] = {
+                "name": p.name, "title": p.title,
+                "dept": dept_map.get(p.department_id, "Executive"),
+                "email": p.email,
+                "manager": by_id[p.manager_id].name if p.manager_id else "—",
+                "status": status[1], "dotColor": pal[status[0]],
+                "leave": {
+                    "reason": _LEAVE_REASONS[p.id % len(_LEAVE_REASONS)],
+                    "back": clock.fmt(p.ooo_until, with_time=False)
+                            if p.ooo_until else "soon",
+                } if status[0] == "leave" else None,
+                "resp": resp,
+            }
+
+        ctx = {"children": children_map, "dept": dept_map,
+               "status": status_map, "info": info_map}
         focus = None
         if term.strip():
             needle = term.strip().lower()
             focus = next((p for p in people if needle in p.name.lower()), None)
             if focus is None:
                 st.caption("Nobody matches — showing everyone.")
-
         roots = [focus] if focus else children_map.get(None, [])
         branches = "".join(
-            _org_branch(r, children_map, dept_map, away_ids,
-                        focus.id if focus else None)
-            for r in roots
+            _org_branch(r, ctx, focus.id if focus else None) for r in roots
         )
     if focus:
         st.caption(f"{focus.name}'s team · clear the box to see everyone.")
-    st.markdown(
-        f'<div class="orgwrap"><div class="orgtree"><ul>{branches}</ul></div></div>',
-        unsafe_allow_html=True,
-    )
-    if not focus:
-        # Open centered on the root instead of the leftmost branch.
-        import streamlit.components.v1 as components
-
-        components.html(
-            """<script>
-            const doc = window.parent.document;
-            let tries = 0;
-            const center = () => {
-              const w = doc.querySelector('.orgwrap');
-              if (w && w.scrollWidth > w.clientWidth) {
-                w.scrollLeft = (w.scrollWidth - w.clientWidth) / 2;
-              } else if (++tries < 20) { setTimeout(center, 100); }
-            };
-            center();
-            </script>""",
-            height=0,
-        )
+    components.html(_org_doc(branches, focused=bool(focus)), height=700)
 
 
 # --- graph ------------------------------------------------------------------
