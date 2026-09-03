@@ -311,7 +311,7 @@ def _draft_card(actor_id: int) -> None:
             resolution_trace(resolution)
 
         title = st.text_input("Title", key="ask_draft_title")
-        body = st.text_area("Message", key="ask_draft_body", height=180)
+        body = st.text_area("Message", key="ask_draft_body", height=132)
 
         for dup in duplicates:
             col_a, col_b = st.columns([4, 1], vertical_alignment="center")

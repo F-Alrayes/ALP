@@ -26,6 +26,12 @@ def _ring() -> str:
     return "#16281F" if theme.is_dark() else PALETTE["cream_200"]
 
 
+def _chart_ui() -> dict:
+    from .dashboard import _ui
+
+    return _ui()
+
+
 PERSON_KEY = "atlas_directory_person"
 PROCESS_KEY = "atlas_directory_process"
 
@@ -87,7 +93,7 @@ def _person_profile(person_id: int) -> None:
             "manager": manager.name if manager else "—",
         }
 
-    if st.button("← Back", key="back_person"):
+    if st.button("Back to people", icon=":material/arrow_back:", key="back_person"):
         st.session_state.pop(PERSON_KEY, None)
         st.rerun()
 
@@ -202,7 +208,7 @@ def _process_profile(process_id: int) -> None:
             "keywords": process.keyword_list,
         }
 
-    if st.button("← Back", key="back_process"):
+    if st.button("Back to people", icon=":material/arrow_back:", key="back_process"):
         st.session_state.pop(PROCESS_KEY, None)
         st.rerun()
 
@@ -357,14 +363,16 @@ def _org_doc(branches: str) -> str:
     from atlas.ui import theme as _theme
     from atlas.ui.theme import _font_css
 
-    c = _org_palette(_theme.is_dark())
+    dark = _theme.is_dark()
+    c = _org_palette(dark)
+    scheme = "dark" if dark else "light"
     css = f"""
     * {{ box-sizing: border-box; }}
     body {{ margin: 0; background: transparent; height: 100vh;
       display: flex; flex-direction: column; overflow: hidden;
       font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; }}
     .mono {{ font-family: 'IBM Plex Mono', ui-monospace, monospace; }}
-    .bar {{ display: flex; gap: 6px; align-items: center; margin: 0 0 8px;
+    .bar {{ display: flex; gap: 6px; align-items: center; margin: 0 0 6px;
       flex: none; flex-wrap: wrap; row-gap: 6px; }}
     .bar button {{ font-family: 'IBM Plex Mono', monospace; font-size: 12px;
       color: {c['ink']}; background: {c['btnbg']}; border: 1px solid {c['line']};
@@ -377,19 +385,21 @@ def _org_doc(branches: str) -> str:
       flex-wrap: wrap; font-size: 11px; color: {c['muted']}; }}
     .legend span {{ display: inline-flex; gap: 5px; align-items: center; }}
     .ldot {{ width: 8px; height: 8px; border-radius: 50%; display: inline-block; }}
+    :root {{ color-scheme: {scheme}; }}
     #wrap {{ overflow: auto; flex: 1; min-height: 0; border-radius: 14px;
-      border: 1px solid {c['line']}; padding: 26px 10px 16px;
+      border: 1px solid {c['line']}; padding: 18px 8px 12px;
       cursor: grab; user-select: none; -webkit-user-select: none;
-      overscroll-behavior: contain; }}
+      overscroll-behavior: contain;
+      scrollbar-width: thin; scrollbar-color: {c['line']} transparent; }}
     #wrap.grabbing {{ cursor: grabbing; }}
     #wrap.grabbing .onode {{ pointer-events: none; }}
     #tree {{ min-width: max-content; margin-inline: auto; }}
-    #tree ul {{ display: flex; justify-content: center; padding: 26px 0 0;
+    #tree ul {{ display: flex; justify-content: center; padding: 20px 0 0;
       margin: 0; position: relative; list-style: none; }}
-    #tree li {{ list-style: none; position: relative; padding: 26px 12px 14px;
+    #tree li {{ list-style: none; position: relative; padding: 20px 8px 10px;
       margin: 0; display: flex; flex-direction: column; align-items: center; }}
     #tree li::before, #tree li::after {{ content: ""; position: absolute; top: 0;
-      right: 50%; width: 50%; height: 26px; border-top: 1.5px solid {c['line']}; }}
+      right: 50%; width: 50%; height: 20px; border-top: 1.5px solid {c['line']}; }}
     #tree li::after {{ right: auto; left: 50%; border-left: 1.5px solid {c['line']}; }}
     #tree li:only-child::before, #tree li:only-child::after {{ display: none; }}
     #tree li:only-child {{ padding-top: 0; }}
@@ -398,20 +408,23 @@ def _org_doc(branches: str) -> str:
       border-radius: 0 8px 0 0; }}
     #tree li:first-child::after {{ border-radius: 8px 0 0 0; }}
     #tree ul ul::before {{ content: ""; position: absolute; top: 0; left: 50%;
-      height: 26px; border-left: 1.5px solid {c['line']}; }}
+      height: 20px; border-left: 1.5px solid {c['line']}; }}
     #tree > ul {{ padding-top: 0; }}
     #tree > ul > li {{ padding-top: 0; }}
     #tree > ul > li::before, #tree > ul > li::after {{ display: none; }}
     #tree li.closed > ul {{ display: none; }}
-    .onode {{ position: relative; width: 178px; background: {c['card']};
+    .onode {{ position: relative; width: 156px; background: {c['card']};
       border: 1px solid {c['line']}; border-radius: 12px;
-      padding: 14px 12px 12px; text-align: center; cursor: default;
+      padding: 11px 10px 9px; text-align: center; cursor: default;
       backdrop-filter: blur(10px) saturate(1.35);
       box-shadow: inset 0 3px 0 {c['strong']},
                   inset 0 4px 0 rgba(255,255,255,.35),
                   0 10px 24px -18px rgba(0,0,0,.45);
-      transition: transform .18s ease, border-color .18s ease; }}
-    .onode:hover {{ transform: translateY(-2px); border-color: {c['accent']}; }}
+      transition: transform 160ms cubic-bezier(.23,1,.32,1),
+                  border-color 160ms ease; }}
+    @media (hover: hover) and (pointer: fine) {{
+      .onode:hover {{ transform: translateY(-2px); border-color: {c['accent']}; }}
+    }}
     .onode.hit {{ box-shadow: inset 0 3px 0 {c['accent']}, 0 0 0 2px {c['accent']}55,
       0 10px 24px -18px rgba(0,0,0,.45); }}
     .odot {{ position: absolute; top: -5px; left: 10px; width: 11px; height: 11px;
@@ -419,33 +432,34 @@ def _org_doc(branches: str) -> str:
     .odot.online {{ background: {c['online']}; }}
     .odot.notin  {{ background: {c['notin']}; }}
     .odot.leave  {{ background: {c['leave']}; }}
-    .oava {{ position: absolute; top: -14px; right: 10px; width: 30px; height: 30px;
+    .oava {{ position: absolute; top: -12px; right: 9px; width: 26px; height: 26px;
       border-radius: 50%; background: {c['accent']}; color: #122019;
       font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 11px;
       display: grid; place-items: center; box-shadow: 0 0 0 3px {c['ring']},
       inset 0 1px 0 rgba(255,255,255,.35); }}
-    .oname {{ font-weight: 600; font-size: 13.5px; color: {c['ink']}; line-height: 1.2; }}
-    .orole {{ font-size: 11.5px; color: {c['muted']}; margin-top: 2px; line-height: 1.25; }}
-    .odept {{ font-family: 'IBM Plex Mono', monospace; font-size: 9px;
-      text-transform: uppercase; letter-spacing: .1em; color: {c['amber']};
-      margin-top: 4px; }}
-    .okids {{ position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
-      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 5px; border: 0;
+    .oname {{ font-weight: 600; font-size: 13px; color: {c['ink']}; line-height: 1.2; }}
+    .orole {{ font-size: 11px; color: {c['muted']}; margin-top: 2px; line-height: 1.25; }}
+    .odept {{ font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+      text-transform: uppercase; letter-spacing: .08em; color: {c['amber']};
+      margin-top: 3px; }}
+    .okids {{ position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
+      min-width: 19px; height: 19px; padding: 0 5px; border-radius: 5px; border: 0;
       background: {c['strong']}; color: #F3EEE0;
-      font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;
       display: grid; place-items: center; cursor: pointer;
       box-shadow: 0 0 0 2px {c['ring']}; }}
     li.closed .okids {{ background: {c['accent']}; color: #122019; }}
     #tip {{ position: fixed; z-index: 10; display: none; width: 264px;
+      animation: tipin 125ms cubic-bezier(.23,1,.32,1) both;
       background: {c['tipbg']}; border: 1px solid {c['line']}; border-radius: 12px;
       padding: 11px 13px; font-size: 12px; color: {c['ink']};
       box-shadow: 0 18px 40px -18px rgba(0,0,0,.5); pointer-events: none; }}
     #tip .tname {{ font-weight: 600; font-size: 13px; }}
     #tip .tsub {{ color: {c['muted']}; margin-top: 1px; }}
     #tip .trow {{ margin-top: 7px; display: flex; gap: 6px; align-items: baseline; }}
-    #tip .tkey {{ font-family: 'IBM Plex Mono', monospace; font-size: 9px;
-      text-transform: uppercase; letter-spacing: .09em; color: {c['muted']};
-      flex: none; min-width: 62px; }}
+    #tip .tkey {{ font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+      text-transform: uppercase; letter-spacing: .06em; color: {c['muted']};
+      flex: none; min-width: 66px; }}
     #tip .tdot {{ width: 8px; height: 8px; border-radius: 50%;
       display: inline-block; margin-right: 5px; }}
     #tip .leaveline {{ color: {c['leave']}; }}
@@ -470,6 +484,24 @@ def _org_doc(branches: str) -> str:
       box-shadow: inset 2px 0 0 {c['accent']}; }}
     .sg.none {{ cursor: default; font-size: 12px; color: {c['muted']};
       padding: 8px 9px; }}
+    #sugg {{ transform-origin: top left;
+      animation: popin 160ms cubic-bezier(.23,1,.32,1) both; }}
+    #q::-webkit-search-cancel-button {{ -webkit-appearance: none; }}
+    .bar button:focus-visible, #q:focus-visible, .okids:focus-visible {{
+      outline: none; box-shadow: 0 0 0 3px {c['accent']}59;
+      border-color: {c['accent']}; }}
+    @keyframes tipin {{ from {{ opacity: 0; transform: translateY(4px); }} }}
+    @keyframes popin {{ from {{ opacity: 0; transform: translateY(-4px) scale(.97); }} }}
+    @keyframes orgin {{ from {{ opacity: 0; transform: translateY(-4px); }} }}
+    @media (prefers-reduced-motion: no-preference) {{
+      #tree li.branch:not(.closed) > ul {{
+        animation: orgin 180ms cubic-bezier(.23,1,.32,1) both; }}
+    }}
+    @media (prefers-reduced-motion: reduce) {{
+      #tip, #sugg {{ animation: none; }}
+      .onode {{ transition: border-color 160ms ease; }}
+      .onode:hover {{ transform: none; }}
+    }}
     """
     return f"""<!DOCTYPE html><html><head><style>{_font_css()}</style>
 <style>{css}</style></head><body>
@@ -662,7 +694,7 @@ def _org_chart_tab() -> None:
                "status": status_map, "info": info_map}
         roots = children_map.get(None, [])
         branches = "".join(_org_branch(r, ctx, None) for r in roots)
-    components.html(_org_doc(branches), height=700)
+    components.html(_org_doc(branches), height=620)
 
 
 # --- graph ------------------------------------------------------------------
@@ -745,17 +777,26 @@ def _graph_figure(nodes: list[dict], edges: list[dict]) -> go.Figure:
             showarrow=False,
             xanchor="left" if on_right else "right",
             yanchor="middle",
-            font={"size": 11, "color": "#ECEFE8" if theme.is_dark() else PALETTE["ink"]},
+            font={"size": 11, "color": _chart_ui()["ink"],
+                  "family": "Instrument Sans, sans-serif"},
             bgcolor="rgba(18,34,26,0.92)" if theme.is_dark() else "rgba(255,253,246,0.92)",
-            bordercolor=PALETTE["cream_300"],
+            bordercolor=_chart_ui()["border"],
             borderwidth=1,
             borderpad=3,
         )
 
+    u = _chart_ui()
     figure.update_layout(
         showlegend=True,
-        legend={"orientation": "h", "y": -0.04},
-        height=640,
+        font={"color": u["ink"], "size": 12,
+              "family": "Instrument Sans, sans-serif"},
+        legend={"orientation": "h", "y": -0.04,
+                "font": {"color": u["muted"], "size": 11,
+                         "family": "Instrument Sans, sans-serif"}},
+        hoverlabel={"bgcolor": u["surface"], "bordercolor": u["border"],
+                    "font": {"color": u["ink"], "size": 12,
+                             "family": "Instrument Sans, sans-serif"}},
+        height=620,
         margin={"l": 10, "r": 10, "t": 10, "b": 10},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -769,18 +810,14 @@ def _graph_figure(nodes: list[dict], edges: list[dict]) -> go.Figure:
 
 
 def render(actor_id: int) -> None:
-    page_header(
-        "People",
-        "Who owns the work",
-        "Responsibility, not the reporting line.",
-    )
-
     if st.session_state.get(PERSON_KEY):
         _person_profile(st.session_state[PERSON_KEY])
         return
     if st.session_state.get(PROCESS_KEY):
         _process_profile(st.session_state[PROCESS_KEY])
         return
+
+    page_header("People", "Who owns the work")
 
     tab_org, tab_people, tab_processes, tab_graph = st.tabs(
         ["Org chart", "People", "Processes", "Responsibility graph"])
@@ -861,7 +898,8 @@ def render(actor_id: int) -> None:
                     </div>""",
                 unsafe_allow_html=True,
             )
-            if action.button("View", key=f"person_{row['id']}", width="stretch"):
+            if action.button("Open", icon=":material/arrow_forward:",
+                             key=f"person_{row['id']}", width="stretch"):
                 st.session_state[PERSON_KEY] = row["id"]
                 st.rerun()
 
@@ -907,7 +945,8 @@ def render(actor_id: int) -> None:
                     </div>""",
                 unsafe_allow_html=True,
             )
-            if action.button("View", key=f"process_{row['id']}", width="stretch"):
+            if action.button("Open", icon=":material/arrow_forward:",
+                             key=f"process_{row['id']}", width="stretch"):
                 st.session_state[PROCESS_KEY] = row["id"]
                 st.rerun()
 

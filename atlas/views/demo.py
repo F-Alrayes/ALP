@@ -23,7 +23,8 @@ def _flash(message: str) -> None:
 
 def _clock_card() -> None:
     with st.container(border=True, key="demo_clock"):
-        st.markdown("**Simulated clock**")
+        st.markdown("<div class='chart-head'>Simulated clock</div>",
+                    unsafe_allow_html=True)
         with session_scope() as session:
             simulated = clock.now(session)
         offset = clock.offset_hours()
@@ -32,8 +33,6 @@ def _clock_card() -> None:
             f"<div class='subtle'>{offset:+.0f}h from real time</div>",
             unsafe_allow_html=True,
         )
-        st.caption("Move it forward and the agent's 48-hour rules fire now.")
-
         advanced = None
         col1, col2, col3 = st.columns(3)
         if col1.button("+1h", width="stretch", key="adv1"):
@@ -47,7 +46,8 @@ def _clock_card() -> None:
             key="adv_custom_hours",
         )
         cadv, creset = st.columns(2)
-        if cadv.button("Advance", width="stretch", key="adv_custom"):
+        if cadv.button("Advance", icon=":material/fast_forward:",
+                       type="primary", width="stretch", key="adv_custom"):
             advanced = int(custom)
         if advanced:
             clock.advance(advanced)
@@ -55,7 +55,8 @@ def _clock_card() -> None:
             _flash(f"Advanced {advanced}h. The agent took {actions} "
                    f"action{'s' if actions != 1 else ''}.")
             st.rerun()
-        if creset.button("Reset", width="stretch", key="clock_reset"):
+        if creset.button("Reset", icon=":material/history:", width="stretch",
+                         key="clock_reset"):
             clock.reset()
             _flash("Simulated clock reset to real time.")
             st.rerun()
@@ -63,8 +64,8 @@ def _clock_card() -> None:
 
 def _ooo_card() -> None:
     with st.container(border=True, key="demo_ooo"):
-        st.markdown("**Out of office**")
-        st.caption("The agent reroutes their open work to a delegate.")
+        st.markdown("<div class='chart-head'>Out of office</div>",
+                    unsafe_allow_html=True)
         people = all_people()
         ids = [p[0] for p in people]
         labels = {p[0]: p[1] + ("  (OOO)" if p[3] else "") for p in people}
@@ -78,7 +79,8 @@ def _ooo_card() -> None:
             key="atlas_ooo_days",
         )
         label = "Mark back in office" if currently_ooo else "Mark away"
-        if st.button(label, width="stretch", key="atlas_ooo_toggle"):
+        icon = ":material/flight_land:" if currently_ooo else ":material/flight_takeoff:"
+        if st.button(label, icon=icon, width="stretch", key="atlas_ooo_toggle"):
             if currently_ooo:
                 set_ooo(target, False)
             else:
@@ -109,7 +111,8 @@ def _agent_card() -> None:
         )
         if state["error"]:
             st.error("Agent error — see the Agent log page.")
-        if st.button("Run it now", width="stretch", key="agent_now"):
+        if st.button("Run agent now", icon=":material/play_arrow:",
+                     type="primary", width="stretch", key="agent_now"):
             actions = agent.run_until_settled()
             _flash(f"Agent evaluated its rules and took {actions} "
                    f"action{'s' if actions != 1 else ''}.")
@@ -118,12 +121,13 @@ def _agent_card() -> None:
 
 def _reset_card() -> None:
     with st.container(border=True, key="demo_reset"):
-        st.markdown("**Start over**")
-        st.caption("Back to the starting state.")
+        st.markdown("<div class='chart-head'>Start over</div>",
+                    unsafe_allow_html=True)
         if st.session_state.get("atlas_confirm_reset"):
             st.warning("This wipes all requests and reseeds.")
             col1, col2 = st.columns(2)
-            if col1.button("Confirm", width="stretch", key="reset_yes", type="primary"):
+            if col1.button("Wipe & reseed", icon=":material/delete_forever:",
+                           width="stretch", key="reset_yes", type="primary"):
                 from atlas.seed import seed
 
                 seed()
@@ -132,21 +136,19 @@ def _reset_card() -> None:
                         del st.session_state[key]
                 st.session_state["atlas_flash"] = "Database reset and reseeded."
                 st.rerun()
-            if col2.button("Cancel", width="stretch", key="reset_no"):
+            if col2.button("Cancel", icon=":material/close:", width="stretch",
+                           key="reset_no"):
                 st.session_state["atlas_confirm_reset"] = False
                 st.rerun()
         else:
-            if st.button("Reset & reseed", width="stretch", key="reset_start"):
+            if st.button("Reset & reseed", icon=":material/restart_alt:",
+                         width="stretch", key="reset_start"):
                 st.session_state["atlas_confirm_reset"] = True
                 st.rerun()
 
 
 def render(actor_id: int) -> None:  # actor_id unused; the signature matches the other pages
-    page_header(
-        "Demo",
-        "Demo controls",
-        "None of this exists in a real deployment.",
-    )
+    page_header("Demo", "Demo controls")
     col1, col2, col3 = st.columns(3)
     with col1:
         _clock_card()

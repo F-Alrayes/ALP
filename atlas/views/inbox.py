@@ -85,7 +85,8 @@ def _request_list(
             unsafe_allow_html=True,
         )
         label = "Open" if not row["unread"] else f"Open ({row['unread']})"
-        if action.button(label, key=f"{prefix}_open_{row['id']}", width="stretch"):
+        if action.button(label, icon=":material/arrow_forward:",
+                         key=f"{prefix}_open_{row['id']}", width="stretch"):
             st.session_state[OPEN_REQUEST_KEY] = row["id"]
             st.rerun()
 
@@ -135,19 +136,71 @@ def _detail(request_id: int, actor_id: int) -> None:
             "assignee_id": request.assignee_id,
         }
 
-    if st.button("← Back"):
+    if st.button("Back to inbox", icon=":material/arrow_back:", key="back_request"):
         st.session_state.pop(OPEN_REQUEST_KEY, None)
         st.rerun()
+    page_header("Requests", f"#{request_id} — {snapshot['title']}")
 
     st.markdown(
         f"""<div class="card accent">
-              <div class="card-title">#{request_id} — {esc(snapshot['title'])}</div>
               <div class="card-meta">{status_badge(snapshot['status'])} &nbsp;
                 {esc(snapshot['process'])} · raised {esc(snapshot['age'])} ago</div>
               <div class="card-body">{esc(snapshot['body'])}</div>
             </div>""",
         unsafe_allow_html=True,
     )
+
+    is_assignee = snapshot["assignee_id"] == actor_id
+    is_open = snapshot["status"] in OPEN_STATUSES
+    status = snapshot["status"]
+
+    if not is_open:
+        st.caption("This request is closed.")
+    elif is_assignee:
+        col1, col2, col3 = st.columns(3)
+        if col1.button(
+            "Acknowledge", icon=":material/check:", width="stretch",
+            type="primary" if status in ("pending", "escalated") else "secondary",
+            disabled=status not in ("pending", "escalated"),
+        ):
+            with write_lock, session_scope() as session:
+                acknowledge(session, request_id, actor_id)
+            st.rerun()
+        if col2.button(
+            "Mark in progress", icon=":material/pending_actions:", width="stretch",
+            type="primary" if status == "acknowledged" else "secondary",
+            disabled=status == "in_progress",
+        ):
+            with write_lock, session_scope() as session:
+                start_progress(session, request_id, actor_id)
+            st.rerun()
+        if col3.button(
+            "Complete", icon=":material/task_alt:", width="stretch",
+            type="primary" if status == "in_progress" else "secondary",
+        ):
+            with write_lock, session_scope() as session:
+                complete(session, request_id, actor_id, st.session_state.get("atlas_note_box", ""))
+            st.rerun()
+
+        note = st.text_input("Add a note (sent to the requester)", key="atlas_note_box")
+        if st.button("Send note", icon=":material/send:", disabled=not note.strip()):
+            with write_lock, session_scope() as session:
+                add_note(session, request_id, actor_id, note)
+            st.rerun()
+
+        with st.expander("Hand this to someone else"):
+            ids = [p[0] for p in people]
+            labels = dict(people)
+            target = st.selectbox(
+                "New assignee", options=ids, format_func=lambda i: labels[i], key="atlas_reassign_to"
+            )
+            reason = st.text_input("Reason", key="atlas_reassign_reason")
+            if st.button("Reassign", icon=":material/swap_horiz:", key="atlas_reassign_go"):
+                with write_lock, session_scope() as session:
+                    reassign(session, request_id, actor_id, target, reason)
+                st.rerun()
+    else:
+        st.caption("Watching only — switch to the assignee to act.")
 
     left, right = st.columns([3, 2])
     with left:
@@ -176,46 +229,6 @@ def _detail(request_id: int, actor_id: int) -> None:
                 unsafe_allow_html=True,
             )
 
-    is_assignee = snapshot["assignee_id"] == actor_id
-    is_open = snapshot["status"] in OPEN_STATUSES
-
-    st.markdown("#### Actions")
-    if not is_open:
-        st.info("This request is closed.")
-    elif is_assignee:
-        col1, col2, col3 = st.columns(3)
-        if col1.button("Acknowledge", width="stretch", disabled=snapshot["status"] != "pending" and snapshot["status"] != "escalated"):
-            with write_lock, session_scope() as session:
-                acknowledge(session, request_id, actor_id)
-            st.rerun()
-        if col2.button("Mark in progress", width="stretch", disabled=snapshot["status"] == "in_progress"):
-            with write_lock, session_scope() as session:
-                start_progress(session, request_id, actor_id)
-            st.rerun()
-        if col3.button("Complete", type="primary", width="stretch"):
-            with write_lock, session_scope() as session:
-                complete(session, request_id, actor_id, st.session_state.get("atlas_note_box", ""))
-            st.rerun()
-
-        note = st.text_input("Add a note (sent to the requester)", key="atlas_note_box")
-        if st.button("Send note", disabled=not note.strip()):
-            with write_lock, session_scope() as session:
-                add_note(session, request_id, actor_id, note)
-            st.rerun()
-
-        with st.expander("Hand this to someone else"):
-            ids = [p[0] for p in people]
-            labels = dict(people)
-            target = st.selectbox(
-                "New assignee", options=ids, format_func=lambda i: labels[i], key="atlas_reassign_to"
-            )
-            reason = st.text_input("Reason", key="atlas_reassign_reason")
-            if st.button("Reassign", key="atlas_reassign_go"):
-                with write_lock, session_scope() as session:
-                    reassign(session, request_id, actor_id, target, reason)
-                st.rerun()
-    else:
-        st.caption("Watching only — switch to the assignee to act.")
 
 def render(actor_id: int) -> None:
     with session_scope() as session:
@@ -230,15 +243,15 @@ def render(actor_id: int) -> None:
         ]
         outgoing = [_summary(session, r, at) for r in requests_by(session, actor_id)]
 
-    page_header(
-        "Requests",
-        f"{actor.name}'s desk",
-        f"{len(incoming)} open with you · {len(outgoing)} raised by you · {unread} unread",
-    )
-
     if st.session_state.get(OPEN_REQUEST_KEY):
         _detail(st.session_state[OPEN_REQUEST_KEY], actor_id)
         return
+
+    page_header(
+        "Requests",
+        f"{actor.name}'s desk",
+        f"{len(incoming)} open · {len(outgoing)} raised · {unread} unread",
+    )
 
     tab_inbox, tab_mine, tab_done = st.tabs(
         [f"My inbox ({len(incoming)})", f"My requests ({len(outgoing)})", "Completed by me"]

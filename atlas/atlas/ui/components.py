@@ -42,12 +42,11 @@ def esc(text: object) -> str:
 
 
 def page_header(eyebrow: str, title: str, subtitle: str = "") -> None:
+    # One quiet line: title, then optional meta beside it. The eyebrow is
+    # retired — the top bar already says where you are.
+    sub = f'<span class="sub">{esc(subtitle)}</span>' if subtitle else ""
     st.markdown(
-        f"""<div class="page-head">
-              <div class="eyebrow">{esc(eyebrow)}</div>
-              <h1>{esc(title)}</h1>
-              <p class="sub">{esc(subtitle)}</p>
-            </div>""",
+        f'<div class="page-head"><h1>{esc(title)}</h1>{sub}</div>',
         unsafe_allow_html=True,
     )
 

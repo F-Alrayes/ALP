@@ -125,7 +125,7 @@ def _flow_chart(series) -> go.Figure:
         marker=marker, fill="tozeroy", fillcolor="rgba(18,138,94,.10)",
         hovertemplate="%{x|%d %b} · completed: %{y}<extra></extra>",
     )
-    return _legend_top(_style(figure, height=252))
+    return _legend_top(_style(figure, height=204))
 
 
 def _donut(done: int, total: int) -> go.Figure:
@@ -138,11 +138,12 @@ def _donut(done: int, total: int) -> go.Figure:
         textinfo="none", hoverinfo="skip", showlegend=False,
     ))
     figure.add_annotation(
-        text=f"<b>{rate}%</b>", showarrow=False,
-        font={"size": 30, "color": _ui()["ink"], "family": "IBM Plex Mono, monospace"},
+        text=f"{rate}%", showarrow=False,
+        font={"size": 24, "weight": 600, "color": _ui()["ink"],
+              "family": "IBM Plex Mono, monospace"},
     )
     figure.update_layout(
-        height=196, margin={"l": 8, "r": 8, "t": 8, "b": 8},
+        height=168, margin={"l": 8, "r": 8, "t": 8, "b": 8},
         paper_bgcolor="rgba(0,0,0,0)",
     )
     return figure
@@ -152,11 +153,7 @@ def _donut(done: int, total: int) -> go.Figure:
 
 
 def render(actor_id: int) -> None:
-    page_header(
-        "Dashboard",
-        "Where work is stuck",
-        "Live against the simulated clock.",
-    )
+    page_header("Dashboard", "Where work is stuck")
 
     with session_scope() as session:
         at = clock.now(session)
@@ -252,7 +249,7 @@ def render(actor_id: int) -> None:
                 hovertemplate="%{y}: %{x} request(s)<extra></extra>",
             ))
             figure.update_xaxes(showticklabels=False, showgrid=False)
-            _plot(_style(figure, height=260))
+            _plot(_style(figure, height=220))
 
     with middle, st.container(border=True, key="card_dept"):
         _chart_head("Open by department")
@@ -274,7 +271,7 @@ def render(actor_id: int) -> None:
                 )
             figure.update_layout(barmode="stack")
             figure.update_xaxes(tickangle=-20, showgrid=False)
-            _plot(_legend_top(_style(figure, height=260)))
+            _plot(_legend_top(_style(figure, height=220)))
 
     with right, st.container(border=True, key="card_ages"):
         _chart_head("Waiting", "darker = older")
@@ -298,7 +295,7 @@ def render(actor_id: int) -> None:
             ))
             figure.update_yaxes(showticklabels=False, showgrid=False)
             figure.update_xaxes(showgrid=False)
-            _plot(_style(figure, height=260))
+            _plot(_style(figure, height=220))
 
     # -- row 4: turnaround + bottlenecks --------------------------------------
     left, right = st.columns([1, 1.2])
@@ -323,32 +320,36 @@ def render(actor_id: int) -> None:
             )
             figure.update_layout(barmode="group", bargroupgap=0.12)
             figure.update_xaxes(tickangle=-20, showgrid=False)
-            _plot(_legend_top(_style(figure, height=280)))
+            _plot(_legend_top(_style(figure, height=232)))
 
     with right, st.container(border=True, key="card_bottlenecks"):
         _chart_head("Bottlenecks")
         if not bottleneck_rows:
             empty_state("No queues are backing up.")
         else:
-            frame = pd.DataFrame(bottleneck_rows).rename(columns={
-                "person": "Person", "title": "Title", "department": "Department",
-                "open": "Open", "avg_wait_hours": "Avg wait (h)",
-                "oldest_wait_hours": "Oldest (h)", "is_ooo": "Out of office",
-            })
-            st.dataframe(
-                frame, width="stretch", hide_index=True,
-                column_config={
-                    "Open": st.column_config.ProgressColumn(
-                        "Open", format="%d",
-                        max_value=max(int(frame["Open"].max()), 1),
-                    ),
-                    "Avg wait (h)": st.column_config.NumberColumn(format="%.1f"),
-                    "Oldest (h)": st.column_config.NumberColumn(format="%.0f"),
-                },
+            # A tokenised HTML table: both modes derive from the same rules,
+            # unlike the canvas dataframe which is painted by the static theme.
+            max_open = max(int(r["open"]) for r in bottleneck_rows) or 1
+            body = ""
+            for r in bottleneck_rows:
+                pct = round(100 * int(r["open"]) / max_open)
+                ooo = " " + badge("OOO", "ooo") if r["is_ooo"] else ""
+                body += (
+                    f"<tr><td><strong>{esc(r['person'])}</strong>{ooo}<br>"
+                    f"<span class='subtle'>{esc(r['title'])} · {esc(r['department'])}</span></td>"
+                    f"<td><span class='loadbar'><i style='width:{pct}%'></i></span>"
+                    f"<span class='num'>{int(r['open'])}</span></td>"
+                    f"<td class='num'>{r['avg_wait_hours']:.1f}h</td>"
+                    f"<td class='num'>{r['oldest_wait_hours']:.0f}h</td></tr>"
+                )
+            st.markdown(
+                "<table class='dtable'><thead><tr><th>Person</th><th>Open</th>"
+                "<th>Avg wait</th><th>Oldest</th></tr></thead>"
+                f"<tbody>{body}</tbody></table>",
+                unsafe_allow_html=True,
             )
 
     st.markdown("## Orphaned processes")
-    st.caption("No owner to route to — these park with the admin.")
     if not orphans:
         st.success("Every process has an owner.")
     else:
@@ -364,7 +365,6 @@ def render(actor_id: int) -> None:
             )
 
     st.markdown("## Single points of failure")
-    st.caption("Uncovered = no delegate or backup behind them.")
     if not spofs:
         st.success("No individual carries enough uncovered processes to be a concern.")
     else:

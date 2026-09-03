@@ -29,11 +29,7 @@ FILTERS = {
 
 def render(actor_id: int) -> None:
     state = agent.status()
-    page_header(
-        "Agent log",
-        "What the agent did, and why",
-        "No entry here was triggered by a human.",
-    )
+    page_header("Agent log", "What the agent did, and why")
 
     with session_scope() as session:
         at = clock.now(session)
@@ -63,9 +59,11 @@ def render(actor_id: int) -> None:
 
     col1, col2 = st.columns([2, 1], vertical_alignment="bottom")
     choice = col1.selectbox("Show", list(FILTERS), key="agent_log_filter")
-    if col2.button("Run the agent now", width="stretch"):
+    if col2.button("Run agent now", icon=":material/play_arrow:", width="stretch"):
         actions = agent.run_until_settled()
-        st.toast(f"Agent took {actions} action{'s' if actions != 1 else ''}.")
+        st.session_state["atlas_flash"] = (
+            f"Agent took {actions} action{'s' if actions != 1 else ''}."
+        )
         st.rerun()
 
     types = FILTERS[choice]
