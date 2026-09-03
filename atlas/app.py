@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from atlas import agent  # noqa: E402
 from atlas.config import APP_NAME, APP_TAGLINE  # noqa: E402
 from atlas.db import create_all, database_is_seeded  # noqa: E402
-from atlas.ui import chrome, notify, theme  # noqa: E402
+from atlas.ui import chrome, motion, notify, theme  # noqa: E402
 from views import agent_log, ask, dashboard, demo, directory, inbox  # noqa: E402
 
 st.set_page_config(
@@ -72,6 +72,7 @@ def main() -> None:
         "Demo controls": demo.render,
     }
     pages[choice](actor_id)
+    motion.page_glide(choice)
 
 
 main()

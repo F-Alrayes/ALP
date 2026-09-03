@@ -104,6 +104,8 @@ _CSS_TEMPLATE = """
   --shadow-overlay: var(--sheen-line), 0 18px 40px -24px rgba(27,53,40,.5);
   --shadow-fill: inset 0 1px 0 rgba(255,255,255,.22),
                  0 8px 18px -12px rgba(27,53,40,.6);
+  --shadow-hover: var(--sheen-line), 0 8px 20px -12px rgba(27,53,40,.5);
+  --fill-strong-hover: rgba(20,56,42,.97);
   /* the visible light-catch that makes a panel read as glass on flat paper */
   --glass-sheen: linear-gradient(165deg,
                   rgba(255,255,255,.6) 0%%, rgba(255,255,255,.16) 34%%,
@@ -129,6 +131,8 @@ section.stMain { overflow-x: clip; }
   display: none; }
 .stMain [data-testid="stLayoutWrapper"]:has(> .st-key-theme_toggle) {
   display: contents; }
+.stMain [data-testid="stElementContainer"]:has(> iframe[height="0"]) {
+  display: none; }
 
 /* Display voice: the terminal speaks mono, quietly. */
 h1, h2, h3, h4,
@@ -230,6 +234,19 @@ hr { border-color: var(--line-soft); }
 }
 .st-key-theme_toggle .stButton button:active { transform: scale(.92); }
 
+/* ---------- icon optical alignment ---------- */
+/* Material glyph spans inherit the label's tall line box and ride high or
+   low against caps text; pin every glyph to a 1-line box on the flex
+   centreline, then nudge the two contexts the eye still catches. */
+[data-testid="stIconMaterial"] { line-height: 1; align-self: center; }
+.stButton button > div { display: flex; align-items: center; }
+[class*="st-key-chip_"] [data-testid="stIconMaterial"] {
+  position: relative; top: .5px; }
+.st-key-topbar .stButton button [data-testid="stIconMaterial"] {
+  position: relative; top: .5px; }
+.st-key-topbar .stMarkdownBadge { vertical-align: middle;
+  margin-left: .3rem; transform: translateY(-1px); }
+
 /* live status dot (agent running / stopped) */
 .livedot { display: inline-block; width: 9px; height: 9px; border-radius: 50%%;
   background: var(--muted); vertical-align: 1px; margin-left: 2px; }
@@ -271,7 +288,9 @@ hr { border-color: var(--line-soft); }
   font-size: .9rem; transition: transform 160ms var(--ease); }
 @media (hover: hover) and (pointer: fine) {
   .st-key-topbar .stButton button:hover {
-    color: var(--ink); background: var(--hover-tint) !important; transform: none; }
+    color: var(--ink);
+    background: var(--glass-sheen), var(--hover-tint) !important;
+    transform: none; }
   .st-key-topbar .stButton button:hover [data-testid="stIconMaterial"] {
     transform: translateY(-1px); }
 }
@@ -434,8 +453,9 @@ hr { border-color: var(--line-soft); }
   font-size: 13px; line-height: 20px; font-weight: 500; }
 .stButton button [data-testid="stIconMaterial"] { font-size: 1rem; }
 @media (hover: hover) and (pointer: fine) {
-  .stButton button:hover { border-color: var(--accent);
-    background: var(--glass-control-hover); }
+  .stButton button:hover { border-color: var(--edge-hover);
+    background: var(--glass-sheen), var(--glass-control-hover);
+    box-shadow: var(--shadow-hover); }
 }
 .stButton button:active { transform: scale(.97); }
 .stButton button[kind="primary"],
@@ -452,7 +472,7 @@ hr { border-color: var(--line-soft); }
 @media (hover: hover) and (pointer: fine) {
   .stButton button[kind="primary"]:hover,
   [data-testid="stBaseButton-primary"]:hover {
-    background: rgba(20,56,42,.97);
+    background: var(--glass-sheen), var(--fill-strong-hover);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.3),
                 0 10px 20px -12px rgba(27,53,40,.75);
   }
@@ -798,6 +818,10 @@ hr { border-color: var(--line-soft); }
 @media (hover: hover) and (pointer: fine) {
   [class*="st-key-chip_"] .stButton button:hover {
     color: var(--accent); border-color: var(--accent) !important;
+    background: var(--glass-sheen), var(--glass-control) !important;
+    backdrop-filter: var(--blur-control);
+    -webkit-backdrop-filter: var(--blur-control);
+    box-shadow: var(--shadow-control);
     transform: translateY(-1px);
   }
 }
@@ -1089,6 +1113,8 @@ _DARK = """
   --shadow-overlay: var(--sheen-line), 0 18px 40px -24px rgba(0,0,0,.7);
   --shadow-fill: inset 0 1px 0 rgba(255,255,255,.18),
                  0 8px 18px -12px rgba(0,0,0,.7);
+  --shadow-hover: var(--sheen-line), 0 8px 20px -12px rgba(0,0,0,.6);
+  --fill-strong-hover: rgba(36,80,60,.95);
   --glass-sheen: linear-gradient(165deg,
                   rgba(255,255,255,.1) 0%, rgba(255,255,255,.03) 34%,
                   rgba(255,255,255,0) 60%);
