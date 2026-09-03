@@ -306,9 +306,22 @@ hr { border-color: var(--line-soft); }
   backdrop-filter: none; -webkit-backdrop-filter: none;
 }
 .st-key-topbar .stButton button[kind="primary"]::after {
-  content: ""; position: absolute; left: .85rem; right: .85rem; bottom: 2px;
-  height: 2px; border-radius: 2px; background: var(--accent);
-  animation: growx 200ms var(--ease) both; transform-origin: left center; }
+  content: ""; position: absolute; left: .85rem; right: .85rem; bottom: 1px;
+  height: 2.5px; border-radius: 2px; background: var(--accent);
+  transform-origin: left center; }
+@media (prefers-reduced-motion: no-preference) {
+  .st-key-topbar .stButton button[kind="primary"] {
+    animation: navpop 260ms var(--ease) both; }
+  .st-key-topbar .stButton button[kind="primary"]::after {
+    animation: navline 340ms var(--ease) both; }
+  .st-key-topbar .stButton button[kind="primary"] [data-testid="stIconMaterial"] {
+    animation: navglyph 380ms var(--ease) both; }
+}
+@keyframes navpop { from { transform: scale(.9); opacity: .35; } }
+@keyframes navline { 0% { transform: scaleX(0); }
+  70% { transform: scaleX(1.12); } 100% { transform: scaleX(1); } }
+@keyframes navglyph { 0% { transform: scale(.5) rotate(-10deg); }
+  55% { transform: scale(1.18); } 100% { transform: none; } }
 /* the unread count rides the nav item as a real badge */
 .st-key-topbar .stMarkdownBadge {
   background: var(--accent) !important; color: #122019 !important;
@@ -340,8 +353,8 @@ hr { border-color: var(--line-soft); }
   .atlas-brand .name::after { animation: caret 1.1s steps(1) infinite; }
 }
 @keyframes caret { 50%% { opacity: 0; } }
-.atlas-brand .build { font-size: .68rem; color: var(--muted);
-  letter-spacing: .08em; text-transform: uppercase; }
+.atlas-brand .build { position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ---------- page head: one quiet line ---------- */
 .page-head { display: flex; align-items: baseline; gap: .7rem;
