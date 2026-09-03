@@ -445,8 +445,9 @@ def _org_doc(branches: str) -> str:
     .okids {{ position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
       min-width: 19px; height: 19px; padding: 0 5px; border-radius: 5px; border: 0;
       background: {c['strong']}; color: #F3EEE0;
-      font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;
-      display: grid; place-items: center; cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+      font-weight: 600; line-height: 18px; padding-top: 1px;
+      text-align: center; display: inline-block; cursor: pointer;
       box-shadow: 0 0 0 2px {c['ring']}; }}
     li.closed .okids {{ background: {c['accent']}; color: #122019; }}
     #tip {{ position: fixed; z-index: 10; display: none; width: 264px;

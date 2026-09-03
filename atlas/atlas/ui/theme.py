@@ -222,7 +222,8 @@ hr { border-color: var(--line-soft); }
 .st-key-theme_toggle .stButton button {
   width: 38px; height: 38px; min-height: 38px; border-radius: 50%%;
   padding: 0; justify-content: center; }
-.st-key-theme_toggle .stButton button p {
+.st-key-theme_toggle .stButton button > div { justify-content: center; }
+.st-key-theme_toggle .stButton button [data-testid="stMarkdownContainer"] {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap; }
 .st-key-theme_toggle .stButton button [data-testid="stIconMaterial"] {
@@ -312,9 +313,9 @@ hr { border-color: var(--line-soft); }
 .st-key-topbar .stMarkdownBadge {
   background: var(--accent) !important; color: #122019 !important;
   -webkit-text-fill-color: #122019 !important;
-  font: 600 .6875rem/1 var(--mono) !important;
+  font: 600 11px/18px var(--mono) !important;
   min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
-  display: inline-grid; place-items: center;
+  display: inline-block; text-align: center;
 }
 @media (prefers-reduced-motion: no-preference) {
   .st-key-topbar .stMarkdownBadge { animation: badgein .22s var(--ease) both; }
