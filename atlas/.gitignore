@@ -1,0 +1,9 @@
+data/*.db
+data/*.db-wal
+data/*.db-shm
+__pycache__/
+*.pyc
+.venv/
+
+# Parity references are generated from the Python app
+preview/parity/*.json

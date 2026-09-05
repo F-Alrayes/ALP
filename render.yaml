@@ -1,0 +1,11 @@
+# Render blueprint for the Atlas prototype in atlas/.
+# Deploy: render.com -> New -> Blueprint -> point at this repository.
+services:
+  - type: web
+    name: atlas
+    runtime: docker
+    rootDir: atlas
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /_stcore/health
+    autoDeployTrigger: off
