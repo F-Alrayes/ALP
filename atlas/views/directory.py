@@ -349,11 +349,11 @@ def _org_palette(dark: bool) -> dict:
                 "tipbg": "#101E17", "btnbg": "rgba(236,239,232,.08)",
                 "ring": "rgba(14,27,21,.9)",
                 "online": "#3FBF8C", "notin": "#D9A441", "leave": "#E06B5B"}
-    return {"card": "rgba(255,253,246,.88)", "line": "#E3DAC2",
+    return {"card": "rgba(255,255,255,.9)", "line": "#E7E5DF",
             "ink": "#1B2721", "muted": "#566158", "amber": "#83660A",
             "accent": "#A8820F", "strong": "#14382A",
-            "tipbg": "#FFFDF6", "btnbg": "rgba(255,253,246,.7)",
-            "ring": "rgba(255,253,246,.94)",
+            "tipbg": "#FFFFFF", "btnbg": "rgba(255,255,255,.75)",
+            "ring": "rgba(255,255,255,.95)",
             "online": "#128A5E", "notin": "#B0741B", "leave": "#BE3E2F"}
 
 
@@ -417,15 +417,14 @@ def _org_doc(branches: str) -> str:
       border: 1px solid {c['line']}; border-radius: 12px;
       padding: 11px 10px 9px; text-align: center; cursor: default;
       backdrop-filter: blur(10px) saturate(1.35);
-      box-shadow: inset 0 3px 0 {c['strong']},
-                  inset 0 4px 0 rgba(255,255,255,.35),
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35),
                   0 10px 24px -18px rgba(0,0,0,.45);
       transition: transform 160ms cubic-bezier(.23,1,.32,1),
                   border-color 160ms ease; }}
     @media (hover: hover) and (pointer: fine) {{
       .onode:hover {{ transform: translateY(-2px); border-color: {c['accent']}; }}
     }}
-    .onode.hit {{ box-shadow: inset 0 3px 0 {c['accent']}, 0 0 0 2px {c['accent']}55,
+    .onode.hit {{ box-shadow: 0 0 0 2px {c['accent']}55,
       0 10px 24px -18px rgba(0,0,0,.45); }}
     .odot {{ position: absolute; top: -5px; left: 10px; width: 11px; height: 11px;
       border-radius: 50%; box-shadow: 0 0 0 3px {c['ring']}; }}

@@ -17,7 +17,7 @@ APP_NAME = "Atlas"
 APP_TAGLINE = "Responsibility, routed."
 # Shown in the sidebar footer so a glance settles which build a deployment
 # runs. Bump it with any visible UI change.
-UI_BUILD = "Paper Console · build 35"
+UI_BUILD = "Paper Console · build 36"
 
 # --- Agent thresholds (simulated hours) -------------------------------------
 # Stored in settings() at seed time so they are inspectable/tunable from the DB,
@@ -47,9 +47,9 @@ PALETTE = {
     "gold_600": "#83660A",    # gold text
     "gold_500": "#A8820F",    # chart gold (validated)
     "gold_300": "#D9BC5C",
-    "cream_100": "#FAF6EB",   # ground
-    "cream_200": "#FFFDF6",   # panel surface
-    "cream_300": "#E3DAC2",   # hairline border
+    "cream_100": "#FFFFFF",   # ground (white light mode)
+    "cream_200": "#FFFFFF",   # panel surface
+    "cream_300": "#E7E5DF",   # hairline border (neutral)
     "ink": "#1B2721",
     "muted": "#566158",
     "danger": "#BE3E2F",

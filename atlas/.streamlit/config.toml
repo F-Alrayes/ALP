@@ -1,8 +1,8 @@
 [theme]
 base = "light"
 primaryColor = "#A8820F"
-backgroundColor = "#FAF6EB"
-secondaryBackgroundColor = "#FFFDF6"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#FFFFFF"
 textColor = "#1B2721"
 linkColor = "#83660A"
 font = "Instrument Sans, ui-sans-serif, system-ui, sans-serif"

@@ -40,8 +40,8 @@ def _ui() -> dict:
         }
     return {
         "surface": PALETTE["cream_200"], "ink": PALETTE["ink"],
-        "muted": PALETTE["muted"], "grid": "#ECE4CF",
-        "border": PALETTE["cream_300"], "rest": "#EBE3CC",
+        "muted": PALETTE["muted"], "grid": "#ECEBE6",
+        "border": PALETTE["cream_300"], "rest": "#EDECE7",
         "age_ramp": ["#B9D6C5", "#7FB99A", "#3FA173", "#128A5E"],
     }
 
@@ -60,7 +60,7 @@ def _style(figure: go.Figure, height: int = 300) -> go.Figure:
                      "family": "Instrument Sans, sans-serif"},
         },
         bargap=0.45,
-        barcornerradius="25%",
+        barcornerradius=4,
     )
     figure.update_xaxes(gridcolor=u["grid"], zeroline=False, showline=False,
                         tickfont={"color": u["muted"], "size": 11})
