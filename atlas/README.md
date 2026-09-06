@@ -194,7 +194,7 @@ atlas/
 ├── atlas/
 │   ├── config.py       # paths, agent thresholds, palette
 │   ├── models.py       # SQLAlchemy schema
-│   ├── db.py           # engine, sessions, settings helpers
+│   ├── db.py           # warehouse engine (Snowflake / local SQLite), sessions
 │   ├── clock.py        # the simulated clock — the only wall-clock read
 │   ├── seed.py         # the demo firm
 │   ├── matching.py     # offline intent matching
@@ -215,19 +215,47 @@ atlas/
 holds the clock offset and the agent thresholds, so the 48h/24h/max-2 rules can
 be retuned without touching code.
 
+### Data warehouse — Snowflake
+
+The same schema runs on **Snowflake** when the environment carries warehouse
+credentials, and on a local SQLite file (identical table layout) when it does
+not — the keyless demo stays fully offline.
+
+| Variable | Required | Default |
+| --- | --- | --- |
+| `SNOWFLAKE_ACCOUNT` | yes | — (e.g. `xy12345.eu-west-1`) |
+| `SNOWFLAKE_USER` | yes | — |
+| `SNOWFLAKE_PASSWORD` | yes | — |
+| `SNOWFLAKE_DATABASE` | no | `ATLAS` |
+| `SNOWFLAKE_SCHEMA` | no | `PUBLIC` |
+| `SNOWFLAKE_WAREHOUSE` | no | `COMPUTE_WH` |
+| `SNOWFLAKE_ROLE` | no | account default |
+
+On first boot against an empty schema Atlas creates its tables and seeds the
+demo firm; **Demo → Data warehouse** shows which backend the running instance
+is writing to. (Create the database and grant the role `CREATE TABLE` on the
+schema first: `CREATE DATABASE ATLAS;`.)
+
 ---
 
 ## Seeded demo conditions
 
 These are deliberate — they are what the walkthrough depends on.
 
-- **4 people out of office** with return dates, including *Layla Mansour*, who
-  owns Data Room Access and has a configured delegate.
+The seeded firm is a realistic 85-person investment house across twelve
+divisions — Executive Office, Private Equity, Public Markets, Real Assets &
+Infrastructure, Investor Relations, Finance & Accounting, Legal, Compliance,
+Risk, Technology, People & Culture, Operations & Facilities — with a
+27-process catalogue routed through the responsibility graph.
+
+- **8 people out of office** with return dates, including *Layla Mansour*, who
+  owns Data Room Access and has a configured delegate, and *Eleanor Voss*, who
+  owns Contract Review.
 - **2 orphan processes** with no owner: Purchase Order Approval, Policy
   Exception Approval.
-- **1 single point of failure**: *Huda Al-Najjar* owns or approves four
+- **1 single point of failure**: *Huda Al-Najjar* owns or approves several
   processes, and Valuation Sign-off has no cover behind her.
-- **18 historical requests** in mixed states, two of them already past the
+- **22 historical requests** in mixed states, two of them already past the
   48-hour chase threshold, so the Agent Log has content the moment you open it.
 
 Reset any time from the sidebar (**Reset & reseed**) or with

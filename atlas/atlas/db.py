@@ -1,12 +1,20 @@
-"""SQLite engine + session plumbing.
+"""Warehouse engine + session plumbing.
 
-The Streamlit script thread and the background agent thread both touch the same
-file, so the engine is configured for cross-thread use with WAL journaling and a
-generous busy timeout. Every unit of work gets its own short-lived session.
+Atlas stores its data in Snowflake when a warehouse is configured
+(``SNOWFLAKE_ACCOUNT`` / ``SNOWFLAKE_USER`` / ``SNOWFLAKE_PASSWORD``), and
+falls back to a local SQLite file with the identical table layout when it is
+not — so a laptop demo and a deployed instance run the same schema, and the
+keyless demo stays fully offline.
+
+For SQLite: the Streamlit script thread and the background agent thread both
+touch the same file, so the engine is configured for cross-thread use with WAL
+journaling and a generous busy timeout. Every unit of work gets its own
+short-lived session.
 """
 
 from __future__ import annotations
 
+import os
 import threading
 from contextlib import contextmanager
 from typing import Iterator
@@ -28,26 +36,75 @@ _engine_lock = threading.Lock()
 write_lock = threading.RLock()
 
 
+def snowflake_configured() -> bool:
+    """True when the environment carries Snowflake warehouse credentials."""
+    return bool(
+        os.environ.get("SNOWFLAKE_ACCOUNT")
+        and os.environ.get("SNOWFLAKE_USER")
+        and os.environ.get("SNOWFLAKE_PASSWORD")
+    )
+
+
+def snowflake_url():
+    """Build the Snowflake SQLAlchemy URL from the environment.
+
+    Only called when :func:`snowflake_configured` — the snowflake driver is
+    imported lazily so the keyless local demo never touches it.
+    """
+    from snowflake.sqlalchemy import URL
+
+    params = {
+        "account": os.environ["SNOWFLAKE_ACCOUNT"],
+        "user": os.environ["SNOWFLAKE_USER"],
+        "password": os.environ["SNOWFLAKE_PASSWORD"],
+        "database": os.environ.get("SNOWFLAKE_DATABASE", "ATLAS"),
+        "schema": os.environ.get("SNOWFLAKE_SCHEMA", "PUBLIC"),
+        "warehouse": os.environ.get("SNOWFLAKE_WAREHOUSE", "COMPUTE_WH"),
+    }
+    role = os.environ.get("SNOWFLAKE_ROLE")
+    if role:
+        params["role"] = role
+    return URL(**params)
+
+
+def backend() -> str:
+    """Which warehouse this process is writing to: 'snowflake' or 'sqlite'."""
+    return "snowflake" if snowflake_configured() else "sqlite"
+
+
+def backend_label() -> str:
+    """Human-readable warehouse line for the UI."""
+    if snowflake_configured():
+        db = os.environ.get("SNOWFLAKE_DATABASE", "ATLAS")
+        schema = os.environ.get("SNOWFLAKE_SCHEMA", "PUBLIC")
+        wh = os.environ.get("SNOWFLAKE_WAREHOUSE", "COMPUTE_WH")
+        return f"Snowflake · {db}.{schema} on {wh}"
+    return "Local SQLite · Snowflake-compatible schema"
+
+
 def get_engine() -> Engine:
     global _engine, _session_factory
     if _engine is not None:
         return _engine
     with _engine_lock:
         if _engine is None:
-            config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-            engine = create_engine(
-                config.DB_URL,
-                future=True,
-                connect_args={"check_same_thread": False, "timeout": 30},
-            )
+            if snowflake_configured():
+                engine = create_engine(snowflake_url(), future=True)
+            else:
+                config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+                engine = create_engine(
+                    config.DB_URL,
+                    future=True,
+                    connect_args={"check_same_thread": False, "timeout": 30},
+                )
 
-            @event.listens_for(engine, "connect")
-            def _set_sqlite_pragmas(dbapi_connection, _record):  # pragma: no cover
-                cur = dbapi_connection.cursor()
-                cur.execute("PRAGMA journal_mode=WAL")
-                cur.execute("PRAGMA synchronous=NORMAL")
-                cur.execute("PRAGMA foreign_keys=ON")
-                cur.close()
+                @event.listens_for(engine, "connect")
+                def _set_sqlite_pragmas(dbapi_connection, _record):  # pragma: no cover
+                    cur = dbapi_connection.cursor()
+                    cur.execute("PRAGMA journal_mode=WAL")
+                    cur.execute("PRAGMA synchronous=NORMAL")
+                    cur.execute("PRAGMA foreign_keys=ON")
+                    cur.close()
 
             _engine = engine
             _session_factory = sessionmaker(bind=engine, expire_on_commit=False, future=True)

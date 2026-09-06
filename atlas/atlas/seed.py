@@ -1,10 +1,11 @@
 """Seed script — the only fake part of Atlas.
 
-Builds a coherent 40-person investment firm, a 14-process responsibility graph,
-and a back catalogue of requests so that every dashboard, inbox and report is
-alive on first launch. The demo conditions at the bottom of this file (who is
-out of office, which processes are orphaned, who is a single point of failure)
-are deliberate: they are what the pitch walks through.
+Builds a coherent investment firm at realistic scale — twelve divisions,
+~85 people, a 27-process responsibility graph — plus a back catalogue of
+requests so that every dashboard, inbox and report is alive on first launch.
+The demo conditions at the bottom of this file (who is out of office, which
+processes are orphaned, who is a single point of failure) are deliberate:
+they are what the pitch walks through.
 """
 
 from __future__ import annotations
@@ -33,30 +34,67 @@ from .models import (
 # is the thing that has to be edited when a team picks up new ground.
 DEPARTMENTS: list[tuple[str, str]] = [
     (
-        "Investments / Deal Team",
-        "deal, transaction, data room, diligence, due diligence, target, portfolio, "
-        "portfolio company, investment, investment committee, pipeline, mandate, "
-        "teaser, deal model, fund, co-invest, term sheet, nda with a counterparty",
+        "Executive Office",
+        "board, board meeting, board pack, investment committee agenda, executive, "
+        "ceo, chief executive, strategy, town hall, all hands, offsite agenda, "
+        "chief of staff, executive assistant",
     ),
     (
-        "Finance",
+        "Private Equity",
+        "deal, transaction, data room, diligence, due diligence, target, buyout, "
+        "portfolio company, investment, investment committee, pipeline, mandate, "
+        "teaser, deal model, fund, co-invest, term sheet, spa, lbo, "
+        "nda with a counterparty, exit, add-on acquisition",
+    ),
+    (
+        "Public Markets",
+        "equities, public equities, trading, trade, execution, broker, order, "
+        "position, rebalance, portfolio rebalance, hedge, bloomberg, market data, "
+        "terminal, research note, sell side, earnings, ticker, fixed income, bonds",
+    ),
+    (
+        "Real Assets & Infrastructure",
+        "real estate, property, building acquisition, asset management, tenant, "
+        "lease, rent review, development, infrastructure, project finance, "
+        "site visit to a property, planning permission, capex on a property",
+    ),
+    (
+        "Investor Relations",
+        "investor, lp, limited partner, fundraising, capital raise, roadshow, "
+        "investor report, quarterly letter, capital account, subscription, "
+        "redemption, investor portal, press, media, journalist, communications, "
+        "announcement, marketing materials, factsheet",
+    ),
+    (
+        "Finance & Accounting",
         "invoice, payment, pay, supplier, vendor payment, expense, expenses, "
         "reimburse, reimbursement, receipt, budget, cost, spend, purchase order, "
         "accounts, accounts payable, payroll, salary, pay slip, bonus, tax, "
         "audit, nav, valuation, treasury, bank, bank details, wire, transfer, "
         "forecast, month end, ledger, billing, credit card, corporate card, "
-        "claim, expense claim, out of pocket",
+        "claim, expense claim, out of pocket, capital call, distribution",
     ),
     (
-        "Legal & Compliance",
+        "Legal",
         "contract, agreement, nda, non disclosure, legal, lawyer, counsel, review a "
-        "contract, terms, clause, policy, compliance, regulation, regulatory, fca, "
-        "kyc, aml, anti money laundering, sanctions, screening check, gdpr, data "
-        "protection, privacy, personal data, breach, dispute, litigation, "
-        "insurance, conflict of interest, gift register, whistleblowing",
+        "contract, terms, clause, dispute, litigation, insurance, power of "
+        "attorney, signature, execute a document, company secretary, entity",
     ),
     (
-        "IT",
+        "Compliance",
+        "policy, compliance, regulation, regulatory, fca, sec, kyc, aml, anti "
+        "money laundering, sanctions, screening check, gdpr, data protection, "
+        "privacy, personal data, breach of policy, conflict of interest, gift "
+        "register, personal account dealing, whistleblowing, marketing approval",
+    ),
+    (
+        "Risk",
+        "risk, risk assessment, risk register, operational risk, market risk, "
+        "credit risk, incident, near miss, limit breach, exposure, stress test, "
+        "scenario, business continuity, disaster recovery",
+    ),
+    (
+        "Technology",
         "laptop, computer, macbook, desktop, monitor, screen, keyboard, "
         "mouse, docking station, headset, webcam, hardware, crashed, frozen, "
         "blue screen, won't turn on, wifi, wi-fi, internet, network, vpn, "
@@ -65,71 +103,126 @@ DEPARTMENTS: list[tuple[str, str]] = [
         "outlook, mailbox, calendar, teams, zoom, phone, mobile, password, "
         "login, log in, locked out, mfa, two factor, permissions, shared "
         "drive, sharepoint, onedrive, backup, virus, phishing, it support, "
-        "helpdesk, service desk, tech, technology",
+        "helpdesk, service desk, tech, technology, data warehouse, snowflake",
     ),
     (
-        "Operations / HR",
+        "People & Culture",
+        "holiday, annual leave, time off, sick, sickness, absence, maternity, "
+        "paternity, hr, people team, contract of employment, onboarding, joiner, "
+        "new starter, leaver, offboarding, benefits, pension, private medical, "
+        "recruitment, hiring, hire, new hire, headcount, interview, reference, "
+        "training, course, performance review, appraisal, grievance",
+    ),
+    (
+        "Operations & Facilities",
         "office, facilities, building, desk, seating, meeting room, room booking, "
         "parking, security pass, badge, access card, stationery, supplies, "
         "chair, furniture, lighting, heating, air conditioning, "
         "catering, kitchen, cleaning, courier, travel, flight, hotel, taxi, "
-        "visa, itinerary, holiday, annual leave, time off, sick, sickness, "
-        "absence, maternity, paternity, hr, people team, contract of employment, "
-        "onboarding, joiner, new starter, leaver, offboarding, benefits, pension, "
-        "private medical, recruitment, hiring, hire, new hire, headcount, "
-        "interview, reference, training, course, performance review, appraisal, "
-        "grievance, health and safety, "
+        "visa, itinerary, reception, visitor, post, health and safety, "
         "first aid, fire drill",
     ),
 ]
 
 # (name, title, department, manager name or None)
 PEOPLE: list[tuple[str, str, str | None, str | None]] = [
-    ("Khalid Al-Rayes", "Chief Executive Officer", None, None),
-    # --- Investments / Deal Team ---
-    ("Faisal Al-Otaibi", "Managing Director, Investments", "Investments / Deal Team", "Khalid Al-Rayes"),
-    ("Sarah Whitfield", "Investment Director", "Investments / Deal Team", "Faisal Al-Otaibi"),
-    ("Omar Haddad", "Principal", "Investments / Deal Team", "Faisal Al-Otaibi"),
-    ("Layla Mansour", "Senior Associate", "Investments / Deal Team", "Sarah Whitfield"),
-    ("James Okonkwo", "Associate", "Investments / Deal Team", "Sarah Whitfield"),
-    ("Noura Al-Sabah", "Associate", "Investments / Deal Team", "Omar Haddad"),
-    ("Marco Bianchi", "Investment Analyst", "Investments / Deal Team", "Omar Haddad"),
-    ("Yousef Darwish", "Investment Analyst", "Investments / Deal Team", "Layla Mansour"),
-    ("Sofia Marchetti", "Investment Analyst", "Investments / Deal Team", "Layla Mansour"),
-    # --- Finance ---
-    ("Amira Haddadin", "Chief Financial Officer", "Finance", "Khalid Al-Rayes"),
-    ("Daniel Reyes", "Finance Director", "Finance", "Amira Haddadin"),
-    ("Huda Al-Najjar", "Financial Controller", "Finance", "Amira Haddadin"),
-    ("Peter Lindqvist", "Senior Accountant", "Finance", "Huda Al-Najjar"),
-    ("Rania Khoury", "Accounts Payable Lead", "Finance", "Daniel Reyes"),
-    ("Tomas Ferreira", "Treasury Analyst", "Finance", "Daniel Reyes"),
-    ("Mariam Al-Balushi", "Fund Accountant", "Finance", "Huda Al-Najjar"),
-    ("Karim El-Masri", "Payroll Specialist", "Finance", "Daniel Reyes"),
-    # --- Legal & Compliance ---
-    ("Nadia Suleiman", "General Counsel", "Legal & Compliance", "Khalid Al-Rayes"),
-    ("Robert Ashby", "Deputy General Counsel", "Legal & Compliance", "Nadia Suleiman"),
-    ("Zainab Al-Hashimi", "Head of Compliance", "Legal & Compliance", "Nadia Suleiman"),
-    ("Eleanor Voss", "Senior Legal Counsel", "Legal & Compliance", "Robert Ashby"),
-    ("Tariq Benali", "Compliance Officer, KYC", "Legal & Compliance", "Zainab Al-Hashimi"),
-    ("Grace Mwangi", "Legal Counsel", "Legal & Compliance", "Robert Ashby"),
-    ("Hassan Al-Farsi", "Paralegal", "Legal & Compliance", "Eleanor Voss"),
-    # --- IT ---
-    ("Vikram Chandra", "Head of Technology", "IT", "Khalid Al-Rayes"),
-    ("Elena Petrova", "Infrastructure Lead", "IT", "Vikram Chandra"),
-    ("Ahmed Zaki", "Systems Administrator", "IT", "Elena Petrova"),
-    ("Chloe Dubois", "Security Engineer", "IT", "Vikram Chandra"),
-    ("Bilal Rahman", "IT Support Lead", "IT", "Vikram Chandra"),
-    ("Ivan Kovacs", "Application Support Analyst", "IT", "Bilal Rahman"),
-    ("Fatima Al-Zahrani", "Data Engineer", "IT", "Elena Petrova"),
-    # --- Operations / HR ---
-    ("Claire Donovan", "Chief Operating Officer", "Operations / HR", "Khalid Al-Rayes"),
-    ("Salma Bouzid", "Head of Human Resources", "Operations / HR", "Claire Donovan"),
-    ("Michael Trent", "Operations Manager", "Operations / HR", "Claire Donovan"),
-    ("Dina Al-Kaabi", "HR Business Partner", "Operations / HR", "Salma Bouzid"),
-    ("Anna Sorenson", "Office Manager", "Operations / HR", "Michael Trent"),
-    ("Youssef Karim", "Procurement Lead", "Operations / HR", "Michael Trent"),
-    ("Priya Nair", "Executive Assistant to the CEO", "Operations / HR", "Claire Donovan"),
-    ("Hamza Al-Dosari", "Travel & Facilities Coordinator", "Operations / HR", "Anna Sorenson"),
+    # --- Executive Office ---
+    ("Khalid Al-Rayes", "Chief Executive Officer", "Executive Office", None),
+    ("Victoria Lang", "Chief of Staff", "Executive Office", "Khalid Al-Rayes"),
+    ("Priya Nair", "Executive Assistant to the CEO", "Executive Office", "Khalid Al-Rayes"),
+    # --- Private Equity ---
+    ("Alexander Rothwell", "Chief Investment Officer", "Private Equity", "Khalid Al-Rayes"),
+    ("Faisal Al-Otaibi", "Managing Director, Private Equity", "Private Equity", "Alexander Rothwell"),
+    ("Sarah Whitfield", "Investment Director", "Private Equity", "Faisal Al-Otaibi"),
+    ("Omar Haddad", "Principal", "Private Equity", "Faisal Al-Otaibi"),
+    ("Layla Mansour", "Senior Associate", "Private Equity", "Sarah Whitfield"),
+    ("James Okonkwo", "Associate", "Private Equity", "Sarah Whitfield"),
+    ("Noura Al-Sabah", "Associate", "Private Equity", "Omar Haddad"),
+    ("Daniyal Sheikh", "Senior Associate", "Private Equity", "Omar Haddad"),
+    ("Lucas Meyer", "Associate", "Private Equity", "Sarah Whitfield"),
+    ("Marco Bianchi", "Investment Analyst", "Private Equity", "Omar Haddad"),
+    ("Yousef Darwish", "Investment Analyst", "Private Equity", "Layla Mansour"),
+    ("Sofia Marchetti", "Investment Analyst", "Private Equity", "Layla Mansour"),
+    ("Emily Watts", "Investment Analyst", "Private Equity", "Daniyal Sheikh"),
+    # --- Public Markets ---
+    ("Helen Zhao", "Head of Public Markets", "Public Markets", "Alexander Rothwell"),
+    ("Dmitri Volkov", "Senior Portfolio Manager", "Public Markets", "Helen Zhao"),
+    ("Aisha Al-Amin", "Portfolio Manager", "Public Markets", "Helen Zhao"),
+    ("Jonathan Pierce", "Head of Trading", "Public Markets", "Helen Zhao"),
+    ("Mei-Ling Chen", "Trader", "Public Markets", "Jonathan Pierce"),
+    ("Isabelle Fontaine", "Senior Research Analyst", "Public Markets", "Dmitri Volkov"),
+    ("Adam Kowalski", "Research Analyst", "Public Markets", "Dmitri Volkov"),
+    ("Zara Hussain", "Research Analyst", "Public Markets", "Aisha Al-Amin"),
+    # --- Real Assets & Infrastructure ---
+    ("Marcus Thorne", "Head of Real Assets", "Real Assets & Infrastructure", "Alexander Rothwell"),
+    ("Valentina Cruz", "Director, Real Estate", "Real Assets & Infrastructure", "Marcus Thorne"),
+    ("Samir Chatterjee", "Director, Infrastructure", "Real Assets & Infrastructure", "Marcus Thorne"),
+    ("Hana Yoshida", "Senior Associate", "Real Assets & Infrastructure", "Valentina Cruz"),
+    ("Piotr Nowak", "Associate", "Real Assets & Infrastructure", "Samir Chatterjee"),
+    ("Leila Boutros", "Analyst", "Real Assets & Infrastructure", "Valentina Cruz"),
+    ("George Kamau", "Analyst", "Real Assets & Infrastructure", "Samir Chatterjee"),
+    # --- Investor Relations ---
+    ("Charlotte Beaumont", "Head of Investor Relations", "Investor Relations", "Khalid Al-Rayes"),
+    ("Ryan O'Sullivan", "Investor Relations Director", "Investor Relations", "Charlotte Beaumont"),
+    ("Ingrid Larsen", "Investor Reporting Manager", "Investor Relations", "Charlotte Beaumont"),
+    ("Tunde Adebayo", "Investor Relations Associate", "Investor Relations", "Ryan O'Sullivan"),
+    ("Camille Laurent", "Communications Manager", "Investor Relations", "Charlotte Beaumont"),
+    # --- Finance & Accounting ---
+    ("Amira Haddadin", "Chief Financial Officer", "Finance & Accounting", "Khalid Al-Rayes"),
+    ("Daniel Reyes", "Finance Director", "Finance & Accounting", "Amira Haddadin"),
+    ("Huda Al-Najjar", "Financial Controller", "Finance & Accounting", "Amira Haddadin"),
+    ("Lena Fischer", "Head of Treasury", "Finance & Accounting", "Amira Haddadin"),
+    ("Peter Lindqvist", "Senior Accountant", "Finance & Accounting", "Huda Al-Najjar"),
+    ("Rania Khoury", "Accounts Payable Lead", "Finance & Accounting", "Daniel Reyes"),
+    ("Tomas Ferreira", "Treasury Analyst", "Finance & Accounting", "Lena Fischer"),
+    ("Mariam Al-Balushi", "Fund Accountant", "Finance & Accounting", "Huda Al-Najjar"),
+    ("Jacob Stein", "Fund Accountant", "Finance & Accounting", "Huda Al-Najjar"),
+    ("Karim El-Masri", "Payroll Specialist", "Finance & Accounting", "Daniel Reyes"),
+    ("Amal Qasimi", "Accounts Assistant", "Finance & Accounting", "Rania Khoury"),
+    ("Nathan Brooks", "Financial Analyst", "Finance & Accounting", "Daniel Reyes"),
+    # --- Legal ---
+    ("Nadia Suleiman", "General Counsel", "Legal", "Khalid Al-Rayes"),
+    ("Robert Ashby", "Deputy General Counsel", "Legal", "Nadia Suleiman"),
+    ("Eleanor Voss", "Senior Legal Counsel", "Legal", "Robert Ashby"),
+    ("Grace Mwangi", "Legal Counsel", "Legal", "Robert Ashby"),
+    ("Hassan Al-Farsi", "Paralegal", "Legal", "Eleanor Voss"),
+    ("Miriam Goldberg", "Company Secretary", "Legal", "Nadia Suleiman"),
+    # --- Compliance ---
+    ("Zainab Al-Hashimi", "Head of Compliance", "Compliance", "Nadia Suleiman"),
+    ("Tariq Benali", "Compliance Officer, KYC", "Compliance", "Zainab Al-Hashimi"),
+    ("Rebecca Ojo", "Senior Compliance Officer", "Compliance", "Zainab Al-Hashimi"),
+    ("Stefan Bauer", "Compliance Analyst", "Compliance", "Rebecca Ojo"),
+    # --- Risk ---
+    ("Margaret Osei", "Chief Risk Officer", "Risk", "Khalid Al-Rayes"),
+    ("Viktor Hansen", "Head of Operational Risk", "Risk", "Margaret Osei"),
+    ("Anjali Rao", "Risk Analyst", "Risk", "Viktor Hansen"),
+    ("Felix Moreau", "Market Risk Analyst", "Risk", "Margaret Osei"),
+    # --- Technology ---
+    ("Vikram Chandra", "Head of Technology", "Technology", "Khalid Al-Rayes"),
+    ("Elena Petrova", "Infrastructure Lead", "Technology", "Vikram Chandra"),
+    ("Ahmed Zaki", "Systems Administrator", "Technology", "Elena Petrova"),
+    ("Chloe Dubois", "Security Engineer", "Technology", "Vikram Chandra"),
+    ("Sam Whitaker", "Cybersecurity Analyst", "Technology", "Chloe Dubois"),
+    ("Bilal Rahman", "IT Support Lead", "Technology", "Vikram Chandra"),
+    ("Ivan Kovacs", "Application Support Analyst", "Technology", "Bilal Rahman"),
+    ("Andre Silva", "IT Support Engineer", "Technology", "Bilal Rahman"),
+    ("Fatima Al-Zahrani", "Data Engineer", "Technology", "Elena Petrova"),
+    ("Keiko Tanaka", "Data Analyst", "Technology", "Elena Petrova"),
+    # --- People & Culture ---
+    ("Salma Bouzid", "Head of People & Culture", "People & Culture", "Claire Donovan"),
+    ("Dina Al-Kaabi", "HR Business Partner", "People & Culture", "Salma Bouzid"),
+    ("Lucia Romano", "Talent Acquisition Lead", "People & Culture", "Salma Bouzid"),
+    ("David Mensah", "Learning & Development Manager", "People & Culture", "Salma Bouzid"),
+    ("Ffion Davies", "HR Coordinator", "People & Culture", "Dina Al-Kaabi"),
+    # --- Operations & Facilities ---
+    ("Claire Donovan", "Chief Operating Officer", "Operations & Facilities", "Khalid Al-Rayes"),
+    ("Michael Trent", "Operations Manager", "Operations & Facilities", "Claire Donovan"),
+    ("Anna Sorenson", "Office Manager", "Operations & Facilities", "Michael Trent"),
+    ("Youssef Karim", "Procurement Lead", "Operations & Facilities", "Michael Trent"),
+    ("Mona Farid", "Operations Analyst", "Operations & Facilities", "Michael Trent"),
+    ("Hamza Al-Dosari", "Travel & Facilities Coordinator", "Operations & Facilities", "Anna Sorenson"),
+    ("Beatriz Costa", "Receptionist", "Operations & Facilities", "Anna Sorenson"),
+    ("Jack Thompson", "Facilities Technician", "Operations & Facilities", "Anna Sorenson"),
 ]
 
 # (name, category, description, keywords)
@@ -204,6 +297,152 @@ PROCESSES: list[tuple[str, str, str, str]] = [
         "battery, charger, slow computer, not working, blue screen, "
         "replacement device, new laptop, it support",
     ),
+    (
+        "NDA Execution",
+        "Legal",
+        "Prepare, negotiate and execute a non-disclosure agreement with a "
+        "counterparty, adviser or vendor.",
+        "nda, non disclosure, confidentiality agreement, execute nda, sign nda, "
+        "counterparty nda, mutual nda, confidentiality undertaking",
+    ),
+    (
+        "Contract Review",
+        "Legal",
+        "Legal review of a contract, engagement letter or side letter before "
+        "signature, with redlines back to the counterparty.",
+        "contract review, review a contract, agreement review, redline, markup, "
+        "engagement letter, side letter, supplier contract, terms and conditions, "
+        "legal review, contract sign off",
+    ),
+    (
+        "KYC / AML Screening",
+        "Compliance",
+        "Know-your-customer and anti-money-laundering screening for a new "
+        "investor, counterparty or vendor, including sanctions checks.",
+        "kyc, know your customer, aml, anti money laundering, sanctions check, "
+        "screening, investor onboarding check, counterparty screening, kyc refresh, "
+        "pep check, source of funds",
+    ),
+    (
+        "Personal Account Dealing Approval",
+        "Compliance",
+        "Pre-clearance for a personal trade in a listed security, as the PA "
+        "dealing policy requires.",
+        "personal account dealing, pa dealing, personal trade, pre clearance, "
+        "preclearance, personal investment, share dealing, trade approval for "
+        "my own account",
+    ),
+    (
+        "Gifts & Entertainment Approval",
+        "Compliance",
+        "Declare and approve a gift or hospitality given or received, and record "
+        "it on the gift register.",
+        "gift, gifts, entertainment, hospitality, declare a gift, gift register, "
+        "client entertainment, tickets from a broker, corporate hospitality",
+    ),
+    (
+        "Capital Call Processing",
+        "Fund Operations",
+        "Issue a capital call notice to limited partners and reconcile the "
+        "drawdown against commitments.",
+        "capital call, drawdown, call notice, lp funding, commitment drawdown, "
+        "call capital, fund the deal",
+    ),
+    (
+        "Distribution Processing",
+        "Fund Operations",
+        "Process a distribution of proceeds to limited partners through the "
+        "waterfall, including carry calculations.",
+        "distribution, distribute proceeds, lp distribution, waterfall, carry, "
+        "return capital, proceeds to investors",
+    ),
+    (
+        "Payment Release",
+        "Treasury",
+        "Release a wire from a firm or fund bank account once the payment has "
+        "been verified and dual-authorised.",
+        "wire, wire transfer, payment release, release payment, release a wire, "
+        "bank transfer, remittance, settle payment, transfer funds, urgent payment",
+    ),
+    (
+        "Vendor Onboarding",
+        "Procurement",
+        "Set up a new supplier: due diligence, bank detail verification and "
+        "entry in the vendor master.",
+        "vendor onboarding, new vendor, new supplier, supplier onboarding, vendor "
+        "setup, supplier setup, vendor due diligence, add a supplier, vendor master",
+    ),
+    (
+        "New Joiner Onboarding",
+        "People",
+        "Everything a new starter needs for day one: contract, equipment order, "
+        "system access bundle and induction plan.",
+        "onboarding, new joiner, new starter, joiner, first day, induction, "
+        "starter setup, welcome pack, joiner bundle",
+    ),
+    (
+        "Leaver Offboarding",
+        "People",
+        "Off-board a leaver: revoke access, recover equipment, settle final pay "
+        "and run the exit interview.",
+        "leaver, offboarding, resignation, exit, departure, revoke access for a "
+        "leaver, final pay, exit interview, return equipment",
+    ),
+    (
+        "Annual Leave Approval",
+        "People",
+        "Approve a request for annual leave and record it on the absence calendar.",
+        "annual leave, holiday, holiday request, time off, vacation, leave "
+        "request, book leave, pto, days off",
+    ),
+    (
+        "Recruitment Requisition",
+        "People",
+        "Open a role: approve the headcount, the level and the budget, then "
+        "brief the talent team.",
+        "recruitment, requisition, open a role, hire, hiring, new hire, headcount "
+        "approval, job posting, vacancy, backfill",
+    ),
+    (
+        "Software Purchase Request",
+        "IT",
+        "Buy or renew a software product or SaaS subscription, including the "
+        "security review and licence assignment.",
+        "software purchase, buy software, new tool, saas, subscription renewal, "
+        "software licence request, app request, purchase a licence, renew software",
+    ),
+    (
+        "Building Access Pass",
+        "Operations",
+        "Issue, replace or extend a building security pass for staff, "
+        "contractors and visitors.",
+        "security pass, badge, access card, building access, door pass, key fob, "
+        "office pass, visitor pass, replacement badge, lost pass",
+    ),
+    (
+        "Investor Report Request",
+        "Investor Relations",
+        "Produce or resend an investor report, capital account statement or "
+        "factsheet for a limited partner.",
+        "investor report, quarterly letter, lp report, capital account statement, "
+        "investor statement, factsheet, investor portal access, resend a report",
+    ),
+    (
+        "Risk Incident Report",
+        "Risk",
+        "Log an operational incident, error or near miss on the risk register "
+        "and track remediation.",
+        "risk incident, incident report, operational incident, error report, "
+        "near miss, limit breach, breach of limit, log an incident, remediation",
+    ),
+    (
+        "Market Data Access",
+        "Public Markets",
+        "Grant or amend a market data entitlement — a Bloomberg terminal, "
+        "Refinitiv or FactSet seat, or an index licence.",
+        "bloomberg, market data, terminal, refinitiv, factset, data terminal, "
+        "market data licence, index licence, terminal seat, quote access",
+    ),
 ]
 
 # process name -> {role: [person names]}
@@ -247,6 +486,98 @@ RESPONSIBILITIES: dict[str, dict[str, list[str]]] = {
         "owner": ["Huda Al-Najjar"],
         "approver": ["Amira Haddadin"],
     },
+    "NDA Execution": {
+        "owner": ["Grace Mwangi"],
+        "approver": ["Robert Ashby"],
+        "delegate": ["Hassan Al-Farsi"],
+    },
+    # Owner Eleanor Voss is on leave at seed time — a second live reroute.
+    "Contract Review": {
+        "owner": ["Eleanor Voss"],
+        "approver": ["Robert Ashby"],
+        "delegate": ["Grace Mwangi"],
+        "backup": ["Nadia Suleiman"],
+    },
+    "KYC / AML Screening": {
+        "owner": ["Tariq Benali"],
+        "approver": ["Zainab Al-Hashimi"],
+        "delegate": ["Rebecca Ojo"],
+        "backup": ["Stefan Bauer"],
+    },
+    "Personal Account Dealing Approval": {
+        "owner": ["Rebecca Ojo"],
+        "approver": ["Zainab Al-Hashimi"],
+        "delegate": ["Stefan Bauer"],
+    },
+    "Gifts & Entertainment Approval": {
+        "owner": ["Stefan Bauer"],
+        "approver": ["Zainab Al-Hashimi"],
+    },
+    "Capital Call Processing": {
+        "owner": ["Mariam Al-Balushi"],
+        "approver": ["Huda Al-Najjar"],
+        "delegate": ["Jacob Stein"],
+    },
+    "Distribution Processing": {
+        "owner": ["Jacob Stein"],
+        "approver": ["Huda Al-Najjar"],
+        "delegate": ["Mariam Al-Balushi"],
+    },
+    "Payment Release": {
+        "owner": ["Tomas Ferreira"],
+        "approver": ["Lena Fischer"],
+        "backup": ["Daniel Reyes"],
+    },
+    "Vendor Onboarding": {
+        "owner": ["Youssef Karim"],
+        "approver": ["Michael Trent"],
+        "delegate": ["Anna Sorenson"],
+    },
+    "New Joiner Onboarding": {
+        "owner": ["Dina Al-Kaabi"],
+        "approver": ["Salma Bouzid"],
+        "delegate": ["Ffion Davies"],
+    },
+    "Leaver Offboarding": {
+        "owner": ["Ffion Davies"],
+        "approver": ["Salma Bouzid"],
+        "delegate": ["Dina Al-Kaabi"],
+    },
+    "Annual Leave Approval": {
+        "owner": ["Ffion Davies"],
+        "approver": ["Salma Bouzid"],
+        "delegate": ["Dina Al-Kaabi"],
+    },
+    "Recruitment Requisition": {
+        "owner": ["Lucia Romano"],
+        "approver": ["Salma Bouzid"],
+        "backup": ["Claire Donovan"],
+    },
+    "Software Purchase Request": {
+        "owner": ["Ivan Kovacs"],
+        "approver": ["Vikram Chandra"],
+        "delegate": ["Bilal Rahman"],
+    },
+    "Building Access Pass": {
+        "owner": ["Beatriz Costa"],
+        "approver": ["Anna Sorenson"],
+        "delegate": ["Jack Thompson"],
+    },
+    "Investor Report Request": {
+        "owner": ["Ingrid Larsen"],
+        "approver": ["Charlotte Beaumont"],
+        "delegate": ["Tunde Adebayo"],
+    },
+    "Risk Incident Report": {
+        "owner": ["Viktor Hansen"],
+        "approver": ["Margaret Osei"],
+        "delegate": ["Anjali Rao"],
+    },
+    "Market Data Access": {
+        "owner": ["Jonathan Pierce"],
+        "approver": ["Helen Zhao"],
+        "delegate": ["Mei-Ling Chen"],
+    },
     # Orphans — deliberately nobody owns these.
     "Purchase Order Approval": {},
     "Policy Exception Approval": {},
@@ -255,9 +586,13 @@ RESPONSIBILITIES: dict[str, dict[str, list[str]]] = {
 # name -> days out of office from the simulated "now"
 OOO_PEOPLE = {
     "Layla Mansour": 6,   # owner of Data Room Access — the headline demo
-    "Eleanor Voss": 3,
+    "Eleanor Voss": 3,    # owner of Contract Review — reroutes to Grace Mwangi
     "Ahmed Zaki": 2,
     "Huda Al-Najjar": 4,  # single point of failure, no delegate configured
+    "Dmitri Volkov": 3,
+    "Ffion Davies": 5,    # leave/offboarding owner — reroutes to Dina Al-Kaabi
+    "Jack Thompson": 1,
+    "Tunde Adebayo": 2,
 }
 
 
@@ -525,6 +860,18 @@ def _seed_history(session, rng, base, people, processes) -> None:
             "Three analysts need read access to the Northgate folder before Monday.",
             120.0, 5.0, 41.0,
         ),
+        (
+            "KYC / AML Screening", "Ingrid Larsen", "Tariq Benali",
+            "KYC for the new LP — Meridian Pension Trust",
+            "Subscription docs are in; screening needed before we countersign.",
+            96.0, 2.0, 30.0,
+        ),
+        (
+            "NDA Execution", "Daniyal Sheikh", "Grace Mwangi",
+            "NDA with Cobalt Ridge advisers",
+            "Standard mutual NDA ahead of the first management meeting.",
+            84.0, 1.0, 20.0,
+        ),
     ]
     for proc, requester, assignee, title, body, created_h, ack_h, done_h in completed:
         _seed_request(
@@ -592,6 +939,12 @@ def _seed_history(session, rng, base, people, processes) -> None:
             "New HR business partner starts Monday and needs the usual joiner bundle.",
             26.0, 1.0,
         ),
+        (
+            "Market Data Access", "Adam Kowalski", "Jonathan Pierce",
+            "FactSet seat for the research desk",
+            "Sharing a login is against the licence — we need a second seat.",
+            22.0, 2.5,
+        ),
     ]
     for proc, requester, assignee, title, body, created_h, ack_h in acknowledged:
         _seed_request(
@@ -624,6 +977,12 @@ def _seed_history(session, rng, base, people, processes) -> None:
             "Taxis during the Sandpiper roadshow",
             "Four days of client meetings across the city. Receipts are in the folder.",
             3.0,
+        ),
+        (
+            "Payment Release", "Mariam Al-Balushi", "Tomas Ferreira",
+            "Wire for the Cedarline completion payment",
+            "Funds flow is agreed; the wire needs releasing before the 2pm cut-off.",
+            2.0,
         ),
     ]
     for proc, requester, assignee, title, body, created_h in fresh_pending:

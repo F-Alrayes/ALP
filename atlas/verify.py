@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from atlas import agent, clock
 from atlas.db import session_scope, write_lock
 from atlas.matching import match_processes
-from atlas.models import Event, Person, Process, Request
+from atlas.models import Department, Event, Person, Process, Request
 from atlas.routing import resolve
 from atlas.seed import seed
 from atlas.services import (acknowledge, complete, create_request, draft_body,
@@ -30,9 +30,10 @@ def check(label, cond, extra=""):
 print("\n[1] Fresh setup -> seeded database")
 seed()
 with session_scope() as s:
-    check("40 people seeded", s.query(Person).count() == 40)
-    check("9 processes seeded", s.query(Process).count() == 9)
-    check("historical requests present", 15 <= s.query(Request).count() <= 20,
+    check("85 people seeded", s.query(Person).count() == 85)
+    check("27 processes seeded", s.query(Process).count() == 27)
+    check("twelve divisions", s.query(Department).count() == 12)
+    check("historical requests present", 20 <= s.query(Request).count() <= 26,
           f"count={s.query(Request).count()}")
     check("mixed states", len({r.status for r in s.query(Request).all()}) >= 3)
 agent.run_until_settled()
@@ -172,7 +173,7 @@ with session_scope() as s:
     check("score tool grounds the agent in the ranker",
           scores and scores[0]["name"] == "Data Room Access", str(scores[:1]))
     check("catalogue tool serves the live processes",
-          len(adk_router.list_processes()) == 9)
+          len(adk_router.list_processes()) == 27)
 # The chain must PREFER ADK when a key is present: stub the runner call and
 # confirm brain.understand returns its reading (no network involved).
 os.environ["GOOGLE_API_KEY"] = "verify-stub"
@@ -192,7 +193,27 @@ finally:
     adk_router.adk_understand = _real
     del os.environ["GOOGLE_API_KEY"]
 
-print("\n[9] No network access at runtime")
+print("\n[9] Data warehouse — Snowflake when configured, local SQLite otherwise")
+from atlas import db as atlas_db
+check("keyless env: no warehouse credentials", not atlas_db.snowflake_configured())
+check("falls back to the local warehouse", atlas_db.backend() == "sqlite",
+      atlas_db.backend_label())
+_sf_env = {"SNOWFLAKE_ACCOUNT": "xy12345.eu-west-1", "SNOWFLAKE_USER": "ATLAS_APP",
+           "SNOWFLAKE_PASSWORD": "verify-stub", "SNOWFLAKE_WAREHOUSE": "ATLAS_WH"}
+os.environ.update(_sf_env)
+try:
+    check("credentials switch the backend", atlas_db.backend() == "snowflake")
+    _url = str(atlas_db.snowflake_url())
+    check("snowflake URL carries account, database and warehouse",
+          "xy12345.eu-west-1" in _url and "/ATLAS/" in _url and "ATLAS_WH" in _url,
+          _url.replace("verify-stub", "***"))
+    from sqlalchemy import create_engine as _ce
+    check("snowflake dialect loads", _ce(atlas_db.snowflake_url()).dialect.name == "snowflake")
+finally:
+    for k in _sf_env:
+        del os.environ[k]
+
+print("\n[10] No network access at runtime")
 import socket
 blocked = []
 orig = socket.socket.connect

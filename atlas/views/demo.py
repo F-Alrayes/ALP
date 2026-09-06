@@ -11,7 +11,8 @@ from datetime import timedelta
 import streamlit as st
 
 from atlas import agent, clock
-from atlas.db import session_scope
+from atlas.db import backend, backend_label, session_scope
+from atlas.models import Person, Process, Request
 from atlas.services import set_ooo
 from atlas.ui.chrome import all_people
 from atlas.ui.components import esc, page_header
@@ -119,6 +120,29 @@ def _agent_card() -> None:
             st.rerun()
 
 
+def _warehouse_card() -> None:
+    with st.container(border=True, key="demo_warehouse"):
+        st.markdown("<div class='chart-head'>Data warehouse</div>",
+                    unsafe_allow_html=True)
+        live = backend() == "snowflake"
+        with session_scope() as session:
+            counts = (session.query(Person).count(),
+                      session.query(Process).count(),
+                      session.query(Request).count())
+        st.markdown(
+            f"<div class='mono'>{esc(backend_label())}</div>"
+            f"<div class='subtle'>{counts[0]} people · {counts[1]} processes · "
+            f"{counts[2]} requests</div>",
+            unsafe_allow_html=True,
+        )
+        if not live:
+            st.markdown(
+                "<div class='subtle'>Set SNOWFLAKE_ACCOUNT / _USER / _PASSWORD "
+                "to write to a live warehouse.</div>",
+                unsafe_allow_html=True,
+            )
+
+
 def _reset_card() -> None:
     with st.container(border=True, key="demo_reset"):
         st.markdown("<div class='chart-head'>Start over</div>",
@@ -156,6 +180,8 @@ def render(actor_id: int) -> None:  # actor_id unused; the signature matches the
         _ooo_card()
     with col3:
         _agent_card()
-    col4, _ = st.columns([1, 2])
+    col4, col5, _ = st.columns(3)
     with col4:
+        _warehouse_card()
+    with col5:
         _reset_card()
