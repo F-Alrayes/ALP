@@ -393,7 +393,8 @@ PROCESSES: list[tuple[str, str, str, str]] = [
         "People",
         "Approve a request for annual leave and record it on the absence calendar.",
         "annual leave, holiday, holiday request, time off, vacation, leave "
-        "request, book leave, pto, days off",
+        "request, book leave, pto, days off, day off, week off, weeks off, "
+        "take leave, take some time off, time away",
     ),
     (
         "Recruitment Requisition",
