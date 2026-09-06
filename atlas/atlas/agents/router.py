@@ -16,7 +16,7 @@ responsibility graph.
 
 Configuration:
     GOOGLE_API_KEY / GEMINI_API_KEY   enables the agent (Gemini API)
-    ATLAS_ADK_MODEL                   model id, default ``gemini-2.5-flash``
+    ATLAS_ADK_MODEL                   model id, default ``gemini-3.6-flash``
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from ..matching import match_processes, matchable_text
 from ..models import Person, Process
 
 APP_NAME = "atlas"
-ADK_MODEL = os.environ.get("ATLAS_ADK_MODEL", "gemini-2.5-flash")
+ADK_MODEL = os.environ.get("ATLAS_ADK_MODEL", "gemini-3.6-flash")
 
 _INSTRUCTION = (
     "You are Atlas, an internal assistant at an investment firm. People tell "

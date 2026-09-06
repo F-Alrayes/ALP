@@ -167,7 +167,7 @@ The chat brain runs on the first configured engine in a graceful chain:
 
 | Engine | Enable with | Notes |
 |---|---|---|
-| **Google ADK 2.x** (primary) | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | An ADK `LlmAgent` on Gemini (`ATLAS_ADK_MODEL`, default `gemini-2.5-flash`), grounded in the engine through function tools (`atlas/agents/router.py`); it commits its reading via a tool call, and the deterministic graph still decides who is accountable. |
+| **Google ADK 2.x** (primary) | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | An ADK `LlmAgent` on Gemini (`ATLAS_ADK_MODEL`, default `gemini-3.6-flash`), grounded in the engine through function tools (`atlas/agents/router.py`); it commits its reading via a tool call, and the deterministic graph still decides who is accountable. |
 | Claude | `ANTHROPIC_API_KEY` | Direct structured read against the live catalogue. |
 | Any open model | `ATLAS_LLM_BASE_URL` (+ `ATLAS_LLM_MODEL`, `ATLAS_LLM_API_KEY`) | Any OpenAI-compatible endpoint: Ollama, vLLM, LM Studio, … |
 | Keyword matcher | nothing | Always available; the offline demo guarantee. |
