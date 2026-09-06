@@ -1,8 +1,8 @@
-"""The console shell: a floating glass top bar instead of a side rail.
+"""The console shell: a quiet dark-evergreen rail.
 
-Brand on the left, all six pages as flat mono nav items, the identity
-switcher on the right. ``render()`` returns (acting user id, current page)
-exactly as before.
+Brand at the top, six flat mono nav items with a gold active state, the
+identity switcher below. ``render()`` returns (acting user id, current
+page) exactly as before.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ def _go(page: str) -> None:
 
 
 def render() -> tuple[int, str]:
-    """Draw the top bar; return (acting user id, current page)."""
+    """Draw the rail; return (acting user id, current page)."""
     page = current_page()
     actor = current_actor_id()
     people = all_people()
@@ -81,40 +81,34 @@ def render() -> tuple[int, str]:
     with session_scope() as session:
         unread = unread_count(session, actor)
 
-    with st.container(key="topbar"):
-        cols = st.columns(
-            [1] * (len(PAGES) + 2),
-            gap="small",
-            vertical_alignment="center",
+    with st.sidebar:
+        st.markdown(
+            f"""<div class="atlas-brand"><span class="name">{esc(APP_NAME.upper())}</span>
+                  <span class="build">{esc(UI_BUILD)}</span></div>""",
+            unsafe_allow_html=True,
         )
-        with cols[0]:
-            st.markdown(
-                f"""<div class="atlas-brand"><span class="name">{esc(APP_NAME.upper())}</span>
-                      <span class="build">{esc(UI_BUILD)}</span></div>""",
-                unsafe_allow_html=True,
-            )
-        for index, name in enumerate(PAGES):
+        for name in PAGES:
             label = name
             if name == "Requests" and unread:
                 label = f"{name} :orange-badge[{unread}]"
-            with cols[index + 1]:
-                st.button(
-                    label,
-                    key=f"nav_{name}",
-                    icon=NAV_ICONS.get(name),
-                    type="primary" if page == name else "secondary",
-                    on_click=_go,
-                    args=(name,),
-                )
-        with cols[-1]:
-            chosen = st.selectbox(
-                "Acting as",
-                options=ids,
-                index=ids.index(actor),
-                format_func=lambda i: labels[i],
-                label_visibility="collapsed",
-                key="atlas_actor_select",
+            st.button(
+                label,
+                key=f"nav_{name}",
+                icon=NAV_ICONS.get(name),
+                width="stretch",
+                type="primary" if page == name else "secondary",
+                on_click=_go,
+                args=(name,),
             )
+        st.caption("Acting as")
+        chosen = st.selectbox(
+            "Acting as",
+            options=ids,
+            index=ids.index(actor),
+            format_func=lambda i: labels[i],
+            label_visibility="collapsed",
+            key="atlas_actor_select",
+        )
     st.session_state[ACTOR_KEY] = chosen
 
     return chosen, current_page()

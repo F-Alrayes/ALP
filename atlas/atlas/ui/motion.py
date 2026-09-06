@@ -76,7 +76,7 @@ _GLIDE = """<script>
     tag.textContent = "(function(){" +
       "document.addEventListener('pointerdown', function(e){" +
         "var t = e.target;" +
-        "var btn = t && t.closest && t.closest('.st-key-topbar .stButton button');" +
+        "var btn = t && t.closest && t.closest('[data-testid=stSidebar] [class*=st-key-nav_] button');" +
         "if (!btn) return;" +
         "var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;" +
         "var behavior = reduce ? 'auto' : 'smooth';" +
