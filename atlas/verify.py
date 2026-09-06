@@ -147,7 +147,52 @@ with session_scope() as s:
     check("rerouted on OOO toggle", req.assignee_id != OWNER_ID, f"{owner_name} -> {new.name}")
     check("reroute logged with a reason", "reroute_ooo" in types)
 
-print("\n[8] No network access at runtime")
+print("\n[8] Chat engine chain — ADK first, graceful offline fallback")
+import os
+from atlas import brain
+from atlas.agents import router as adk_router
+check("keyless env: no engine keys set",
+      not (brain.adk_ready() or brain.llm_ready() or brain.oss_ready()))
+with session_scope() as s:
+    u = brain.understand(s, "I need my laptop fixed", None)
+    check("keyless chat falls to the keyword matcher", u.source == "keywords", u.source)
+    check("keyword path still routes hardware to IT",
+          u.process_id is not None and "Hardware" in (s.get(Process, u.process_id).name or ""))
+adk_agent = adk_router.build_agent()
+tool_names = set()
+for t in adk_agent.tools:
+    tool_names.add(getattr(t, "__name__", getattr(t, "name", str(t))))
+check("ADK agent builds offline", adk_agent.name == "atlas_router")
+check("engine tools mounted",
+      {"list_processes", "score_processes", "list_people"} <= tool_names, str(sorted(tool_names)))
+check("commit tools mounted (the structured-output channel)",
+      {"record_route", "record_intent"} <= tool_names)
+with session_scope() as s:
+    scores = adk_router.score_processes("access to the data room for Project Falcon")
+    check("score tool grounds the agent in the ranker",
+          scores and scores[0]["name"] == "Data Room Access", str(scores[:1]))
+    check("catalogue tool serves the live processes",
+          len(adk_router.list_processes()) == 9)
+# The chain must PREFER ADK when a key is present: stub the runner call and
+# confirm brain.understand returns its reading (no network involved).
+os.environ["GOOGLE_API_KEY"] = "verify-stub"
+_real = adk_router.adk_understand
+try:
+    sentinel = brain.Understanding(intent="request", process_id=1, confidence=88.0,
+                                   title="stub", rationale="stub", source="gemini (adk)")
+    adk_router.adk_understand = lambda s_, t_, a_: sentinel
+    with session_scope() as s:
+        u = brain.understand(s, "anything at all", None)
+    check("chain prefers the ADK agent when keyed", u is sentinel)
+    adk_router.adk_understand = lambda s_, t_, a_: (_ for _ in ()).throw(RuntimeError("api down"))
+    with session_scope() as s:
+        u = brain.understand(s, "I need my laptop fixed", None)
+    check("ADK failure degrades to the next engine", u.source == "keywords", u.source)
+finally:
+    adk_router.adk_understand = _real
+    del os.environ["GOOGLE_API_KEY"]
+
+print("\n[9] No network access at runtime")
 import socket
 blocked = []
 orig = socket.socket.connect

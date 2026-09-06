@@ -1,12 +1,17 @@
 """Understanding — turning a sentence into an intent Atlas can act on.
 
-With an ``ANTHROPIC_API_KEY`` configured, the chat runs on Claude: the model
-reads the request in context of the live process catalogue and returns a
-structured reading (intent, which process, a confidence 0-100, a title).
-With ``ATLAS_LLM_BASE_URL`` set instead, the same reading comes from any
-OpenAI-compatible endpoint serving an open-source model (Ollama, vLLM,
-LM Studio, …). Without either — or on any API failure — it falls back to
-the deterministic keyword matcher, so the demo still runs fully offline.
+The chat runs on the first configured engine in this chain:
+
+1. **Google ADK** (``GOOGLE_API_KEY`` / ``GEMINI_API_KEY``) — an ADK 2.x
+   ``LlmAgent`` on Gemini, grounded in the engine through function tools
+   and committing its reading through a tool call. See
+   :mod:`atlas.agents.router`.
+2. **Claude** (``ANTHROPIC_API_KEY``) — a direct structured read of the
+   request against the live catalogue.
+3. **An open model** (``ATLAS_LLM_BASE_URL``) — any OpenAI-compatible
+   endpoint (Ollama, vLLM, LM Studio, …).
+4. Without any of those — or on any API failure — the deterministic
+   keyword matcher, so the demo still runs fully offline.
 
 Routing stays deterministic either way. The model only interprets the
 sentence; ``routing.resolve`` decides who is accountable, exactly as before.
@@ -39,9 +44,14 @@ class Understanding:
     title: str | None = None
     reply: str | None = None          # the assistant's own words, for help/small talk
     rationale: str = ""
-    source: str = "keywords"          # "claude", "open model" or "keywords"
+    source: str = "keywords"          # "gemini (adk)", "claude", "open model" or "keywords"
     contact_line: str = ""            # "no process fits, but this team covers it"
     alternates: list = None           # ranked [{process_id, name, confidence}]
+
+
+def adk_ready() -> bool:
+    """Google ADK / Gemini configured — the primary chat engine."""
+    return bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"))
 
 
 def llm_ready() -> bool:
@@ -58,6 +68,16 @@ def understand(session: Session, text: str, actor: Person | None = None) -> Unde
     text = (text or "").strip()
     if not text:
         return Understanding(intent="help")
+    if adk_ready():
+        try:
+            from .agents.router import adk_understand
+
+            reading = adk_understand(session, text, actor)
+            if reading is not None:
+                return reading
+        except Exception:
+            # ADK/Gemini trouble must never block a chat turn — fall through.
+            pass
     if llm_ready():
         try:
             return _understand_llm(session, text, actor)

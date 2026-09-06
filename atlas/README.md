@@ -163,7 +163,16 @@ the request timeline) and a `Message` (which lands in someone's inbox).
 
 ### Intent matching
 
-Offline only — no model downloads, no API calls. Four signals are blended:
+The chat brain runs on the first configured engine in a graceful chain:
+
+| Engine | Enable with | Notes |
+|---|---|---|
+| **Google ADK 2.x** (primary) | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | An ADK `LlmAgent` on Gemini (`ATLAS_ADK_MODEL`, default `gemini-2.5-flash`), grounded in the engine through function tools (`atlas/agents/router.py`); it commits its reading via a tool call, and the deterministic graph still decides who is accountable. |
+| Claude | `ANTHROPIC_API_KEY` | Direct structured read against the live catalogue. |
+| Any open model | `ATLAS_LLM_BASE_URL` (+ `ATLAS_LLM_MODEL`, `ATLAS_LLM_API_KEY`) | Any OpenAI-compatible endpoint: Ollama, vLLM, LM Studio, … |
+| Keyword matcher | nothing | Always available; the offline demo guarantee. |
+
+The deterministic matcher also backs every engine: four signals are blended —
 exact and fuzzy keyword hits (rapidfuzz), fuzzy similarity against the process
 name, a hand-rolled TF-IDF cosine over the process corpus, and description
 similarity. The Intake page shows the breakdown, so a match is always
@@ -192,6 +201,7 @@ atlas/
 │   ├── routing.py      # responsibility resolution + trace
 │   ├── services.py     # request lifecycle
 │   ├── agent.py        # the background agent and its rules
+│   ├── agents/         # the ADK chat agent (router.py)
 │   ├── analytics.py    # queue, bottleneck, orphan and SPOF metrics
 │   └── ui/             # theme, shared components, sidebar
 ├── views/              # Intake, Requests, Directory, Agent Log, Dashboard

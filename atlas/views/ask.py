@@ -276,6 +276,7 @@ def _draft_card(actor_id: int) -> None:
                       else "Unmapped — the Atlas admin routes it by hand")
 
     src_label = {
+        "gemini (adk)": "routed by Gemini · ADK",
         "claude": "read by Claude",
         "open model": "read by an open model",
     }.get(draft["source"], "matched by keywords")
