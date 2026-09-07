@@ -85,6 +85,13 @@ def _render_message(session, message: dict) -> str:
     if kind == "text":
         body = "".join(f"<p>{esc(p)}</p>" for p in message["text"].split("\n") if p)
         return _bub_bot(body)
+    if kind == "notice":
+        # An engine warning — the configured AI engine failed and a fallback
+        # answered. Amber so it can't be mistaken for a normal reply.
+        return (
+            '<div class="msg bot"><span class="ava notice">!</span>'
+            f'<div class="bub notice"><p>{esc(message["text"])}</p></div></div>'
+        )
     if kind in ("sent", "followed"):
         request = session.get(Request, message["id"])
         if request is None:
@@ -164,6 +171,9 @@ def _handle(text: str, actor_id: int) -> None:
     with session_scope() as session:
         actor = session.get(Person, actor_id)
         reading = brain.understand(session, text, actor)
+
+        if reading.engine_note:
+            _push("bot", "notice", text=reading.engine_note)
 
         if reading.intent == "help":
             _push("bot", "text", text=reading.reply or (

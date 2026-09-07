@@ -185,12 +185,23 @@ try:
     with session_scope() as s:
         u = brain.understand(s, "anything at all", None)
     check("chain prefers the ADK agent when keyed", u is sentinel)
-    adk_router.adk_understand = lambda s_, t_, a_: (_ for _ in ()).throw(RuntimeError("api down"))
+    adk_router.adk_understand = lambda s_, t_, a_: (_ for _ in ()).throw(
+        RuntimeError("429 RESOURCE_EXHAUSTED quota"))
     with session_scope() as s:
         u = brain.understand(s, "I need my laptop fixed", None)
     check("ADK failure degrades to the next engine", u.source == "keywords", u.source)
+    check("failure is surfaced to the user, not silent",
+          "Gemini" in u.engine_note and "quota" in u.engine_note, u.engine_note)
+    # The breaker now rests the agent: the next turn must not call ADK at all.
+    calls = []
+    adk_router.adk_understand = lambda s_, t_, a_: calls.append(1)
+    with session_scope() as s:
+        u2 = brain.understand(s, "I need my laptop fixed", None)
+    check("agent rests after a failure (no repeat call)",
+          not calls and "resting" in u2.engine_note, u2.engine_note)
 finally:
     adk_router.adk_understand = _real
+    brain._adk_down["until"] = 0.0
     del os.environ["GOOGLE_API_KEY"]
 
 print("\n[9] Data warehouse — Snowflake when configured, local SQLite otherwise")

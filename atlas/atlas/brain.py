@@ -11,7 +11,11 @@ The chat runs on the first configured engine in this chain:
 3. **An open model** (``ATLAS_LLM_BASE_URL``) — any OpenAI-compatible
    endpoint (Ollama, vLLM, LM Studio, …).
 4. Without any of those — or on any API failure — the deterministic
-   keyword matcher, so the demo still runs fully offline.
+   keyword matcher, so the demo still runs fully offline. A failing engine
+   is never silent: the reason lands on ``Understanding.engine_note`` (shown
+   in the chat as an amber notice) and the agent is rested for
+   ``ADK_REST_SECONDS`` so later turns stay fast instead of re-paying the
+   failed call.
 
 Routing stays deterministic either way. The model only interprets the
 sentence; ``routing.resolve`` decides who is accountable, exactly as before.
@@ -47,6 +51,7 @@ class Understanding:
     source: str = "keywords"          # "gemini (adk)", "claude", "open model" or "keywords"
     contact_line: str = ""            # "no process fits, but this team covers it"
     alternates: list = None           # ranked [{process_id, name, confidence}]
+    engine_note: str = ""             # why a configured engine was skipped ("Gemini quota…")
 
 
 def adk_ready() -> bool:
@@ -64,33 +69,78 @@ def oss_ready() -> bool:
     return bool(os.environ.get("ATLAS_LLM_BASE_URL"))
 
 
+# After a Gemini failure the agent is rested for a short window so every
+# following chat turn stays fast instead of re-paying the failed call; the
+# reason is carried on the Understanding and shown to the user either way.
+ADK_REST_SECONDS = 120
+_adk_down: dict = {"until": 0.0, "reason": ""}
+
+
+def _describe_adk_error(exc: Exception) -> str:
+    """One plain phrase for the chat: what went wrong with the Gemini call."""
+    text = f"{type(exc).__name__}: {exc}"
+    if "RESOURCE_EXHAUSTED" in text or "429" in text:
+        return "Gemini quota exhausted (free-tier daily limit)"
+    if "UNAVAILABLE" in text or "503" in text:
+        return "Gemini is overloaded right now"
+    if "PERMISSION_DENIED" in text or "UNAUTHENTICATED" in text or "API key" in text:
+        return "the Gemini API key was rejected"
+    if "NOT_FOUND" in text and "model" in text.lower():
+        return "the configured Gemini model was not found"
+    if "timeout" in text.lower() or "timed out" in text.lower():
+        return "the Gemini call timed out"
+    return f"the Gemini call failed ({type(exc).__name__})"
+
+
 def understand(session: Session, text: str, actor: Person | None = None) -> Understanding:
+    import time as _time
+
     text = (text or "").strip()
     if not text:
         return Understanding(intent="help")
+    engine_note = ""
     if adk_ready():
-        try:
-            from .agents.router import adk_understand
+        if _time.time() < _adk_down["until"]:
+            wait = int(_adk_down["until"] - _time.time())
+            engine_note = (
+                f"Gemini agent resting after an error — {_adk_down['reason']}. "
+                f"Retrying it in ~{max(wait, 1)}s; this answer used a fallback engine."
+            )
+        else:
+            try:
+                from .agents.router import adk_understand
 
-            reading = adk_understand(session, text, actor)
-            if reading is not None:
-                return reading
-        except Exception:
-            # ADK/Gemini trouble must never block a chat turn — fall through.
-            pass
+                reading = adk_understand(session, text, actor)
+                if reading is not None:
+                    _adk_down["until"] = 0.0
+                    return reading
+                engine_note = ("The Gemini agent returned nothing usable — "
+                               "this answer used a fallback engine.")
+            except Exception as exc:
+                # ADK/Gemini trouble must never block a chat turn — fall
+                # through, but say so instead of degrading silently.
+                _adk_down["until"] = _time.time() + ADK_REST_SECONDS
+                _adk_down["reason"] = _describe_adk_error(exc)
+                engine_note = (f"The Gemini agent failed — {_adk_down['reason']} "
+                               f"— so this answer used a fallback engine.")
+
+    def _noted(u: Understanding) -> Understanding:
+        u.engine_note = engine_note
+        return u
+
     if llm_ready():
         try:
-            return _understand_llm(session, text, actor)
+            return _noted(_understand_llm(session, text, actor))
         except Exception:
             # Whatever went wrong upstream (auth, rate limit, network, refusal),
             # the person asked a question — answer it with the local matcher.
             pass
     if oss_ready():
         try:
-            return _understand_oss(session, text, actor)
+            return _noted(_understand_oss(session, text, actor))
         except Exception:
             pass
-    return _understand_keywords(session, text)
+    return _noted(_understand_keywords(session, text))
 
 
 # --- Claude ------------------------------------------------------------------

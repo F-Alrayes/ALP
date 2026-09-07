@@ -16,7 +16,7 @@ responsibility graph.
 
 Configuration:
     GOOGLE_API_KEY / GEMINI_API_KEY   enables the agent (Gemini API)
-    ATLAS_ADK_MODEL                   model id, default ``gemini-3.6-flash``
+    ATLAS_ADK_MODEL                   model id, default ``gemini-3.5-flash-lite``
 """
 
 from __future__ import annotations
@@ -32,7 +32,12 @@ from ..matching import match_processes, matchable_text
 from ..models import Person, Process
 
 APP_NAME = "atlas"
-ADK_MODEL = os.environ.get("ATLAS_ADK_MODEL", "gemini-3.6-flash")
+# gemini-3.5-flash-lite: fast, and its free-tier daily quota is far larger
+# than the flagship's 20 requests/day — a chat demo can actually run on it.
+ADK_MODEL = os.environ.get("ATLAS_ADK_MODEL", "gemini-3.5-flash-lite")
+# Wall-clock ceiling for one whole chat turn through the agent (all model
+# calls included). Past it the provider chain answers and says why.
+ADK_TURN_TIMEOUT = float(os.environ.get("ATLAS_ADK_TIMEOUT", "30"))
 
 _INSTRUCTION = (
     "You are Atlas, an internal assistant at an investment firm. People tell "
@@ -136,10 +141,18 @@ _sessions: set[str] = set()
 def build_agent():
     """Construct the ADK agent (no network happens here)."""
     from google.adk.agents import LlmAgent
+    from google.adk.models.google_llm import Gemini
+    from google.genai import types
 
+    # Cap the client's own retries: when Gemini is down or out of quota a
+    # chat turn should fail fast and surface the reason, not sit in backoff.
+    model = Gemini(
+        model=ADK_MODEL,
+        retry_options=types.HttpRetryOptions(initial_delay=1, attempts=2),
+    )
     return LlmAgent(
         name="atlas_router",
-        model=ADK_MODEL,
+        model=model,
         description="Reads a request and commits a routing decision.",
         instruction=_INSTRUCTION,
         tools=[list_processes, score_processes, list_people,
@@ -215,19 +228,42 @@ def adk_understand(session: Session, text: str, actor: Person | None):
 
     committed: dict | None = None
     prose: list[str] = []
-    # A hard ceiling on model calls per turn: a looping agent must never
-    # hang a chat turn (the provider chain falls through on the error).
-    for event in runner.run(
-        user_id=user_id, session_id=session_id, new_message=message,
-        run_config=RunConfig(max_llm_calls=8),
-    ):
-        for call in event.get_function_calls() or []:
-            if call.name in ("record_route", "record_intent"):
-                committed = {"tool": call.name, **dict(call.args or {})}
-        if event.is_final_response() and event.content and event.content.parts:
-            prose.extend(
-                part.text for part in event.content.parts if getattr(part, "text", None)
-            )
+
+    # Two hard ceilings per turn: max_llm_calls stops a looping agent, and a
+    # wall-clock deadline stops a hanging or crawling API — either way the
+    # chat turn ends and the caller surfaces the reason instead of spinning.
+    def _drive() -> None:
+        nonlocal committed
+        for event in runner.run(
+            user_id=user_id, session_id=session_id, new_message=message,
+            run_config=RunConfig(max_llm_calls=8),
+        ):
+            for call in event.get_function_calls() or []:
+                if call.name in ("record_route", "record_intent"):
+                    committed = {"tool": call.name, **dict(call.args or {})}
+            if event.is_final_response() and event.content and event.content.parts:
+                prose.extend(
+                    part.text for part in event.content.parts
+                    if getattr(part, "text", None)
+                )
+
+    failure: list[BaseException] = []
+
+    def _target() -> None:
+        try:
+            _drive()
+        except BaseException as exc:  # carried to the caller's thread
+            failure.append(exc)
+
+    worker = threading.Thread(target=_target, daemon=True)
+    worker.start()
+    worker.join(timeout=ADK_TURN_TIMEOUT)
+    if worker.is_alive():
+        raise TimeoutError(
+            f"Gemini turn timed out after {ADK_TURN_TIMEOUT:.0f}s ({ADK_MODEL})"
+        )
+    if failure:
+        raise failure[0]
 
     Reading = _reading_model()
     if committed is None:

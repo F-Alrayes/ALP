@@ -827,6 +827,14 @@ hr { border-color: var(--line-soft); }
   display: block; }
 .chatrow:first-child { border-top: none; }
 
+/* Engine notice — a configured AI engine failed and a fallback answered.
+   Amber, so it can never be mistaken for a normal reply. */
+.msg.bot .ava.notice { background: color-mix(in srgb, var(--warn) 18%%, transparent);
+  color: var(--warn-text); border: 1px solid color-mix(in srgb, var(--warn) 45%%, transparent); }
+.msg.bot .bub.notice { background: color-mix(in srgb, var(--warn) 9%%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 40%%, var(--edge));
+  color: var(--warn-text); font-size: .78rem; }
+
 .bub.typing { display: inline-flex; gap: 5px; align-items: center;
   padding: 10px 12px 8px; flex: none; }
 .bub.typing span { width: 6px; height: 6px; border-radius: 50%%;
