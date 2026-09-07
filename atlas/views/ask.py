@@ -257,6 +257,8 @@ def _draft_card(actor_id: int) -> None:
     if not draft:
         return
 
+    stage = draft.get("stage", "draft")
+
     # Read everything for display in one short-lived scope; the button
     # handlers below open their own write scopes so a st.rerun() can never
     # roll a commit back.
@@ -265,13 +267,19 @@ def _draft_card(actor_id: int) -> None:
         chosen = draft["process_id"]
         process = session.get(Process, chosen) if chosen is not None else None
         resolution = resolve(session, process)
-        if chosen != draft.get("body_for"):
+        if stage == "draft" and chosen != draft.get("body_for"):
             draft["body_for"] = chosen
-            # A new route re-drafts the message for the new owner; the title
-            # stays — it's the requester's words.
-            st.session_state["ask_draft_body"] = draft_body(
+            # The message is written FOR the requester — by Gemini when an
+            # engine is configured, by the deterministic template otherwise —
+            # so the box is always full and only ever needs a tweak.
+            with st.spinner("Writing the message…"):
+                composed = brain.compose_message(
+                    actor, process, resolution, draft["query"]
+                )
+            st.session_state["ask_draft_body"] = composed or draft_body(
                 actor, process, resolution, draft["query"]
             )
+            draft["body_engine"] = "gemini" if composed else "template"
             st.session_state.setdefault("ask_draft_title", draft["title"])
 
         title_now = st.session_state.get("ask_draft_title", draft["title"])
@@ -282,7 +290,7 @@ def _draft_card(actor_id: int) -> None:
                 session, process_id=chosen, requester_id=actor_id,
                 title=title_now,
             )[:2]
-        ]
+        ] if stage == "draft" else []
         target = resolution.assignee_name or "the Atlas admin (no owner resolved)"
         summary = resolution.summary
         route_name = (f"{process.name} — {process.category}" if process
@@ -293,7 +301,6 @@ def _draft_card(actor_id: int) -> None:
         "claude": "read by Claude",
         "open model": "read by an open model",
     }.get(draft["source"], "matched by keywords")
-    stage = draft.get("stage", "draft")
 
     # --- stage 1: who is responsible -------------------------------------
     # The route lands on a person first. The requester sees who is
@@ -426,7 +433,21 @@ def _draft_card(actor_id: int) -> None:
         )
 
         title = st.text_input("Title", key="ask_draft_title")
-        body = st.text_area("Message", key="ask_draft_body", height=132)
+        body = st.text_area("Message", key="ask_draft_body", height=160)
+        wrote = ("written by Gemini" if draft.get("body_engine") == "gemini"
+                 else "drafted offline")
+        cap_col, re_col = st.columns([3.2, 1], vertical_alignment="center")
+        cap_col.markdown(
+            f"<div class='subtle' style='font-size:.72rem'>Message {wrote} "
+            "in your voice — tweak anything before sending.</div>",
+            unsafe_allow_html=True,
+        )
+        if brain.adk_ready() and re_col.button(
+                "Rewrite", icon=":material/autorenew:", width="stretch",
+                key="ask_draft_rewrite", help="Have Gemini write it again"):
+            draft["body_for"] = "unset"
+            st.session_state.pop("ask_draft_body", None)
+            st.rerun()
 
         for dup in duplicates:
             col_a, col_b = st.columns([4, 1], vertical_alignment="center")

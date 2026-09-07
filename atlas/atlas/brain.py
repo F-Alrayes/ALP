@@ -143,6 +143,64 @@ def understand(session: Session, text: str, actor: Person | None = None) -> Unde
     return _noted(_understand_keywords(session, text))
 
 
+# --- message composition -----------------------------------------------------
+
+
+def compose_message(requester, process, resolution, query: str) -> str | None:
+    """Have Gemini write the request email itself.
+
+    Returns the finished message, or None when no engine is configured, the
+    agent is resting, or the call fails — the caller then falls back to the
+    deterministic template, so the draft box is never empty.
+    """
+    import time as _time
+
+    if not adk_ready() or _time.time() < _adk_down["until"]:
+        return None
+    try:
+        from google import genai
+        from google.genai import types as gtypes
+
+        from .agents.router import ADK_MODEL
+
+        delegation = ""
+        if resolution.rerouted and resolution.owner_name:
+            delegation = (
+                f"The usual owner, {resolution.owner_name}, is out of office; "
+                f"{resolution.assignee_name} is covering as "
+                f"{resolution.assignee_role}. Acknowledge that naturally."
+            )
+        process_line = (
+            f"The request falls under the internal process '{process.name}'."
+            if process is not None else
+            "No request type covers this, so it goes to the Atlas admin to "
+            "route by hand — say that plainly."
+        )
+        prompt = (
+            "Write a short internal work email for the person described below "
+            "to send. Plain text only — no subject line, no markdown, no "
+            "placeholders like [date]; do not invent facts, amounts or "
+            "deadlines that are not in their words.\n\n"
+            f"From: {requester.name}, {requester.title}\n"
+            f"To: {resolution.assignee_name or 'the Atlas admin'}"
+            f"{', ' + resolution.assignee_role if resolution.assignee_role else ''}\n"
+            f"What they need, in their words: {query.strip()}\n"
+            f"{process_line}\n{delegation}\n\n"
+            "Voice: first person, warm but brief (under 110 words), a real "
+            "colleague writing — greet by first name, state the need clearly, "
+            "add one courteous line about picking it up or redirecting, sign "
+            f"off with:\n{requester.name}\n{requester.title}"
+        )
+        client = genai.Client(
+            http_options=gtypes.HttpOptions(timeout=12_000)  # ms — fail fast
+        )
+        response = client.models.generate_content(model=ADK_MODEL, contents=prompt)
+        text = (response.text or "").strip()
+        return text or None
+    except Exception:
+        return None
+
+
 # --- Claude ------------------------------------------------------------------
 
 _client = None

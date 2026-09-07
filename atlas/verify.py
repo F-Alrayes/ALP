@@ -174,6 +174,21 @@ with session_scope() as s:
           scores and scores[0]["name"] == "Data Room Access", str(scores[:1]))
     check("catalogue tool serves the live processes",
           len(adk_router.list_processes()) == 27)
+# The message composer: offline it must return None (the deterministic
+# template takes over) and never open a socket; the template itself must
+# always produce a ready-to-send body.
+with session_scope() as s:
+    _p = s.get(Process, 1)
+    _r = resolve(s, _p)
+    _req = s.query(Person).filter_by(name="Noura Al-Sabah").one()
+    check("keyless composer yields to the template",
+          brain.compose_message(_req, _p, _r, "data room access") is None)
+    from atlas.services import draft_body as _draft_body
+    _body = _draft_body(_req, _p, _r, "I need access to the data room")
+    check("template drafts a full message (never an empty box)",
+          "Hi " in _body and _req.name in _body and len(_body) > 80,
+          f"{len(_body)} chars")
+
 # The chain must PREFER ADK when a key is present: stub the runner call and
 # confirm brain.understand returns its reading (no network involved).
 os.environ["GOOGLE_API_KEY"] = "verify-stub"
