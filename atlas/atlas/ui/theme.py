@@ -827,6 +827,42 @@ hr { border-color: var(--line-soft); }
   display: block; }
 .chatrow:first-child { border-top: none; }
 
+/* Who's responsible — the person spotlight shown before the approval step. */
+.spot { display: flex; gap: 10px; align-items: center; padding: 9px 12px;
+  border: 1px solid var(--edge); border-radius: var(--r-md);
+  background: var(--glass); box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  margin: 2px 0; animation: msgin .24s var(--ease) both; }
+.spot .sava { width: 34px; height: 34px; border-radius: 50%%;
+  background: var(--accent-strong); color: #F2F6FF; display: grid;
+  place-items: center; font-family: var(--mono); font-weight: 600;
+  font-size: .78rem; flex: none; }
+.spot .sname { font-weight: 600; font-size: .9rem; color: var(--ink); }
+.spot .smeta { font-size: .75rem; color: var(--muted); }
+.spot .srole { margin-left: auto; flex: none; font-family: var(--mono);
+  font-size: .6875rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--accent); border: 1px solid
+    color-mix(in srgb, var(--accent) 45%%, transparent);
+  border-radius: 999px; padding: 2px 9px 1px;
+  background: color-mix(in srgb, var(--accent) 10%%, transparent); }
+.spotnote { font-size: .75rem; margin: 0 2px 2px; }
+
+/* Their place in the hierarchy — CEO down to the accountable person. */
+.orgpath { border: 1px solid var(--edge); border-radius: var(--r-md);
+  padding: 8px 12px; margin: 2px 0 4px;
+  background: color-mix(in srgb, var(--glass-strong, var(--glass)) 70%%, transparent);
+  animation: msgin .24s var(--ease) both; }
+.oprow { position: relative; padding: 2px 0 2px calc(var(--d) * 18px);
+  font-size: .78rem; line-height: 1.5; }
+.oprow:not(.root)::before { content: "└"; position: absolute;
+  left: calc(var(--d) * 18px - 14px); top: 1px; color: var(--muted);
+  font-family: var(--mono); font-size: .72rem; }
+.oprow .opn { font-weight: 500; color: var(--ink); }
+.oprow .opt { color: var(--muted); font-size: .72rem; }
+.oprow.me .opn { font-weight: 650; color: var(--accent); }
+.oprow.me { background: color-mix(in srgb, var(--accent) 8%%, transparent);
+  border-radius: var(--r-sm); }
+
 /* Engine notice — a configured AI engine failed and a fallback answered.
    Amber, so it can never be mistaken for a normal reply. */
 .msg.bot .ava.notice { background: color-mix(in srgb, var(--warn) 18%%, transparent);

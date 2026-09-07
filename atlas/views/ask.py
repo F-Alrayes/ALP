@@ -225,10 +225,11 @@ def _handle(text: str, actor_id: int) -> None:
                          "unmapped work by hand.")
         elif reading.confidence >= 10:
             lines.append(f"{reading.confidence:.0f}% confident in this route — "
-                         "approve the draft below and I'll send it.")
+                         "here's who is accountable. Happy with them and I'll "
+                         "draft the request.")
         else:
             lines.append("No close match, so I've routed it to the nearest "
-                         "fit — tap 'Not this' on the draft if I got it wrong.")
+                         "fit — tap 'Not this' below if I got it wrong.")
         st.session_state[DRAFT_KEY] = {
             "query": text,
             "process_id": reading.process_id,
@@ -239,6 +240,8 @@ def _handle(text: str, actor_id: int) -> None:
             "source": reading.source,
             "body_for": "unset",
             "show_alts": False,
+            "show_tree": False,
+            "stage": "who",                     # person first, approval second
         }
         for stale in ("ask_draft_title", "ask_draft_body", "ask_draft_process"):
             st.session_state.pop(stale, None)
@@ -290,6 +293,125 @@ def _draft_card(actor_id: int) -> None:
         "claude": "read by Claude",
         "open model": "read by an open model",
     }.get(draft["source"], "matched by keywords")
+    stage = draft.get("stage", "draft")
+
+    # --- stage 1: who is responsible -------------------------------------
+    # The route lands on a person first. The requester sees who is
+    # accountable (and where they sit in the firm, on request) before any
+    # approval mechanics appear.
+    if stage == "who":
+        with st.container(border=True, key="ask_draft"):
+            st.markdown(
+                f"<div class='draft-head'>Who's responsible"
+                f"<span class='draft-src'>{src_label}</span></div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"<div class='draft-route'><span class='subtle'>{esc(route_name)}"
+                f"</span></div>",
+                unsafe_allow_html=True,
+            )
+            with session_scope() as session:
+                assignee = (session.get(Person, resolution.assignee_id)
+                            if resolution.assignee_id else None)
+                if assignee is not None:
+                    st.markdown(
+                        f"""<div class='spot'>
+                          <span class='sava'>{esc(assignee.initials)}</span>
+                          <span><span class='sname'>→ {esc(assignee.name)}</span><br>
+                            <span class='smeta'>{esc(assignee.title)}{
+                                (' · ' + esc(assignee.department.name))
+                                if assignee.department else ''}</span></span>
+                          <span class='srole'>{esc(resolution.assignee_role
+                                                   or 'accountable')}</span>
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
+                    if summary:
+                        st.markdown(f"<div class='subtle spotnote'>{esc(summary)}"
+                                    "</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        "<div class='spot'><span class='sava'>@</span>"
+                        "<span><span class='sname'>→ the Atlas admin</span><br>"
+                        "<span class='smeta'>No owner is configured — unmapped "
+                        "work is routed by hand.</span></span></div>",
+                        unsafe_allow_html=True,
+                    )
+                if draft.get("show_tree") and assignee is not None:
+                    chain: list[Person] = []
+                    node: Person | None = assignee
+                    seen: set[int] = set()
+                    while node is not None and node.id not in seen:
+                        seen.add(node.id)
+                        chain.append(node)
+                        node = node.manager
+                    chain.reverse()
+                    reports = len(assignee.reports or [])
+                    rows = []
+                    for depth, member in enumerate(chain):
+                        me = member.id == assignee.id
+                        extra = (f" · {reports} direct report"
+                                 f"{'s' if reports != 1 else ''}"
+                                 if me and reports else "")
+                        rows.append(
+                            f"<div class='oprow{' me' if me else ''}"
+                            f"{' root' if depth == 0 else ''}' "
+                            f"style='--d:{depth}'><span class='opn'>"
+                            f"{esc(member.name)}</span> <span class='opt'>"
+                            f"{esc(member.title)}{esc(extra)}</span></div>"
+                        )
+                    st.markdown(f"<div class='orgpath'>{''.join(rows)}</div>",
+                                unsafe_allow_html=True)
+
+            # The meter follows whichever candidate is currently routed.
+            alternates = draft.get("alternates") or []
+            conf = float(draft.get("confidence") or 0)
+            if chosen is not None and chosen != draft.get("matched_id"):
+                conf = next((float(a["confidence"]) for a in alternates
+                             if a["process_id"] == chosen), 0.0)
+            if chosen is not None and conf > 0:
+                band = " high" if conf >= 70 else ("" if conf >= 40 else " low")
+                st.markdown(
+                    f"<div class='confmeter{band}'>"
+                    f"<div class='confhead'><span>Route confidence</span>"
+                    f"<b>{conf:.0f}%</b></div>"
+                    f"<div class='track'><span class='fill' "
+                    f"style='width:{conf:.0f}%'></span></div></div>",
+                    unsafe_allow_html=True,
+                )
+            with st.expander("Why — the resolution trace",
+                             icon=":material/alt_route:"):
+                resolution_trace(resolution)
+
+            go_col, tree_col, alt_col, drop_col = st.columns([1.5, 1.4, 1.1, 1])
+            if go_col.button("Draft the request", type="primary", width="stretch",
+                             icon=":material/edit_note:", key="ask_who_continue"):
+                draft["stage"] = "draft"
+                st.rerun()
+            if resolution.assignee_id and tree_col.button(
+                    "Where they sit", width="stretch",
+                    icon=":material/account_tree:", key="ask_who_tree",
+                    help="Show their place in the hierarchy"):
+                draft["show_tree"] = not draft.get("show_tree")
+                st.rerun()
+            runners_up = [a for a in (draft.get("alternates") or [])
+                          if a["process_id"] != chosen]
+            if runners_up and alt_col.button(
+                    "Not this", width="stretch",
+                    icon=":material/alt_route:", key="ask_draft_wrong",
+                    help="Show the next most likely routes"):
+                draft["show_alts"] = not draft.get("show_alts")
+                st.rerun()
+            if drop_col.button("Discard", width="stretch",
+                               icon=":material/delete:", key="ask_draft_drop"):
+                _clear_draft()
+                _push("bot", "text", text="Dropped. What else can I sort out?")
+                st.rerun()
+            _alternates_block(draft, chosen, runners_up)
+        return
+
+    # --- stage 2: the approval process ------------------------------------
     with st.container(border=True, key="ask_draft"):
         st.markdown(
             f"<div class='draft-head'>Approve this request?"
@@ -302,24 +424,6 @@ def _draft_card(actor_id: int) -> None:
             f" &nbsp;<span class='subtle'>{esc(summary)}</span></div>",
             unsafe_allow_html=True,
         )
-        # The meter follows whichever candidate is currently routed.
-        alternates = draft.get("alternates") or []
-        conf = float(draft.get("confidence") or 0)
-        if chosen is not None and chosen != draft.get("matched_id"):
-            conf = next((float(a["confidence"]) for a in alternates
-                         if a["process_id"] == chosen), 0.0)
-        if chosen is not None and conf > 0:
-            band = " high" if conf >= 70 else ("" if conf >= 40 else " low")
-            st.markdown(
-                f"<div class='confmeter{band}'>"
-                f"<div class='confhead'><span>Route confidence</span>"
-                f"<b>{conf:.0f}%</b></div>"
-                f"<div class='track'><span class='fill' "
-                f"style='width:{conf:.0f}%'></span></div></div>",
-                unsafe_allow_html=True,
-            )
-        with st.expander("Why — the resolution trace", icon=":material/alt_route:"):
-            resolution_trace(resolution)
 
         title = st.text_input("Title", key="ask_draft_title")
         body = st.text_area("Message", key="ask_draft_body", height=132)
@@ -338,7 +442,7 @@ def _draft_card(actor_id: int) -> None:
                 _clear_draft()
                 st.rerun()
 
-        send_col, alt_col, drop_col = st.columns([1.6, 1.2, 1])
+        send_col, back_col, drop_col = st.columns([1.6, 1.2, 1])
         if send_col.button("Approve & send", type="primary", width="stretch",
                            icon=":material/send:", key="ask_draft_send"):
             with write_lock, session_scope() as writer:
@@ -356,12 +460,10 @@ def _draft_card(actor_id: int) -> None:
             _push("bot", "sent", id=new_id)
             _clear_draft()
             st.rerun()
-        runners_up = [a for a in alternates if a["process_id"] != chosen]
-        if runners_up and alt_col.button(
-                "Not this", width="stretch",
-                icon=":material/alt_route:", key="ask_draft_wrong",
-                help="Show the next most likely routes"):
-            draft["show_alts"] = not draft.get("show_alts")
+        if back_col.button("Back", width="stretch",
+                           icon=":material/arrow_back:", key="ask_draft_back",
+                           help="Back to who's responsible"):
+            draft["stage"] = "who"
             st.rerun()
         if drop_col.button("Discard", width="stretch",
                            icon=":material/delete:", key="ask_draft_drop"):
@@ -369,31 +471,37 @@ def _draft_card(actor_id: int) -> None:
             _push("bot", "text", text="Dropped. What else can I sort out?")
             st.rerun()
 
-        if draft.get("show_alts") and runners_up:
-            st.markdown(
-                "<div class='subtle' style='margin:.3rem 0 .2rem'>"
-                "Next most likely — pick one and I'll re-draft:</div>",
-                unsafe_allow_html=True,
-            )
-            for alt in runners_up[:3]:
-                score = (f"{alt['confidence']:.0f}%" if alt["confidence"] >= 1
-                         else "low match")
-                if st.button(
-                        f"{alt['name']} · {score}",
-                        key=f"ask_alt_{alt['process_id']}", width="stretch",
-                        icon=":material/turn_right:"):
-                    draft["process_id"] = alt["process_id"]
-                    draft["show_alts"] = False
-                    st.session_state.pop("ask_draft_body", None)
-                    st.rerun()
-            if chosen is not None and st.button(
-                    "None of these — park with the Atlas admin",
-                    key="ask_alt_admin", width="stretch",
-                    icon=":material/support_agent:"):
-                draft["process_id"] = None
-                draft["show_alts"] = False
-                st.session_state.pop("ask_draft_body", None)
-                st.rerun()
+
+def _alternates_block(draft: dict, chosen, runners_up: list) -> None:
+    """Ranked runners-up — picking one re-routes and re-drafts."""
+    if not (draft.get("show_alts") and runners_up):
+        return
+    st.markdown(
+        "<div class='subtle' style='margin:.3rem 0 .2rem'>"
+        "Next most likely — pick one and I'll re-route:</div>",
+        unsafe_allow_html=True,
+    )
+    for alt in runners_up[:3]:
+        score = (f"{alt['confidence']:.0f}%" if alt["confidence"] >= 1
+                 else "low match")
+        if st.button(
+                f"{alt['name']} · {score}",
+                key=f"ask_alt_{alt['process_id']}", width="stretch",
+                icon=":material/turn_right:"):
+            draft["process_id"] = alt["process_id"]
+            draft["show_alts"] = False
+            draft["show_tree"] = False
+            st.session_state.pop("ask_draft_body", None)
+            st.rerun()
+    if chosen is not None and st.button(
+            "None of these — park with the Atlas admin",
+            key="ask_alt_admin", width="stretch",
+            icon=":material/support_agent:"):
+        draft["process_id"] = None
+        draft["show_alts"] = False
+        draft["show_tree"] = False
+        st.session_state.pop("ask_draft_body", None)
+        st.rerun()
 
 
 def _clear_draft() -> None:
