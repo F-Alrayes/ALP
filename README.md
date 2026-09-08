@@ -2,7 +2,16 @@
 
 A family app
 
-## Getting Started
+## Projects in this repository
+
+| Directory | What it is |
+| --- | --- |
+| `lib/`, `android/`, `ios/`, `web/` | The Flutter family app (this project) |
+| [`atlas/`](atlas/README.md) | **Atlas** — an internal responsibility & request-routing platform. A separate, self-contained Python/Streamlit prototype: `cd atlas && pip install -r requirements.txt && python run.py`. Hosting instructions in [atlas/DEPLOY.md](atlas/DEPLOY.md). |
+
+## The Flutter family app
+
+### Getting Started
 
 This project is a starting point for a Flutter application.
 

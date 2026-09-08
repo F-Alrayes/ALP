@@ -1,0 +1,22 @@
+{
+  "name": "Atlas",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+
+  // Everything Atlas needs. There is nothing else to provision: it seeds its
+  // own SQLite database on first launch and makes no network calls.
+  "postCreateCommand": "pip install --user -r atlas/requirements.txt",
+
+  // Start the app as soon as the codespace attaches, and open it in a tab.
+  "postAttachCommand": "cd atlas && python run.py --address 0.0.0.0 --headless",
+
+  "forwardPorts": [8501],
+  "portsAttributes": {
+    "8501": { "label": "Atlas", "onAutoForward": "openPreview" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python"]
+    }
+  }
+}

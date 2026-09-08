@@ -1,0 +1,477 @@
+"""Understanding — turning a sentence into an intent Atlas can act on.
+
+The chat runs on the first configured engine in this chain:
+
+1. **Google ADK** (``GOOGLE_API_KEY`` / ``GEMINI_API_KEY``) — an ADK 2.x
+   ``LlmAgent`` on Gemini, grounded in the engine through function tools
+   and committing its reading through a tool call. See
+   :mod:`atlas.agents.router`.
+2. **Claude** (``ANTHROPIC_API_KEY``) — a direct structured read of the
+   request against the live catalogue.
+3. **An open model** (``ATLAS_LLM_BASE_URL``) — any OpenAI-compatible
+   endpoint (Ollama, vLLM, LM Studio, …).
+4. Without any of those — or on any API failure — the deterministic
+   keyword matcher, so the demo still runs fully offline. A failing engine
+   is never silent: the reason lands on ``Understanding.engine_note`` (shown
+   in the chat as an amber notice) and the agent is rested for
+   ``ADK_REST_SECONDS`` so later turns stay fast instead of re-paying the
+   failed call.
+
+Routing stays deterministic either way. The model only interprets the
+sentence; ``routing.resolve`` decides who is accountable, exactly as before.
+That split is the point of the product: the agent's decisions are explainable
+because they come from the responsibility graph, not from the LLM.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from typing import Literal, Optional
+
+from sqlalchemy.orm import Session
+
+from .matching import match_departments, match_processes, matchable_text, suggest_title
+from .models import Person, Process
+
+LLM_MODEL = os.environ.get("ATLAS_LLM_MODEL", "claude-opus-5")
+
+INTENTS = ("request", "inbox", "my_requests", "ooo", "about_person", "help")
+
+
+@dataclass
+class Understanding:
+    intent: str
+    process_id: int | None = None
+    confidence: float = 0.0
+    person_name: str | None = None
+    title: str | None = None
+    reply: str | None = None          # the assistant's own words, for help/small talk
+    rationale: str = ""
+    source: str = "keywords"          # "gemini (adk)", "claude", "open model" or "keywords"
+    contact_line: str = ""            # "no process fits, but this team covers it"
+    alternates: list = None           # ranked [{process_id, name, confidence}]
+    engine_note: str = ""             # why a configured engine was skipped ("Gemini quota…")
+
+
+def adk_ready() -> bool:
+    """Google ADK / Gemini configured — the primary chat engine."""
+    return bool(os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"))
+
+
+def llm_ready() -> bool:
+    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+
+
+def oss_ready() -> bool:
+    """An OpenAI-compatible endpoint serving an open-source model (Ollama,
+    vLLM, LM Studio, Groq, Together…) configured via ATLAS_LLM_BASE_URL."""
+    return bool(os.environ.get("ATLAS_LLM_BASE_URL"))
+
+
+# After a Gemini failure the agent is rested for a short window so every
+# following chat turn stays fast instead of re-paying the failed call; the
+# reason is carried on the Understanding and shown to the user either way.
+ADK_REST_SECONDS = 120
+_adk_down: dict = {"until": 0.0, "reason": ""}
+
+
+def _describe_adk_error(exc: Exception) -> str:
+    """One plain phrase for the chat: what went wrong with the Gemini call."""
+    text = f"{type(exc).__name__}: {exc}"
+    if "RESOURCE_EXHAUSTED" in text or "429" in text:
+        return "Gemini quota exhausted (free-tier daily limit)"
+    if "UNAVAILABLE" in text or "503" in text:
+        return "Gemini is overloaded right now"
+    if "PERMISSION_DENIED" in text or "UNAUTHENTICATED" in text or "API key" in text:
+        return "the Gemini API key was rejected"
+    if "NOT_FOUND" in text and "model" in text.lower():
+        return "the configured Gemini model was not found"
+    if "timeout" in text.lower() or "timed out" in text.lower():
+        return "the Gemini call timed out"
+    return f"the Gemini call failed ({type(exc).__name__})"
+
+
+def understand(session: Session, text: str, actor: Person | None = None) -> Understanding:
+    import time as _time
+
+    text = (text or "").strip()
+    if not text:
+        return Understanding(intent="help")
+    engine_note = ""
+    if adk_ready():
+        if _time.time() < _adk_down["until"]:
+            wait = int(_adk_down["until"] - _time.time())
+            engine_note = (
+                f"Gemini agent resting after an error — {_adk_down['reason']}. "
+                f"Retrying it in ~{max(wait, 1)}s; this answer used a fallback engine."
+            )
+        else:
+            try:
+                from .agents.router import adk_understand
+
+                reading = adk_understand(session, text, actor)
+                if reading is not None:
+                    _adk_down["until"] = 0.0
+                    return reading
+                engine_note = ("The Gemini agent returned nothing usable — "
+                               "this answer used a fallback engine.")
+            except Exception as exc:
+                # ADK/Gemini trouble must never block a chat turn — fall
+                # through, but say so instead of degrading silently.
+                _adk_down["until"] = _time.time() + ADK_REST_SECONDS
+                _adk_down["reason"] = _describe_adk_error(exc)
+                engine_note = (f"The Gemini agent failed — {_adk_down['reason']} "
+                               f"— so this answer used a fallback engine.")
+
+    def _noted(u: Understanding) -> Understanding:
+        u.engine_note = engine_note
+        return u
+
+    if llm_ready():
+        try:
+            return _noted(_understand_llm(session, text, actor))
+        except Exception:
+            # Whatever went wrong upstream (auth, rate limit, network, refusal),
+            # the person asked a question — answer it with the local matcher.
+            pass
+    if oss_ready():
+        try:
+            return _noted(_understand_oss(session, text, actor))
+        except Exception:
+            pass
+    return _noted(_understand_keywords(session, text))
+
+
+# --- message composition -----------------------------------------------------
+
+_genai_client = None
+
+
+def _get_genai_client():
+    """One client per process — connection reuse shaves ~0.5s per call."""
+    global _genai_client
+    if _genai_client is None:
+        from google import genai
+        from google.genai import types as gtypes
+
+        _genai_client = genai.Client(
+            http_options=gtypes.HttpOptions(timeout=12_000)  # ms — fail fast
+        )
+    return _genai_client
+
+
+def compose_message(requester, process, resolution, query: str) -> str | None:
+    """Have Gemini write the request email itself.
+
+    Returns the finished message, or None when no engine is configured, the
+    agent is resting, or the call fails — the caller then falls back to the
+    deterministic template, so the draft box is never empty.
+    """
+    import time as _time
+
+    if not adk_ready() or _time.time() < _adk_down["until"]:
+        return None
+    try:
+        from .agents.router import ADK_MODEL
+
+        delegation = ""
+        if resolution.rerouted and resolution.owner_name:
+            delegation = (
+                f"The usual owner, {resolution.owner_name}, is out of office; "
+                f"{resolution.assignee_name} is covering as "
+                f"{resolution.assignee_role}. Acknowledge that naturally."
+            )
+        process_line = (
+            f"The request falls under the internal process '{process.name}'."
+            if process is not None else
+            "No request type covers this, so it goes to the Atlas admin to "
+            "route by hand — say that plainly."
+        )
+        prompt = (
+            "Write a short internal work email for the person described below "
+            "to send. Plain text only — no subject line, no markdown, no "
+            "placeholders like [date]; do not invent facts, amounts or "
+            "deadlines that are not in their words.\n\n"
+            f"From: {requester.name}, {requester.title}\n"
+            f"To: {resolution.assignee_name or 'the Atlas admin'}"
+            f"{', ' + resolution.assignee_role if resolution.assignee_role else ''}\n"
+            f"What they need, in their words: {query.strip()}\n"
+            f"{process_line}\n{delegation}\n\n"
+            "Voice: first person, warm but brief (under 110 words), a real "
+            "colleague writing — greet by first name, state the need clearly, "
+            "add one courteous line about picking it up or redirecting, sign "
+            f"off with:\n{requester.name}\n{requester.title}"
+        )
+        client = _get_genai_client()
+        response = client.models.generate_content(model=ADK_MODEL, contents=prompt)
+        text = (response.text or "").strip()
+        return text or None
+    except Exception:
+        return None
+
+
+# --- Claude ------------------------------------------------------------------
+
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        import anthropic
+
+        # A chat turn should degrade fast, not hang: one retry, short timeout.
+        _client = anthropic.Anthropic(timeout=25.0, max_retries=1)
+    return _client
+
+
+def _reading_model():
+    from pydantic import BaseModel
+
+    class Reading(BaseModel):
+        intent: Literal[
+            "request", "inbox", "my_requests", "ooo", "about_person", "help"
+        ]
+        process_id: Optional[int]
+        confidence: int
+        person_name: Optional[str]
+        title: Optional[str]
+        reply: Optional[str]
+        rationale: str
+
+    return Reading
+
+
+def _catalogue(session: Session) -> str:
+    lines = []
+    for p in session.query(Process).order_by(Process.id).all():
+        keywords = ", ".join((p.keywords or "").split(",")[:8])
+        lines.append(f"- id {p.id}: {p.name} ({p.category}) — {keywords}")
+    return "\n".join(lines)
+
+
+def _people_names(session: Session) -> str:
+    return ", ".join(p.name for p in session.query(Person).order_by(Person.name).all())
+
+
+def _system(session: Session) -> str:
+    return (
+        "You are Atlas, an internal assistant at an investment firm. People tell "
+        "you what they need in plain language; you decide what they mean. You do "
+        "NOT decide who handles it — a deterministic responsibility graph does "
+        "that — so never invent an assignee.\n\n"
+        "Classify the message into exactly one intent:\n"
+        "- request: they need something done, approved, fixed, booked or granted "
+        "(this includes 'email whoever owns X and ask for Y').\n"
+        "- inbox: they ask what is sitting with THEM to action.\n"
+        "- my_requests: they ask about requests THEY raised.\n"
+        "- ooo: they ask who is out of office / away.\n"
+        "- about_person: they ask who a specific person is or what they own.\n"
+        "- help: greetings, questions about what you can do, or anything else — "
+        "answer briefly in `reply`, in a warm, plain voice, and steer them to "
+        "describing what they need.\n\n"
+        "For a request, pick the best matching process id from the catalogue "
+        "below, or null when nothing genuinely fits (do not force a bad match). "
+        "Set `confidence` 0-100: how sure you are that this process (and the "
+        "division that owns it) is the right route — 90+ only for unmistakable "
+        "matches, under 40 means you should have returned null instead. "
+        "Also write `title`: a short subject line for the request in the "
+        "requester's words (e.g. 'Data room access — Project Falcon').\n"
+        "For about_person, set `person_name` to the person's full name from the "
+        "directory list.\n"
+        "Always write `rationale`: one plain sentence explaining your reading, "
+        "addressed to the requester ('This reads like an access request for…').\n\n"
+        f"Process catalogue:\n{_catalogue(session)}\n\n"
+        f"Directory: {_people_names(session)}"
+    )
+
+
+def _understand_llm(session: Session, text: str, actor: Person | None) -> Understanding:
+    client = _get_client()
+    Reading = _reading_model()
+    who = f"(Asked by {actor.name}, {actor.title}.) " if actor else ""
+    response = client.messages.parse(
+        model=LLM_MODEL,
+        max_tokens=1024,
+        system=[{
+            "type": "text",
+            "text": _system(session),
+            "cache_control": {"type": "ephemeral"},
+        }],
+        messages=[{"role": "user", "content": who + text}],
+        output_format=Reading,
+    )
+    if response.stop_reason == "refusal":
+        raise RuntimeError("model refused")
+    reading = response.parsed_output
+    return _from_reading(session, text, reading, source="claude")
+
+
+def _from_reading(session: Session, text: str, reading, *, source: str) -> Understanding:
+    process_id = reading.process_id
+    if process_id is not None and session.get(Process, process_id) is None:
+        process_id = None  # the model must not invent catalogue entries
+    confidence = max(0.0, min(100.0, float(reading.confidence or 0)))
+    # The deterministic ranking backs the "not this" fallback, and covers
+    # for a model that returned null on a request-shaped message.
+    ranked = match_processes(session, matchable_text(text), limit=4)
+    alternates = [
+        {"process_id": m.process_id, "name": m.process_name,
+         "confidence": m.confidence}
+        for m in ranked
+    ]
+    if (process_id is None and reading.intent == "request"
+            and ranked and ranked[0].confidence >= 3):
+        process_id = ranked[0].process_id
+        confidence = ranked[0].confidence
+    if process_id is not None and process_id not in [a["process_id"] for a in alternates]:
+        picked = session.get(Process, process_id)
+        alternates.insert(0, {"process_id": process_id,
+                              "name": picked.name if picked else "",
+                              "confidence": confidence})
+    if process_id is None:
+        confidence = 0.0
+    return Understanding(
+        intent=reading.intent,
+        process_id=process_id,
+        confidence=confidence,
+        person_name=reading.person_name,
+        title=reading.title or suggest_title(text, None),
+        reply=reading.reply,
+        rationale=reading.rationale,
+        source=source,
+        alternates=alternates,
+    )
+
+
+# --- open-source models (OpenAI-compatible endpoint) -------------------------
+# Any server speaking the /chat/completions dialect works: Ollama or LM Studio
+# on a laptop, vLLM in the cluster, or a hosted open-model provider. Configure:
+#   ATLAS_LLM_BASE_URL  e.g. http://localhost:11434/v1
+#   ATLAS_LLM_MODEL     e.g. llama3.1:8b  (shared with the Claude path)
+#   ATLAS_LLM_API_KEY   optional; many local servers need none
+
+
+def _understand_oss(session: Session, text: str, actor: Person | None) -> Understanding:
+    import json
+    import urllib.request
+
+    base = os.environ["ATLAS_LLM_BASE_URL"].rstrip("/")
+    model = os.environ.get("ATLAS_LLM_MODEL", "llama3.1:8b")
+    schema_note = (
+        "\n\nAnswer with ONLY a JSON object, no prose, shaped exactly like:\n"
+        '{"intent": "request|inbox|my_requests|ooo|about_person|help", '
+        '"process_id": <int or null>, "confidence": <0-100>, '
+        '"person_name": <string or null>, "title": <string or null>, '
+        '"reply": <string or null>, "rationale": <string>}'
+    )
+    who = f"(Asked by {actor.name}, {actor.title}.) " if actor else ""
+    payload = {
+        "model": model,
+        "temperature": 0,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": _system(session) + schema_note},
+            {"role": "user", "content": who + text},
+        ],
+    }
+    req = urllib.request.Request(
+        f"{base}/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers={
+            "Content-Type": "application/json",
+            **(
+                {"Authorization": f"Bearer {os.environ['ATLAS_LLM_API_KEY']}"}
+                if os.environ.get("ATLAS_LLM_API_KEY") else {}
+            ),
+        },
+    )
+    with urllib.request.urlopen(req, timeout=25) as resp:
+        body = json.loads(resp.read().decode())
+    content = body["choices"][0]["message"]["content"]
+    # Some servers wrap the JSON in code fences despite json_object mode.
+    content = content.strip().removeprefix("```json").removeprefix("```").removesuffix("```")
+    raw = json.loads(content)
+    Reading = _reading_model()
+    reading = Reading(
+        intent=raw.get("intent") if raw.get("intent") in INTENTS else "help",
+        process_id=raw.get("process_id"),
+        confidence=int(raw.get("confidence") or 0),
+        person_name=raw.get("person_name"),
+        title=raw.get("title"),
+        reply=raw.get("reply"),
+        rationale=raw.get("rationale") or "",
+    )
+    return _from_reading(session, text, reading, source="open model")
+
+
+# --- deterministic fallback --------------------------------------------------
+
+_INBOX_CUES = ("sitting with me", "my inbox", "assigned to me", "my queue", "what do i owe")
+_MINE_CUES = ("my requests", "i raised", "i asked for", "status of my")
+_OOO_CUES = ("out of office", "who is away", "who's away", "on leave", "on holiday")
+_HELP_CUES = ("help", "what can you do", "how do you work", "hello", "hi ", "hey")
+
+
+def _understand_keywords(session: Session, text: str) -> Understanding:
+    lower = f" {text.lower().strip()} "
+    if any(cue in lower for cue in _INBOX_CUES):
+        return Understanding(intent="inbox", rationale="You asked what's waiting on you.")
+    if any(cue in lower for cue in _MINE_CUES):
+        return Understanding(intent="my_requests", rationale="You asked about requests you raised.")
+    if any(cue in lower for cue in _OOO_CUES):
+        return Understanding(intent="ooo", rationale="You asked who is away.")
+
+    for person in session.query(Person).all():
+        first = person.name.split()[0].lower()
+        if person.name.lower() in lower or (
+            f"who is {first}" in lower or f"about {first}" in lower
+        ):
+            return Understanding(
+                intent="about_person", person_name=person.name,
+                rationale=f"You asked about {person.name}.",
+            )
+
+    if lower.strip() in ("help", "hello", "hi", "hey") or any(
+        cue in lower for cue in _HELP_CUES[1:3]
+    ):
+        return Understanding(intent="help")
+
+    # Always commit to the best available match — the requester gets a route
+    # and a drafted email immediately; the ranked alternates back the
+    # "not this" fallback instead of dumping the whole catalogue on them.
+    matches = match_processes(session, matchable_text(text), limit=4)
+    # Below ~3% every process scored zero and the order is just catalogue
+    # order — committing to it would send laptops to the data room. Park
+    # with the admin instead; the ranked list still backs "Not this".
+    top = matches[0] if matches and matches[0].confidence >= 3 else None
+    alternates = [
+        {"process_id": m.process_id, "name": m.process_name,
+         "confidence": m.confidence}
+        for m in matches
+    ]
+    contact_line = ""
+    if top is None:
+        contacts = match_departments(session, text, limit=1)
+        contact = contacts[0] if contacts and contacts[0].confidence >= 25 else None
+        if contact and contact.person_name:
+            contact_line = (
+                f"No request type covers this, but it reads like "
+                f"{contact.department_name} — {contact.person_name}, "
+                f"{contact.person_title}, {contact.reason}."
+            )
+    rationale = top.why() if top else (
+        "Nothing in the catalogue overlaps this at all.")
+    if top and top.confidence < 25:
+        rationale += " It's a loose fit — say so if I got it wrong."
+    return Understanding(
+        intent="request",
+        process_id=top.process_id if top else None,
+        confidence=top.confidence if top else 0.0,
+        title=suggest_title(text, top.process_name if top else None),
+        rationale=rationale,
+        contact_line=contact_line,
+        source="keywords",
+        alternates=alternates,
+    )
