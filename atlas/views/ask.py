@@ -8,6 +8,9 @@ routing always comes from the responsibility graph.
 
 from __future__ import annotations
 
+import threading
+import time
+
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -267,15 +270,45 @@ def _draft_card(actor_id: int) -> None:
         chosen = draft["process_id"]
         process = session.get(Process, chosen) if chosen is not None else None
         resolution = resolve(session, process)
+        compose_key = (draft["query"], chosen)
+        if stage == "who" and draft.get("precompose_key") != compose_key:
+            # Write the message in the background WHILE the requester reads
+            # who's responsible — by the time they continue, it's ready.
+            # The thread touches only this plain dict, never session_state.
+            draft["precompose_key"] = compose_key
+            draft["precompose_done"] = False
+
+            def _precompose(a=actor, p=process, r=resolution,
+                            q=draft["query"], d=draft, k=compose_key):
+                try:
+                    body = brain.compose_message(a, p, r, q)
+                except Exception:
+                    body = None
+                if d.get("precompose_key") == k:
+                    d["precomposed"] = body
+                    d["precompose_done"] = True
+
+            threading.Thread(target=_precompose, daemon=True,
+                             name="atlas-compose").start()
         if stage == "draft" and chosen != draft.get("body_for"):
             draft["body_for"] = chosen
             # The message is written FOR the requester — by Gemini when an
             # engine is configured, by the deterministic template otherwise —
             # so the box is always full and only ever needs a tweak.
-            with st.spinner("Writing the message…"):
-                composed = brain.compose_message(
-                    actor, process, resolution, draft["query"]
-                )
+            composed = None
+            if draft.get("precompose_key") == compose_key:
+                if not draft.get("precompose_done"):
+                    with st.spinner("Writing the message…"):
+                        for _ in range(120):  # the thread is nearly done
+                            if draft.get("precompose_done"):
+                                break
+                            time.sleep(0.1)
+                composed = draft.get("precomposed")
+            else:
+                with st.spinner("Writing the message…"):
+                    composed = brain.compose_message(
+                        actor, process, resolution, draft["query"]
+                    )
             st.session_state["ask_draft_body"] = composed or draft_body(
                 actor, process, resolution, draft["query"]
             )
@@ -446,6 +479,7 @@ def _draft_card(actor_id: int) -> None:
                 "Rewrite", icon=":material/autorenew:", width="stretch",
                 key="ask_draft_rewrite", help="Have Gemini write it again"):
             draft["body_for"] = "unset"
+            draft["precompose_key"] = None   # force a fresh composition
             st.session_state.pop("ask_draft_body", None)
             st.rerun()
 

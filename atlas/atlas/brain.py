@@ -145,6 +145,21 @@ def understand(session: Session, text: str, actor: Person | None = None) -> Unde
 
 # --- message composition -----------------------------------------------------
 
+_genai_client = None
+
+
+def _get_genai_client():
+    """One client per process — connection reuse shaves ~0.5s per call."""
+    global _genai_client
+    if _genai_client is None:
+        from google import genai
+        from google.genai import types as gtypes
+
+        _genai_client = genai.Client(
+            http_options=gtypes.HttpOptions(timeout=12_000)  # ms — fail fast
+        )
+    return _genai_client
+
 
 def compose_message(requester, process, resolution, query: str) -> str | None:
     """Have Gemini write the request email itself.
@@ -158,9 +173,6 @@ def compose_message(requester, process, resolution, query: str) -> str | None:
     if not adk_ready() or _time.time() < _adk_down["until"]:
         return None
     try:
-        from google import genai
-        from google.genai import types as gtypes
-
         from .agents.router import ADK_MODEL
 
         delegation = ""
@@ -191,9 +203,7 @@ def compose_message(requester, process, resolution, query: str) -> str | None:
             "add one courteous line about picking it up or redirecting, sign "
             f"off with:\n{requester.name}\n{requester.title}"
         )
-        client = genai.Client(
-            http_options=gtypes.HttpOptions(timeout=12_000)  # ms — fail fast
-        )
+        client = _get_genai_client()
         response = client.models.generate_content(model=ADK_MODEL, contents=prompt)
         text = (response.text or "").strip()
         return text or None

@@ -22,6 +22,7 @@ Configuration:
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import threading
 
@@ -44,14 +45,18 @@ _INSTRUCTION = (
     "you what they need in plain language; you decide what they mean. You do "
     "NOT decide who handles it — a deterministic responsibility graph does "
     "that — so never invent an assignee.\n\n"
+    "Speed matters: answer every message with a SINGLE commit tool call, "
+    "immediately. Each message arrives with the deterministic ranker's "
+    "scores for the catalogue already attached — ground your choice in "
+    "those. Only call `score_processes` (to re-rank a rephrased query) or "
+    "`list_processes` when the attached scores genuinely leave you unable "
+    "to decide.\n\n"
     "Work every message the same way:\n"
     "1. If it reads like a request (something to be done, approved, fixed, "
     "booked or granted — everyday asks like booking leave, claiming expenses "
-    "or getting equipment are requests too), call `score_processes` with the "
-    "message to see how "
-    "the deterministic ranker scores the catalogue, and `list_processes` if "
-    "you need the full picture. Pick the best process id, or null when "
-    "nothing genuinely fits — do not force a bad match.\n"
+    "or getting equipment are requests too), pick the best process id from "
+    "the attached scores, or null when nothing genuinely fits — do not "
+    "force a bad match.\n"
     "2. Finish by calling exactly ONE commit tool:\n"
     "   - `record_route` for a request — set `confidence` 0-100 (90+ only "
     "for unmistakable matches; under 40 means you should commit null "
@@ -114,9 +119,14 @@ def list_people() -> list[str]:
 
 
 def record_route(
-    process_id: int | None, confidence: int, title: str, rationale: str
+    process_id: int | None, confidence: int, title: str, rationale: str,
+    tool_context=None,
 ) -> dict:
     """Commit the final reading of a REQUEST. Call exactly once, last."""
+    # The commit IS the answer: skip the wrap-up model call ADK would
+    # otherwise make to summarise the tool response — one LLM call per turn.
+    if tool_context is not None:
+        tool_context.actions.skip_summarization = True
     return {"status": "recorded"}
 
 
@@ -125,9 +135,12 @@ def record_intent(
     rationale: str,
     person_name: str | None = None,
     reply: str | None = None,
+    tool_context=None,
 ) -> dict:
     """Commit a non-request reading (inbox / my_requests / ooo /
     about_person / help). Call exactly once, last."""
+    if tool_context is not None:
+        tool_context.actions.skip_summarization = True
     return {"status": "recorded"}
 
 
@@ -168,6 +181,36 @@ def _get_runner():
 
             _runner = InMemoryRunner(agent=build_agent(), app_name=APP_NAME)
     return _runner
+
+
+def warm() -> None:
+    """Absorb the agent's cold start at boot instead of on the first chat
+    message: the heavy imports, the runner construction, and the first TLS
+    handshake of both HTTP clients (agent + composer) — several seconds in
+    all. Call from a background thread; a no-op without a key.
+    """
+    if not adk_ready():
+        return
+    try:
+        runner = _get_runner()
+        # One tiny model call opens the agent client's connection pool so
+        # the first real turn skips the TLS handshake. ADK drives Gemini
+        # through the ASYNC client — warm that one, not the sync twin.
+        _run_async(
+            runner.agent.model.api_client.aio.models.generate_content(
+                model=ADK_MODEL, contents="ping"
+            )
+        )
+    except Exception:
+        pass  # the first real turn will surface any problem properly
+    try:
+        from ..brain import _get_genai_client
+
+        _get_genai_client().models.generate_content(
+            model=ADK_MODEL, contents="ping"
+        )
+    except Exception:
+        pass
 
 
 def _run_async(coro):
@@ -222,7 +265,18 @@ def adk_understand(session: Session, text: str, actor: Person | None):
     _ensure_session(runner, user_id, session_id)
 
     who = f"(Asked by {actor.name}, {actor.title}.) " if actor else ""
-    message = types.Content(role="user", parts=[types.Part(text=who + text)])
+    # Ground the model up front: the deterministic ranker runs locally in
+    # milliseconds, so its scores ride along with the message instead of
+    # costing a tool round-trip — a routed turn commits on the first call.
+    scores = score_processes(text)
+    score_note = (
+        "\n\n[Deterministic ranker scores for this message: "
+        + (json.dumps(scores) if scores else "none — nothing overlaps")
+        + "]"
+    )
+    message = types.Content(
+        role="user", parts=[types.Part(text=who + text + score_note)]
+    )
 
     from google.adk.agents.run_config import RunConfig
 

@@ -37,14 +37,23 @@ def _bootstrap() -> bool:
 
         seed()
     agent.start()
+    # Absorb the Gemini agent's cold start (imports + runner construction,
+    # several seconds) now, off-thread, so the first chat turn is fast.
+    import threading
+
+    from atlas.agents.router import warm
+
+    threading.Thread(target=warm, daemon=True, name="adk-warm").start()
     return True
 
 
 def _bridge_secrets() -> None:
-    """Streamlit Cloud keeps the Anthropic key in st.secrets; the brain reads env."""
+    """Streamlit Cloud keeps API keys in st.secrets; the brain reads env."""
     try:
-        if "ANTHROPIC_API_KEY" in st.secrets and not os.environ.get("ANTHROPIC_API_KEY"):
-            os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+        for key in ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
+                    "ATLAS_ADK_MODEL"):
+            if key in st.secrets and not os.environ.get(key):
+                os.environ[key] = st.secrets[key]
     except Exception:
         pass  # no secrets file configured — the offline matcher takes over
 
